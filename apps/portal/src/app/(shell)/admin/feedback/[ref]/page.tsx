@@ -37,7 +37,7 @@ export default async function FeedbackChatPage({ params }: Props) {
     return <AppShell user={session.user} brandColors={settings.brand.colors} active="admin">
       <div className="page admin-page fb-page fb-chat-page">
         <div className="topbar">
-          <Crossing kind="kakejiku" className="back" href="/admin/feedback" aria-label="Back to feedback"><LineIcon name="back" /></Crossing>
+          <Crossing kind="kakejiku" className="back" href="/admin/apps/kimono-code?view=feedback" aria-label="Back to feedback"><LineIcon name="back" /></Crossing>
           <span><h1>Two takes</h1><p className="sub">Kept {labels[entry.kept].toLowerCase()} over {labels[entry.kept === 0 ? 1 : 0].toLowerCase()}. Only the artifacts are kept; nothing anyone said.</p></span>
           <span className="fb-chat-acts">
             {entry.version ? <small>Kimono {entry.version}</small> : null}
@@ -55,7 +55,7 @@ export default async function FeedbackChatPage({ params }: Props) {
   return <AppShell user={session.user} brandColors={settings.brand.colors} active="admin">
     <div className="page admin-page fb-page fb-chat-page">
       <div className="topbar">
-        <Crossing kind="kakejiku" className="back" href="/admin/feedback" aria-label="Back to feedback"><LineIcon name="back" /></Crossing>
+        <Crossing kind="kakejiku" className="back" href="/admin/apps/kimono-code?view=feedback" aria-label="Back to feedback"><LineIcon name="back" /></Crossing>
         <span><h1>{title}</h1>{words ? <p className="sub">“{words}”</p> : null}</span>
         <span className="fb-chat-acts">
           {entry.version || entry.sandboxVersion ? <small>Kimono {entry.version ?? "unknown"} · Sandbox {entry.sandboxVersion ?? "unknown"}</small> : null}

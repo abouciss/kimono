@@ -93,7 +93,7 @@
         "group": "sharing",
         "target": "settings",
         "default": "20",
-        "description": "Percent of the weekly usage of the Claude plan behind the token. The owner isn't limited."
+        "description": "Percent of the weekly usage of the Claude plan behind the token, for everyone without their own share (set under People). People never see it. The owner isn't limited."
       },
       {
         "key": "media_budget",

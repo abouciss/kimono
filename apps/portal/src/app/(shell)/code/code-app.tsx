@@ -331,7 +331,7 @@ type ContextUse = { used: number; window?: number } | null;
 /** The figures behind every meter, as fractions (null while not known). */
 function usageFacts(usage: Usage | null, context: ContextUse) {
   const window = context?.window ?? fallbackWindow;
-  /* Always this person's own use: of their share, or (the owner, who has no share) of the whole plan. Never anyone else's. */
+  /* Always this person's own use: of what they may use, or (the owner, who has no share) of the whole plan. Never anyone else's. */
   const share = (w: Usage["week"]) => !usage?.reported ? null : w.used / w.share;
   const media = usage?.media ?? null;
   return {
@@ -339,7 +339,7 @@ function usageFacts(usage: Usage | null, context: ContextUse) {
     ctx: context ? context.used / window : null,
     five: usage ? share(usage.fiveHour) : null,
     week: usage ? share(usage.week) : null,
-    whose: usage?.unlimited ? "of the plan, used by you" : "of your share",
+    whose: usage?.unlimited ? "of the plan, used by you" : "used",
     /* Usage arrives but never a 5-hour figure: this plan has no 5-hour window. */
     noFiveHour: Boolean(usage?.reported && usage.fiveHourLimited === false),
     media,
@@ -365,7 +365,6 @@ function UsageRows({ workspace, usage, context, running, blocked, show, onCompac
     {show.week ? <div className="cd-meter"><Ring value={f.week} label="This week" /><span><b>This week</b><small>{f.week == null ? "Not reported yet" : `${pct(f.week)} ${f.whose}${usage?.week.resetsAt ? ` · resets ${resetWords(usage.week.resetsAt)}` : ""}`}</small></span></div> : null}
     {show.tools && media ? <div className="cd-meter"><Ring value={f.tools} label="Pro Tools" /><span><b className="cd-pro"><Icon name="bolt" />Pro Tools</b><small>{media.spent == null ? "Not reported yet" : `${creditNumber(media.spent)} of ${credits(media.budget)} this month${media.chatSpent ? ` · ${creditNumber(media.chatSpent)} in this chat` : ""} · resets ${monthWords(media.resetsAt)}`}</small></span></div> : null}
     {show.tools && media ? <p className="cd-meter-note">If Pro Tools run out, Kimono AI keeps working. Only Pro Tools stop until {monthWords(media.resetsAt)}.</p> : null}
-    {usage && !usage.unlimited && (show.five || show.week) ? <p className="cd-meter-note">Your share is {f.noFiveHour ? `${pct(usage.week.share)} of the week` : `${pct(usage.fiveHour.share)} of each 5-hour window and ${pct(usage.week.share)} of the week`}.</p> : null}
     {problem ? <p className="cd-problem" role="alert">{problem}</p> : null}
   </>;
 }
@@ -1909,7 +1908,7 @@ function HomeUsage() {
   useEffect(() => { let live = true; code.usage().then((u) => { if (live) setUsage(u); }, () => {}); return () => { live = false; }; }, []);
   if (!usage?.reported) return null;
   const share = (w: Usage["week"]) => w.used / w.share;
-  const whose = usage.unlimited ? "of the plan" : "of your share";
+  const whose = usage.unlimited ? "of the plan" : "used";
   const rows: { label: string; value: number; resets: number | null }[] = [
     ...(usage.fiveHourLimited === false ? [] : [{ label: "5-hour window", value: share(usage.fiveHour), resets: usage.fiveHour.resetsAt }]),
     { label: "This week", value: share(usage.week), resets: usage.week.resetsAt },

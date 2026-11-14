@@ -356,6 +356,12 @@ export function migrate(db: DatabaseSync) {
       db.exec(`ALTER TABLE ${table} ADD COLUMN status TEXT CHECK (status IN ('done', 'ignored')); ALTER TABLE ${table} ADD COLUMN status_at INTEGER;`);
     }
   }
+  /* What each turn cost at API prices, as the node weighed it: how the plan's whole-percent rises are shared out (usageOf). */
+  if (!(db.prepare("PRAGMA table_info(usage)").all() as { name: string }[]).some((c) => c.name === "weight")) {
+    db.exec("ALTER TABLE usage ADD COLUMN weight REAL");
+  }
+  /* A share an administrator set for one person, in place of everyone's (codeConfig shares); null keeps everyone's for that window. */
+  db.exec("CREATE TABLE IF NOT EXISTS usage_shares (username TEXT PRIMARY KEY, week REAL, five_hour REAL, by TEXT NOT NULL, at INTEGER NOT NULL)");
   /* More of the plan an administrator gave someone, on top of their share, until the window it was given in ends. */
   db.exec(`
     CREATE TABLE IF NOT EXISTS usage_grants (
@@ -387,7 +393,7 @@ export function migrate(db: DatabaseSync) {
 
 /* ── usage: each person's share of the Claude plan behind Kimono Code ── */
 
-export type UsageReport = { five_hour?: number; week?: number; five_hour_now?: number; five_hour_reset?: number; week_now?: number; week_reset?: number };
+export type UsageReport = { five_hour?: number; week?: number; weight?: number; five_hour_now?: number; five_hour_reset?: number; week_now?: number; week_reset?: number };
 export type PlanWindow = { used: number; resetsAt: number | null };
 export type PersonUsage = {
   fiveHour: PlanWindow; week: PlanWindow; reported: boolean;
@@ -403,8 +409,10 @@ const seconds = (value: unknown) => typeof value === "number" && Number.isIntege
 /** Records what a turn used, as the node reported it, and the plan's windows as it last saw them. */
 export function recordUsage(db: DatabaseSync, username: string, report: UsageReport, now = Date.now()) {
   const fiveReset = seconds(report.five_hour_reset), weekReset = seconds(report.week_reset);
-  db.prepare("INSERT INTO usage (username, at, five_hour, five_hour_reset, week, week_reset) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(username, now, fraction(report.five_hour), fiveReset, fraction(report.week), weekReset);
+  /* A node from before weights reports none: its turns keep the share it credited them. */
+  const weight = typeof report.weight === "number" && Number.isFinite(report.weight) && report.weight >= 0 && report.weight < 100_000 ? report.weight : null;
+  db.prepare("INSERT INTO usage (username, at, five_hour, five_hour_reset, week, week_reset, weight) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(username.toLowerCase(), now, fraction(report.five_hour), fiveReset, fraction(report.week), weekReset, weight);
   if (fiveReset || weekReset) {
     db.prepare(`INSERT INTO plan_windows (id, five_hour, five_hour_reset, week, week_reset, at) VALUES (1, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
@@ -421,8 +429,17 @@ export function usageOf(db: DatabaseSync, username: string, now = Date.now()): P
   const window = (column: "five_hour" | "week", reset: number | null | undefined): PlanWindow => {
     /* A window whose reset has passed is a fresh one: nobody has used any of it yet. */
     if (!reset || reset * 1000 <= now) return { used: 0, resetsAt: null };
-    const row = db.prepare(`SELECT COALESCE(SUM(${column}), 0) AS used FROM usage WHERE username = ? AND ${column}_reset = ?`).get(username, reset) as { used: number };
-    return { used: row.used, resetsAt: reset * 1000 };
+    /*
+     * The plan moves in whole percents, so a turn's own rise is mostly 0 and now and then all of a step.
+     * Weighed turns pool their rises and share them out by what each cost; a turn from before weights keeps its own rise.
+     */
+    const row = db.prepare(`SELECT
+        COALESCE(SUM(CASE WHEN weight IS NULL AND lower(username) = lower(?) THEN ${column} END), 0) AS own,
+        COALESCE(SUM(CASE WHEN weight IS NOT NULL THEN ${column} END), 0) AS pool,
+        COALESCE(SUM(weight), 0) AS total,
+        COALESCE(SUM(CASE WHEN lower(username) = lower(?) THEN weight END), 0) AS mine
+      FROM usage WHERE ${column}_reset = ?`).get(username, username, reset) as { own: number; pool: number; total: number; mine: number };
+    return { used: row.own + (row.total > 0 ? row.pool * row.mine / row.total : 0), resetsAt: reset * 1000 };
   };
   return {
     fiveHour: window("five_hour", plan?.five_hour_reset), week: window("week", plan?.week_reset), reported: Boolean(plan),
@@ -453,6 +470,29 @@ export function usageGrants(db: DatabaseSync, username?: string, now = Date.now(
 
 export function takeBackGrant(db: DatabaseSync, id: number) {
   db.prepare("DELETE FROM usage_grants WHERE id = ?").run(id);
+}
+
+export type Shares = { week: number; fiveHour: number };
+
+/** Someone's own share of each window, if an administrator set one; null where they have everyone's. */
+export function ownShare(db: DatabaseSync, username: string): { week: number | null; fiveHour: number | null } {
+  const row = db.prepare("SELECT week, five_hour FROM usage_shares WHERE username = ?").get(username.toLowerCase()) as { week: number | null; five_hour: number | null } | undefined;
+  return { week: row?.week ?? null, fiveHour: row?.five_hour ?? null };
+}
+
+/** The share someone has of each window: their own where one was set, otherwise everyone's. */
+export function allowedShare(db: DatabaseSync, everyone: Shares, username: string): Shares {
+  const own = ownShare(db, username);
+  return { week: own.week ?? everyone.week, fiveHour: own.fiveHour ?? everyone.fiveHour };
+}
+
+/** Sets someone's own share of a window, as a fraction of the plan; null goes back to everyone's. */
+export function setOwnShare(db: DatabaseSync, username: string, window: UsageWindow, share: number | null, by: string, now = Date.now()) {
+  if (share !== null && !(share >= 0 && share <= 1)) throw new Error("A share is between 0% and 100%.");
+  const column = window === "week" ? "week" : "five_hour";
+  db.prepare(`INSERT INTO usage_shares (username, ${column}, by, at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(username) DO UPDATE SET ${column} = excluded.${column}, by = excluded.by, at = excluded.at`).run(username.toLowerCase(), share, by, now);
+  db.prepare("DELETE FROM usage_shares WHERE week IS NULL AND five_hour IS NULL").run();
 }
 
 /** What someone was given on top of their share, in each window, as fractions of the plan. */

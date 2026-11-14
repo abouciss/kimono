@@ -119,6 +119,7 @@ func (s *Server) serveModel(w http.ResponseWriter, r *http.Request) {
 		},
 		ModifyResponse: func(response *http.Response) error {
 			s.usage.credit(space.id, readUsage(response.Header))
+			s.usage.weighResponse(space.id, response)
 			return nil
 		},
 		FlushInterval: -1,

@@ -1,8 +1,10 @@
 package sandbox
 
 import (
+	"io"
 	"math"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -55,5 +57,34 @@ func TestMissingOrOddUsageHeadersCountForNothing(t *testing.T) {
 	m.credit("a", readUsage(headers("lots", "100", "-1", "900")))
 	if got, five, week := m.take("a"); got.FiveHour != 0 || got.Week != 0 || five != nil || week != nil {
 		t.Fatalf("got %+v %v %v", got, five, week)
+	}
+}
+
+func TestAStreamedResponseWeighsWhatItUsed(t *testing.T) {
+	stream := "event: message_start\n" +
+		`data: {"type":"message_start","message":{"model":"claude-opus-5-5","usage":{"input_tokens":1000,"cache_creation_input_tokens":2000,"cache_read_input_tokens":10000,"output_tokens":1}}}` + "\n\n" +
+		"event: content_block_delta\n" + `data: {"type":"content_block_delta","delta":{"text":"hi"}}` + "\n\n" +
+		"event: message_delta\n" + `data: {"type":"message_delta","usage":{"output_tokens":400}}` + "\n\n"
+	// (1000 + 1.25*2000 + 0.1*10000 + 5*400) * $5 / 1M
+	if got := responseCost([]byte(stream)); !near(got, 6500*5/1e6) {
+		t.Fatalf("got %v", got)
+	}
+	message := `{"model":"claude-haiku-5-5","usage":{"input_tokens":1000000,"output_tokens":0}}`
+	if got := responseCost([]byte(message)); !near(got, 1) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestAResponseIsWeighedForItsWorkspaceOnceRead(t *testing.T) {
+	var m meter
+	body := `{"model":"claude-sonnet-5-5","usage":{"input_tokens":1000000,"output_tokens":0}}`
+	response := &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}
+	m.weighResponse("a", response)
+	if _, err := io.ReadAll(response.Body); err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if got, _, _ := m.take("a"); !near(got.Weight, 3) {
+		t.Fatalf("got %+v", got)
 	}
 }

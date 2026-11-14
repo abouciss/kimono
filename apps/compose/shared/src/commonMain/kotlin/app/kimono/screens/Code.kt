@@ -683,7 +683,7 @@ private fun HomeUsage(code: Code) {
     val usage by androidx.compose.runtime.produceState<Usage?>(null) { value = runCatching { code.usage() }.getOrNull() }
     val u = usage ?: return
     val shown = ShownMeters.of(u, null).takeIf { it.any } ?: return
-    val whose = if (u.unlimited) "of the plan" else "of your share"
+    val whose = if (u.unlimited) "of the plan" else "used"
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
         shown.fiveHour?.let { UsageRow("5-hour window", it, "${percent(it)} $whose${resetWords(u.fiveHour.resetsAt)?.let { r -> " · resets $r" } ?: ""}") }
         shown.week?.let { UsageRow("This week", it, "${percent(it)} $whose${resetWords(u.week.resetsAt)?.let { r -> " · resets $r" } ?: ""}") }
