@@ -491,14 +491,19 @@ ON CONFLICT (username, key) DO UPDATE SET state = excluded.state, fraction = exc
 }
 
 /** Reading progress, from the web, the phone or the e-reader: reading until the end, then read. */
-export async function setProgress(config: BooksConfig, username: string, ref: { key?: string; isbn?: string }, fraction: number) {
+/** `at` (ms) is when the reader was there, for a device that sends it later: a newer place from elsewhere is kept. */
+export async function setProgress(config: BooksConfig, username: string, ref: { key?: string; isbn?: string }, fraction: number, at?: number) {
   username = who(username);
   let key = ref.key && getBook(ref.key) ? ref.key : null;
   if (!key && ref.isbn) key = (await byIsbn(config, ref.isbn))[0]?.key ?? null;
   if (!key) throw new BooksProblem("No such book.", 404);
   const f = Math.min(Math.max(fraction, 0), 1);
   const state: ShelfState = f >= 0.98 ? "read" : "reading";
-  const now = Date.now();
+  const now = at !== undefined && Number.isFinite(at) ? Math.min(at, Date.now()) : Date.now();
+  if (at !== undefined) {
+    const current = booksDb().prepare("SELECT state, fraction, updated_at FROM shelf WHERE username = ? AND key = ?").get(username, key) as { state: ShelfState; fraction: number; updated_at: number } | undefined;
+    if (current && current.updated_at > now) return { key, state: current.state, fraction: current.fraction, kept: true };
+  }
   keepPlace(username, key, f, now);
   booksDb().prepare(`INSERT INTO shelf (username, key, state, fraction, added_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT (username, key) DO UPDATE SET state = excluded.state, fraction = excluded.fraction, updated_at = excluded.updated_at`)
