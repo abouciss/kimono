@@ -186,6 +186,7 @@
   transition:background .2s,border-radius .3s var(--spring-soft),transform .2s}
 .kb .kb-genre:hover{background:var(--surface-3);border-radius:19px}
 .kb .kb-genre:active{transform:scale(.96)}
+.kb .kb-genre[aria-current],.kb .kb-genre[aria-current]:hover{background:var(--primary);color:var(--on-primary);border-radius:19px}
 .kb .kb-genre svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .kb .kb-crumb{display:inline-flex;align-items:center;gap:4px;margin:0 var(--gutter) 6px;color:var(--fg-2)}
 .kb .kb-crumb svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -377,7 +378,7 @@
 .kb .kb-review-actions .kb-btn:not(.kb-filled){background:transparent;color:var(--fg-2)}
 .kb .kb-review-actions .kb-btn:disabled{opacity:.5}
 .kb .kb-grow{flex:1}
-.kb .kb-count{font-size:13px;color:var(--fg-2)}
+.kb .kb-chars{font-size:13px;color:var(--fg-2)}
 .kb .kb-danger{color:var(--error,#b3261e)}
 
 /* How was it? The same three round buttons as Watch: the chosen one fills and rounds to a softer square. */
