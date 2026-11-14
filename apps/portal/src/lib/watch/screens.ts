@@ -3,7 +3,7 @@
  *
  * Everyone has two (./flow.ts) until an admin gives them more. Asking is one
  * pending request per person, for one more than they have; an admin approves
- * or declines it on /admin/watch.
+ * or declines it on /admin/people.
  */
 import type { DatabaseSync } from "node:sqlite";
 import { readState, writeState } from "./model";

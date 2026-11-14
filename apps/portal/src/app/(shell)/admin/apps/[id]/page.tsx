@@ -20,26 +20,22 @@ import { JointSwitch } from "@/components/joint-switch";
 import { SaveBar } from "@/components/save-bar";
 import { accentOf, appRegistry } from "@/lib/apps";
 import { notFound, redirect } from "next/navigation";
-import { db, grantCredits, grantUsage, takeBackCredits, takeBackGrant } from "@/lib/code";
-import { codeConfig } from "@/lib/code/config";
-import { holdMediaBudget } from "@/lib/code/media";
-import { portalOrigin } from "@/lib/account";
-import { AiUsage } from "./ai-usage";
+import { db } from "@/lib/code";
+import { bank, type BankEntry } from "@/lib/code/feedback";
+import { AiPeople, WatchPeople } from "./people";
+import { FeedbackExplorer } from "../../feedback/feedback-explorer";
+import "../../../code/code.css";
+import "../../feedback/feedback.css";
 
-type View = "setup" | "settings" | "people" | "environment" | "backups";
+type View = "setup" | "settings" | "people" | "feedback" | "environment" | "backups";
 const views: Array<{ id: View; label: string }> = [
   { id: "setup", label: "Setup" },
   { id: "settings", label: "Settings" },
   { id: "people", label: "People" },
+  { id: "feedback", label: "Feedback" },
   { id: "environment", label: "Advanced" },
   { id: "backups", label: "Backups" },
 ];
-
-/** Opens or closes someone's Pro Tools to match what they may spend now. */
-async function recheckCredits(username: string) {
-  const config = codeConfig(await getPlatformSettings());
-  await holdMediaBudget(db(), config, username, portalOrigin(), Date.now(), 0).catch(() => null);
-}
 
 async function requireAdmin() {
   const session = await auth();
@@ -69,7 +65,7 @@ export default async function AppManagementPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ view?: string; q?: string; saved?: string; error?: string; intent?: string }>;
+  searchParams: Promise<{ view?: string; q?: string; saved?: string; error?: string; intent?: string; open?: string; done?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -83,14 +79,13 @@ export default async function AppManagementPage({
   const backup = appBackupSelection(backupConfig, backupCatalog(settings, [definition]), id);
   // An app that keeps its own settings document earns a Settings view; the
   // Advanced view stays what it has always been, this stack's variables.
-  const availableViews = views.filter((item) => (item.id !== "settings" || definition.spec.configuration.some((field) => field.target === "settings")) && (item.id !== "backups" || id !== "kimono-portal") && (item.id !== "people" || id === "kimono-code"));
+  const availableViews = views.filter((item) => (item.id !== "settings" || definition.spec.configuration.some((field) => field.target === "settings")) && (item.id !== "backups" || id !== "kimono-portal") && (item.id !== "feedback" || id === "kimono-code") && (item.id !== "people" || id === "kimono-code" || id === "kimono-watch"));
   const selectedView = availableViews.some((item) => item.id === query.view) ? query.view as View : "setup";
   const viewHref = (view: View) => `/admin/apps/${id}?view=${view}`;
   const setupHref = `/admin/apps/${id}?view=setup`;
   const environmentHref = `/admin/apps/${id}?view=environment`;
   const settingsHref = `/admin/apps/${id}?view=settings`;
   const backupsHref = `/admin/apps/${id}?view=backups`;
-  const peopleHref = `/admin/apps/${id}?view=people`;
 
   async function startSetup() {
     "use server";
@@ -141,44 +136,6 @@ export default async function AppManagementPage({
     redirect(`${settingsHref}&saved=1`);
   }
 
-  /* More of Kimono AI for someone, on top of their share, until this week or these 5 hours end. */
-  async function giveUsage(form: FormData) {
-    "use server";
-    const admin = await requireAdmin();
-    const username = String(form.get("username") || ""), window = form.get("window") === "five_hour" ? "five_hour" : "week";
-    try { grantUsage(db(), username, window, Number(form.get("extra")) / 100, admin.username || "admin"); }
-    catch (error) { redirect(`${peopleHref}&error=${encodeURIComponent(error instanceof Error ? error.message : "That couldn't be given")}`); }
-    redirect(`${peopleHref}&saved=1`);
-  }
-
-  async function takeBackUsage(form: FormData) {
-    "use server";
-    await requireAdmin();
-    takeBackGrant(db(), Number(form.get("grant")));
-    redirect(`${peopleHref}&saved=1`);
-  }
-
-  /* More Pro Tools credits for someone this month; their tools open again at once if they'd run out. */
-  async function giveProCredits(form: FormData) {
-    "use server";
-    const admin = await requireAdmin();
-    const username = String(form.get("username") || "");
-    try { grantCredits(db(), username, Number(form.get("credits")) / 100, admin.username || "admin"); }
-    catch (error) { redirect(`${peopleHref}&error=${encodeURIComponent(error instanceof Error ? error.message : "That couldn't be given")}`); }
-    await recheckCredits(username);
-    redirect(`${peopleHref}&saved=1`);
-  }
-
-  async function takeBackProCredits(form: FormData) {
-    "use server";
-    await requireAdmin();
-    const grant = Number(form.get("grant"));
-    const row = db().prepare("SELECT username FROM credit_grants WHERE id = ?").get(grant) as { username: string } | undefined;
-    takeBackCredits(db(), grant);
-    if (row) await recheckCredits(row.username);
-    redirect(`${peopleHref}&saved=1`);
-  }
-
   async function saveBackups(form: FormData) {
     "use server";
     await requireAdmin();
@@ -186,6 +143,10 @@ export default async function AppManagementPage({
     catch (error) { redirect(`${backupsHref}&error=${encodeURIComponent(error instanceof Error ? error.message : "Backup choices could not be saved")}`); }
     redirect(`${backupsHref}&saved=1`);
   }
+
+  /* The feedback bank to read: every thumb and report, newest first. */
+  let feedback: BankEntry[] = [];
+  if (selectedView === "feedback") { try { feedback = bank(db(), 0, true).reverse(); } catch { feedback = []; } }
 
   const fieldQuery = query.q?.trim().toLowerCase() || "";
   const matching = definition.spec.configuration.filter((field) => !fieldQuery || [field.key, field.label, field.group, field.description || ""].some((value) => value.toLowerCase().includes(fieldQuery)));
@@ -238,6 +199,7 @@ export default async function AppManagementPage({
 
         {query.saved ? <p className="app-notice">{query.saved === "configured" ? "Setup started. Configure this app before turning it on." : "Changes saved."}</p> : null}
         {query.error ? <p className="app-notice is-error">{query.error}</p> : null}
+        {query.done && !query.error ? <p role="status" className="app-notice">{query.done}</p> : null}
 
         {!instance ? (
           <div className="card app-start">
@@ -305,7 +267,16 @@ export default async function AppManagementPage({
           <SaveBar formId={`app-${selectedView}`} label={selectedView === "settings" ? "Save settings" : "Save environment"} />
         </> : null}
 
-        {instance && selectedView === "people" ? <AiUsage give={giveUsage} takeBack={takeBackUsage} giveCredits={giveProCredits} takeBackCredits={takeBackProCredits} me={{ username: session.user.username ?? "", role: session.user.role }} /> : null}
+        {instance && selectedView === "people" ? (id === "kimono-watch" ? <WatchPeople open={query.open} /> : <AiPeople me={{ username: session.user.username ?? "", role: session.user.role }} open={query.open} />) : null}
+
+        {instance && selectedView === "feedback" ? <div className="fb-page">
+          <div className="app-view-head">
+            <p className="lead">Thumbs, reports and kept takes on its answers, without names.</p>
+            {/* eslint-disable-next-line no-restricted-syntax -- a file download, not a page change. */}
+            <a className="k-seal k-tone-quiet fb-export" href="/api/v1/code/feedback?format=jsonl" download><LineIcon name="download" />JSONL</a>
+          </div>
+          <FeedbackExplorer entries={feedback} />
+        </div> : null}
 
         {instance && selectedView === "backups" ? (!backupConfig ? (
           <div className="card app-start"><span className="row-lead"><InkBlot tint="#5c7150" seed="no-storage"><LineIcon name="archive" /></InkBlot><span><h3>No storage yet</h3><p className="lead">Connect storage, then choose what to keep from {instance.name}.</p></span></span><Crossing kind="kakejiku" className="k-seal" href="/admin/backups">Set up backups</Crossing></div>

@@ -85,9 +85,8 @@ export default async function AdminPage() {
         {section("/admin/infrastructure", "cloud", "#74565c", "Connectivity", "Publish apps outside your home", <span className={live === "Live" ? "k-ink-dot k-running" : live === "Needs you" ? "k-ink-dot k-wants" : "k-ink-dot"}>{live}</span>)}
         {section("/admin/services", "gear", "#4e2b37", "Services", "Sign-in, VPN and the rest; restart from here", !services.watched ? <span className="k-ink-dot">Not reporting</span> : servicesDown ? <span className="k-ink-dot k-wants">{servicesDown} not running</span> : <span className="k-ink-dot k-running">All running</span>)}
         {section("/admin/vpn", "shield", "#5c7150", "Kimono VPN", "Who may build a private mesh", null)}
-        {section("/admin/feedback", "people", "#74565c", "Kimono AI feedback", "Thumbs and reports on its answers", null)}
         {section("/admin/phone-app", "phone", "#a84d63", "Phone app", "Releases and TestFlight testers", null)}
-        {section("/admin/watch", "laptop", "#4e2b37", "Kimono Watch", "Screens at once, and who's asking for more", screenRequests ? <span className="k-ink-dot k-wants">{screenRequests} asking</span> : null)}
+        {screenRequests ? section("/admin/apps/kimono-watch?view=people", "laptop", "#4e2b37", "Kimono Watch", "Asking for more screens", <span className="k-ink-dot k-wants">{screenRequests} asking</span>) : null}
         {section("/admin/links", "link", "#8a7c77", "People and invites", "Invite someone, reset a password", null)}
       </div>
     </div>

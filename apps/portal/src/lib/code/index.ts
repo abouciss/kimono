@@ -15,7 +15,7 @@ import { islamNoticeNote, isSkillCommand, madeSkillId, madeSkillsDir, noticeSeen
 import { bounded } from "./bounded";
 import { applyEdits, artifactOf, Drafts, maxMediaBytes, mediaNames, saveArtifact } from "./artifacts";
 import {
-  abandonRunningTurns, appendEvent, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
+  abandonRunningTurns, appendEvent, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, allowedShare, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
   type StoredEvent, type Workspace,
 } from "./model";
 import { sandbox, type Effort, type NodePreview } from "./node";
@@ -462,9 +462,9 @@ const clock = (at: number) => new Date(at).toLocaleString("en", { weekday: "shor
 /** Refuses a person who has used their share of the plan's 5-hour or weekly window. The owner has no share: it's their plan. */
 export function checkShare(config: CodeConfig, user: ApiUser) {
   if (user.role === "owner") return;
-  const used = usageOf(db(), user.username), extra = extraOf(db(), user.username);
-  if (used.fiveHour.used >= config.shares.fiveHour + extra.fiveHour) throw new CodeProblem(`You've used your share of this 5-hour window. It opens again ${clock(used.fiveHour.resetsAt!)}.`, 429);
-  if (used.week.used >= config.shares.week + extra.week) throw new CodeProblem(`You've used your share for this week. It opens again ${clock(used.week.resetsAt!)}.`, 429);
+  const used = usageOf(db(), user.username), extra = extraOf(db(), user.username), share = allowedShare(db(), config.shares, user.username);
+  if (used.fiveHour.used >= share.fiveHour + extra.fiveHour) throw new CodeProblem(`You've used your share of this 5-hour window. It opens again ${clock(used.fiveHour.resetsAt!)}.`, 429);
+  if (used.week.used >= share.week + extra.week) throw new CodeProblem(`You've used your share for this week. It opens again ${clock(used.week.resetsAt!)}.`, 429);
 }
 
 /** Sends a message to the agent and returns at once; the turn runs on, recording as it goes. */

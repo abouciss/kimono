@@ -181,6 +181,31 @@ test("each person's use of the plan adds up across their turns, per window", () 
   assert.ok(Math.abs(later.week.used - 0.05) < 1e-9);
 });
 
+test("weighed turns share the plan's whole-percent rises out by what each cost", () => {
+  const db = new DatabaseSync(':memory:');
+  model.migrate(db);
+  const now = 1_000_000_000_000, weekReset = now / 1000 + 86400;
+  /* Nine light turns of Sara's saw no rise; Yusuf's one turn crossed the step and was credited all of it. */
+  for (let i = 0; i < 9; i++) model.recordUsage(db, 'Sara', { week: 0, weight: 1, week_now: 0.1, week_reset: weekReset }, now + i);
+  model.recordUsage(db, 'yusuf', { week: 0.01, weight: 1, week_now: 0.11, week_reset: weekReset }, now + 9);
+  /* A turn from a node before weights keeps its own rise. */
+  model.recordUsage(db, 'yusuf', { week: 0.02, week_now: 0.13, week_reset: weekReset }, now + 10);
+  const sara = model.usageOf(db, 'sara', now + 11), yusuf = model.usageOf(db, 'yusuf', now + 11);
+  assert.ok(Math.abs(sara.week.used - 0.009) < 1e-9, String(sara.week.used));
+  assert.ok(Math.abs(yusuf.week.used - 0.021) < 1e-9, String(yusuf.week.used));
+});
+
+test("someone's own share stands in for everyone's until it's set back", () => {
+  const db = new DatabaseSync(':memory:');
+  model.migrate(db);
+  const everyone = { week: 0.2, fiveHour: 0.75 };
+  model.setOwnShare(db, 'Sara', 'week', 0.5, 'admin');
+  assert.deepEqual(model.allowedShare(db, everyone, 'sara'), { week: 0.5, fiveHour: 0.75 });
+  model.setOwnShare(db, 'sara', 'week', null, 'admin');
+  assert.deepEqual(model.allowedShare(db, everyone, 'sara'), everyone);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM usage_shares').get().n, 0);
+});
+
 test("the agent's context use, its window and compaction come through", () => {
   const assistant = translate({ type: 'assistant', message: { content: [{ type: 'text', text: 'hi' }], usage: { input_tokens: 2, cache_creation_input_tokens: 1448, cache_read_input_tokens: 94751, output_tokens: 162 } } });
   assert.equal(assistant.context, 96201);

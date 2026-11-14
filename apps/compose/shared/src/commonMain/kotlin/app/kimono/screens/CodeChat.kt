@@ -1768,7 +1768,7 @@ private fun MetersSheet(code: Code, w: CodeWorkspace, context: ContextUse?, usag
     val ctx = context?.let { it.used.toDouble() / window }
     val u = usage
     /* Always this person's own use: of their share, or (the owner, who has no share) of the whole plan. */
-    val whose = if (u?.unlimited == true) "of the plan, used by you" else "of your share"
+    val whose = if (u?.unlimited == true) "of the plan, used by you" else "used"
     InkSheet(onDismissRequest = close, sheetState = sheet) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(if (settings != null) "Settings and usage" else "Context and usage", style = MaterialTheme.typography.titleLarge)
@@ -1806,7 +1806,6 @@ private fun MetersSheet(code: Code, w: CodeWorkspace, context: ContextUse?, usag
                 /* People take the Pro Tools budget for their plan: running out never stops Kimono AI. */
                 Text("If Pro Tools run out, Kimono AI keeps working. Only Pro Tools stop${resetWords(m.resetsAt)?.let { " until $it" } ?: " until they reset"}.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (u != null && !u.unlimited && (all || shown.fiveHour != null || shown.week != null)) Text(if (u.noFiveHour) "Your share is ${percent(u.week.share)} of the week." else "Your share is ${percent(u.fiveHour.share)} of each 5-hour window and ${percent(u.week.share)} of the week.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Problem(problem)
         }
     }
