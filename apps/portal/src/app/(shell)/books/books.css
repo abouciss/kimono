@@ -530,3 +530,14 @@
 .kb .kb-place-edit input{width:72px;border:0;outline:0;background:none;color:var(--fg);font:700 17px var(--ui)}
 .kb .kb-place-edit input[aria-invalid="true"]{color:#d4556c}
 .kb .kb-place-edit em{font-style:normal;color:var(--fg-2);font-size:14px}
+/* The print edition's page (or the page in this chapter), left of the bar; a tap on a print page asks which to turn to. */
+.kb .kb-reader-foot > .kb-reader-pages{min-width:0;text-align:left;white-space:nowrap}
+.kb .kb-reader-pagebtn{font:inherit;letter-spacing:inherit;color:inherit;padding:6px 10px;margin:-6px -4px -6px -10px;border-radius:14px;transition:background .2s,border-radius .3s var(--spring)}
+.kb .kb-reader-pagebtn:hover{background:color-mix(in srgb,var(--paper-ink) 9%,transparent)}
+.kb .kb-reader-pagebtn:active{border-radius:8px}
+.kb .kb-reader-pageask{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.kb .kb-reader-pageask label{display:flex;align-items:center;gap:6px}
+.kb .kb-reader-pageask input{width:7ch;font:inherit;color:inherit;background:color-mix(in srgb,var(--paper-ink) 8%,transparent);border:0;border-bottom:2px solid color-mix(in srgb,var(--paper-ink) 40%,transparent);border-radius:6px 6px 0 0;padding:4px 6px;outline:none}
+.kb .kb-reader-pageask input:focus{border-bottom-color:#7d8f58}
+.kb .kb-reader-pageask input[aria-invalid="true"]{border-bottom-color:#b5523b}
+.kb .kb-reader-pageask em{font-style:normal;opacity:.7}
