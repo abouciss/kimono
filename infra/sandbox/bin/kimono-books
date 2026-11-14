@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""kimono-books list [--shelf want|reading|read] [--limit N]
+kimono-books search WORDS… [--limit N]
+kimono-books show BOOK
+kimono-books shelve BOOK want|reading|read|off
+kimono-books rate BOOK down|up|love|off
+kimono-books progress BOOK PERCENT
+kimono-books review BOOK "what they thought"   (an empty review takes it back)
+
+The person's Kimono Books library, from /workspace/.kimono/books: what they
+want to read, are reading and have read, how far along they are, how they
+rated it (down, up, love) and what they wrote about it.
+
+BOOK is a book's key from their library ("ol:OL45804W"), an ISBN, or, for a
+book that isn't in it yet, "Title by Author". Changes are made in Kimono Books
+when the step ends; the library here shows them from the next message on.
+"""
+import json, os, re, sys
+
+ROOT = os.environ.get("KIMONO_BOOKS_DIR", "/workspace/.kimono/books")
+SHELVES = {"want": "Want to read", "reading": "Reading", "read": "Read"}
+RATINGS = {"down": "not for them", "up": "liked it", "love": "loved it"}
+
+
+def library():
+    try:
+        with open(os.path.join(ROOT, "library.json"), encoding="utf-8") as f:
+            return json.load(f).get("books", [])
+    except FileNotFoundError:
+        sys.exit("Their Books library isn't here: Books may be off, or this chat isn't theirs.")
+
+
+def by(book):
+    return f" by {', '.join(book['authors'][:3])}" if book.get("authors") else ""
+
+
+def line(book):
+    bits = [SHELVES.get(book["state"], book["state"])]
+    if book["state"] == "reading" and book.get("percent") is not None:
+        bits[0] += f" {book['percent']}%"
+    if book.get("rating"):
+        bits.append(RATINGS[book["rating"]])
+    if book.get("review"):
+        bits.append("reviewed")
+    year = f" ({book['year']})" if book.get("year") else ""
+    return f"{book['key']}  {book['title']}{by(book)}{year}  [{' · '.join(bits)}]"
+
+
+def find(ref, books):
+    ref = ref.strip()
+    digits = re.sub(r"[-\s]", "", ref)
+    for b in books:
+        if b["key"] == ref or (re.fullmatch(r"\d{9}[\dXx]|\d{13}", digits) and digits.upper() in (i.upper() for i in b.get("isbns", []))):
+            return b
+    low = ref.lower()
+    titled = [b for b in books if b["title"].lower() == low or f"{b['title']}{by(b)}".lower() == low]
+    return titled[0] if len(titled) == 1 else None
+
+
+def show_list(shelf, limit):
+    books = [b for b in library() if not shelf or b["state"] == shelf]
+    if not books:
+        print("Nothing on that shelf." if shelf else "Their library is empty.")
+        return
+    counts = {s: sum(1 for b in books if b["state"] == s) for s in SHELVES}
+    print(" · ".join(f"{SHELVES[s]} {n}" for s, n in counts.items() if n))
+    for b in books[:limit]:
+        print(line(b))
+    if len(books) > limit:
+        print(f"… {len(books) - limit} more; --limit to see more, or search")
+
+
+def search(words, limit):
+    terms = [w.lower() for w in words if w.strip()]
+    found = []
+    for b in library():
+        hay = " ".join([b["title"], " ".join(b.get("authors", [])), " ".join(b.get("genres", [])), b.get("review") or ""]).lower()
+        if all(t in hay for t in terms):
+            found.append(b)
+    if not found:
+        print("Nothing in their library matches. Try other words, or `kimono-books list`.")
+    for b in found[:limit]:
+        print(line(b))
+
+
+def show(ref):
+    b = find(ref, library())
+    if not b:
+        sys.exit(f"kimono-books: {ref!r} isn't in their library; `kimono-books search` finds what is")
+    print(line(b))
+    if b.get("genres"):
+        print("Genres: " + ", ".join(b["genres"]))
+    if b.get("isbns"):
+        print("ISBN: " + ", ".join(b["isbns"][:3]))
+    if b.get("updated"):
+        print("Last changed: " + b["updated"])
+    if b.get("review"):
+        print("Their review: " + b["review"])
+
+
+def change(kind, ref, value):
+    books = library()
+    known = find(ref, books)
+    request = {"do": kind, "value": value}
+    if known:
+        request["key"] = known["key"]
+        name = known["title"]
+    elif re.fullmatch(r"(ol|gb|hc|aa):\S+", ref):
+        request["key"] = ref
+        name = ref
+    elif re.fullmatch(r"\d{9}[\dXx]|\d{13}", re.sub(r"[-\s]", "", ref)):
+        request["isbn"] = re.sub(r"[-\s]", "", ref)
+        name = f"ISBN {request['isbn']}"
+    else:
+        if len(ref) > 200:
+            sys.exit("kimono-books: name the book by its title and author")
+        request["query"] = ref
+        name = ref
+    print("kimono-books-change " + json.dumps(request, ensure_ascii=False))
+    if kind == "shelve":
+        print(f"Taken off their shelves: {name}." if value is None else f"Put on {SHELVES[value]}: {name}.")
+    elif kind == "rate":
+        print(f"Rating taken back: {name}." if value is None else f"Rated {name}: {RATINGS[value]}.")
+    elif kind == "progress":
+        print(f"{name}: {value}% read.")
+    else:
+        print(f"Review taken back: {name}." if value is None else f"Review saved: {name}.")
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return
+    command, rest = argv[0], argv[1:]
+    limit = 20
+    if "--limit" in rest:
+        at = rest.index("--limit")
+        limit = max(1, int(rest[at + 1])) if at + 1 < len(rest) and rest[at + 1].isdigit() else limit
+        rest = rest[:at] + rest[at + 2:]
+    if command == "list":
+        shelf = None
+        if "--shelf" in rest:
+            at = rest.index("--shelf")
+            shelf = rest[at + 1] if at + 1 < len(rest) else ""
+            if shelf not in SHELVES:
+                sys.exit("kimono-books: --shelf is want, reading or read")
+        show_list(shelf, limit)
+    elif command == "search":
+        if not rest:
+            sys.exit("kimono-books: search for some words")
+        search(rest, limit)
+    elif command == "show" and len(rest) == 1:
+        show(rest[0])
+    elif command == "shelve" and len(rest) == 2 and rest[1] in (*SHELVES, "off"):
+        change("shelve", rest[0], None if rest[1] == "off" else rest[1])
+    elif command == "rate" and len(rest) == 2 and rest[1] in (*RATINGS, "off"):
+        change("rate", rest[0], None if rest[1] == "off" else rest[1])
+    elif command == "progress" and len(rest) == 2 and re.fullmatch(r"\d{1,3}%?", rest[1]) and int(rest[1].rstrip("%")) <= 100:
+        change("progress", rest[0], int(rest[1].rstrip("%")))
+    elif command == "review" and len(rest) == 2:
+        text = rest[1].strip()
+        if len(text) > 5000:
+            sys.exit("kimono-books: a review can be up to 5000 characters")
+        change("review", rest[0], text or None)
+    else:
+        sys.exit(__doc__.strip())
+
+
+main(sys.argv[1:])

@@ -77,7 +77,7 @@ function indexOf(db: DatabaseSync, chats: Workspace[]): string {
 const encode = (text: string) => new TextEncoder().encode(text);
 
 /** Whether a chat has been shared with anyone, or has a link. */
-function shared(db: DatabaseSync, id: string) {
+export function shared(db: DatabaseSync, id: string) {
   return Boolean(db.prepare("SELECT 1 FROM chat_shares WHERE workspace_id = ? UNION SELECT 1 FROM chat_links WHERE workspace_id = ?").get(id, id));
 }
 
