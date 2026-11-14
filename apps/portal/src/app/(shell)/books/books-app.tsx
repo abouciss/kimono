@@ -266,7 +266,9 @@ function GenrePage({ id, genres, onOpen, onBrowse, onBack }: { id: string; genre
   return <section className="kb-results">
     <button className="kb-link kb-crumb" onClick={onBack}><svg viewBox="0 0 24 24" aria-hidden><path d="m14 6-6 6 6 6" /></svg>Discover</button>
     <h1 className="kb-display">{title}</h1>
-    <nav className="kb-genres" aria-label="Genres">{genres.filter((g) => g.id !== id).map((g) => <button key={g.id} className="kb-genre" onClick={() => onBrowse(g.id)}>{g.title}</button>)}</nav>
+    <nav className="kb-genres" aria-label="Genres">{genres.map((g) => g.id === id
+      ? <button key={g.id} className="kb-genre" aria-current="page" ref={(el) => el?.scrollIntoView({ block: "nearest", inline: "nearest" })}>{g.title}</button>
+      : <button key={g.id} className="kb-genre" onClick={() => onBrowse(g.id)}>{g.title}</button>)}</nav>
     {problem ? <p className="kb-note">{problem}</p> : null}
     <div className="kb-grid">
       {!books.length && loading ? <Ghosts n={18} /> : books.map((b, i) => <div key={b.key} className="kb-cell" style={{ animationDelay: `${Math.min(i % 48, 16) * 30}ms` }}>
@@ -457,7 +459,7 @@ function YourReview({ review, onSave }: { review: string | null; onSave: (text: 
       onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text) void save(text); if (e.key === "Escape") { e.stopPropagation(); setEditing(false); } }} />
     <div className="kb-review-actions">
       {review ? <button type="button" className="kb-link kb-danger" disabled={saving} onClick={() => void save(null)}>Take down</button> : null}
-      {draft.length > REVIEW_MAX - 400 ? <span className="kb-count">{REVIEW_MAX - draft.length}</span> : null}
+      {draft.length > REVIEW_MAX - 400 ? <span className="kb-chars">{REVIEW_MAX - draft.length}</span> : null}
       <span className="kb-grow" />
       <button type="button" className="kb-btn" disabled={saving} onClick={() => setEditing(false)}>Cancel</button>
       <button type="submit" className="kb-btn kb-filled" disabled={saving || !text || text === review}>{saving ? <MorphLoader tone="plain" ink="#000000" label="Saving" className="kb-ink" /> : review ? "Save" : "Post"}</button>
