@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -151,17 +152,18 @@ private fun Nav(page: String, onPage: (String) -> Unit, profile: Profile, onSear
         Spacer(Modifier.weight(1f))
         Pill(onClick = onSearch, shape = CircleShape) { Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { I(Ic.search) } }
         Pill(onClick = onSettings, shape = CircleShape) { Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { I(Ic.gear) } }
-        Pill(onClick = onProfiles, shape = RoundedCornerShape(9.dp)) { Face(profile, 32.dp) }
+        Pill(onClick = onProfiles, shape = RoundedCornerShape(12.dp)) { Box(Modifier.padding(4.dp)) { Face(profile, 32.dp) } }
     }
 }
 
-/** A focusable surface with the TV focus look: grows a little, blush outline, no fill change. */
+/** A focusable surface with the TV focus look: it stays its size and sits on a paper wash inside the blush outline. */
 @Composable
-fun Pill(onClick: () -> Unit, modifier: Modifier = Modifier, shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp), scale: Float = 1.06f, content: @Composable () -> Unit) {
+fun Pill(onClick: () -> Unit, modifier: Modifier = Modifier, shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp),
+         container: Color = Color.Transparent, focusedContainer: Color = app.kimono.watch.ui.FocusWash, content: @Composable () -> Unit) {
     Surface(onClick = onClick, modifier = modifier,
         shape = ClickableSurfaceDefaults.shape(shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0x14FFFFFF), pressedContainerColor = Color(0x1FFFFFFF)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = scale),
+        colors = ClickableSurfaceDefaults.colors(containerColor = container, focusedContainerColor = focusedContainer, pressedContainerColor = focusedContainer),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Night.blush), inset = 0.dp, shape = shape))) { content() }
 }
 
@@ -219,8 +221,8 @@ private fun TvHero(featured: Card?, rows: List<WatchRow>, go: Go, active: Boolea
             Row(Modifier.padding(start = gutter), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Series" to "Series", "Film" to "Films", "Anime" to "Anime").forEach { (kind, label) ->
                     val on = shelf == kind
-                    Pill(onClick = { onShelf(kind) }, shape = RoundedCornerShape(999.dp)) {
-                        Text(label, style = ui(14, color = if (on) Night.ink else Night.fg), modifier = Modifier.background(if (on) Night.paper else Color(0x40110C0A), RoundedCornerShape(999.dp)).padding(horizontal = 14.dp, vertical = 6.dp))
+                    Pill(onClick = { onShelf(kind) }, shape = RoundedCornerShape(999.dp), container = if (on) Night.paper else Color(0x40110C0A), focusedContainer = if (on) Color.White else Color(0x66F4E9E1)) {
+                        Text(label, style = ui(14, color = if (on) Night.ink else Night.fg), modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                     }
                 }
             }
@@ -246,14 +248,17 @@ private fun TvHero(featured: Card?, rows: List<WatchRow>, go: Go, active: Boolea
 @Composable
 fun TvButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, onClick: () -> Unit, modifier: Modifier = Modifier, tonal: Boolean = false) {
     val shape = RoundedCornerShape(8.dp)
-    Surface(onClick = onClick, modifier = modifier.height(44.dp), shape = ClickableSurfaceDefaults.shape(shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = if (tonal) Color(0x52A08C88) else Night.paper, focusedContainerColor = if (tonal) Color(0x73A08C88) else Color.White,
-            contentColor = if (tonal) Night.fg else Night.ink, focusedContentColor = if (tonal) Night.fg else Night.ink),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Night.blush), inset = 2.dp, shape = shape))) {
+    /* Focus changes the fill rather than the size: paper turns blush, tonal turns paper. */
+    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
+    val ink = focused || !tonal
+    Surface(onClick = onClick, modifier = modifier.height(44.dp), shape = ClickableSurfaceDefaults.shape(shape), interactionSource = source,
+        colors = ClickableSurfaceDefaults.colors(containerColor = if (tonal) Color(0x52A08C88) else Night.paper, focusedContainerColor = if (tonal) Night.paper else Night.blush,
+            pressedContainerColor = if (tonal) Night.paper else Night.blush, contentColor = if (tonal) Night.fg else Night.ink, focusedContentColor = Night.ink),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f)) {
         Row(Modifier.fillMaxHeight().padding(start = 16.dp, end = 22.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (icon != null) I(icon, tint = if (tonal) Night.fg else Night.ink)
-            Text(text, style = ui(16, FontWeight.Bold, if (tonal) Night.fg else Night.ink))
+            if (icon != null) I(icon, tint = if (ink) Night.ink else Night.fg)
+            Text(text, style = ui(16, FontWeight.Bold, if (ink) Night.ink else Night.fg))
         }
     }
 }

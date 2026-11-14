@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -170,14 +171,19 @@ fun Face(profile: Profile, size: Dp, corner: Float = 0.28f, modifier: Modifier =
 @Composable
 fun PaperButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, onClick: () -> Unit, modifier: Modifier = Modifier, tonal: Boolean = false, height: Dp = 44.dp, fill: Float? = null) {
     val shape = RoundedCornerShape(8.dp)
-    Row(modifier.pressable(onClick).height(height).clip(shape).background(if (tonal) Color(0x52A08C88) else Night.paper)
+    /* Focus changes the fill: paper turns blush, tonal turns paper. */
+    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
+    val ink = focused || !tonal
+    Row(modifier.clickableScale(onClick, outline = false, source = source).height(height).clip(shape)
+        .background(when { focused && tonal -> Night.paper; focused -> Night.blush; tonal -> Color(0x52A08C88); else -> Night.paper })
         .drawWithContent {
             if (fill != null) drawRect(Color(0x387E3448), size = size.copy(width = size.width * fill))
             drawContent()
         }.padding(start = 16.dp, end = 22.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-        if (icon != null) I(icon, tint = if (tonal) Night.fg else Night.ink)
-        Text(text, style = ui(16, FontWeight.Bold, if (tonal) Night.fg else Night.ink), maxLines = 1)
+        if (icon != null) I(icon, tint = if (ink) Night.ink else Night.fg)
+        Text(text, style = ui(16, FontWeight.Bold, if (ink) Night.ink else Night.fg), maxLines = 1)
     }
 }
 
