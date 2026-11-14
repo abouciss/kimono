@@ -170,19 +170,20 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
         opened.current = { book, toc };
         /*
          * epub.js puts a theme's sheet in the first time it's picked and never takes it out, so the colours
-         * hang on the class it gives the chosen one: otherwise night after paper kept paper's dark ink.
+         * hang on the class it gives the chosen one (on the book's body, not its html): otherwise night
+         * after paper kept paper's dark ink.
          */
         for (const [name, p] of Object.entries(papers)) {
           r.themes.register(name, {
             html: { background: "transparent" },
             body: { "font-family": "\"Shippori Mincho\", \"Iowan Old Style\", Georgia, serif", "line-height": "1.7", background: "transparent", hyphens: "auto", "text-align": "justify" },
-            [`html.${name} body`]: { color: `${p.ink} !important` },
+            [`body.${name}`]: { color: `${p.ink} !important` },
             /* Books colour their own headings and title pages (often plain black), which vanished on dusk and night. */
-            [`html.${name} body *`]: { color: "inherit !important", "-webkit-text-fill-color": "currentColor" },
+            [`body.${name} *`]: { color: "inherit !important", "-webkit-text-fill-color": "currentColor" },
             "h1, h2, h3": { "font-family": "\"Shippori Mincho\", Georgia, serif", "font-weight": "700", "line-height": "1.25", "text-align": "left" },
             p: { margin: "0 0 .9em" },
             a: { color: "inherit" },
-            [`html.${name} ::selection`]: { background: name === "night" || name === "dusk" ? "#5b6b3f" : "#d6e2b8" },
+            [`body.${name} ::selection`]: { background: name === "night" || name === "dusk" ? "#5b6b3f" : "#d6e2b8" },
           });
         }
         dress(r, prefs.read());
