@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -213,8 +214,8 @@ private fun Hero(featured: Card?, rows: List<WatchRow>, go: Go, active: Boolean)
     val rank = featured?.let { f -> rows.firstOrNull { it.id == "top" }?.items?.firstOrNull { it.id == f.id }?.top }
     val resuming = featured?.let { f -> rows.firstOrNull { it.id == "continue" }?.items?.any { it.id == f.id } } == true
     Box(Modifier.fillMaxWidth()) {
-        /* The backdrop bleeding out behind the card, blurred. */
-        if (featured != null) Box(Modifier.matchParentSize()) {
+        /* The backdrop bleeding out behind the card, blurred; clipped to the hero, so its scaled-up edge never spills over the row below. */
+        if (featured != null) Box(Modifier.matchParentSize().clipToBounds()) {
             Img(featured.backdropLarge ?: featured.poster, Modifier.fillMaxSize().graphicsLayer { scaleX = 1.2f; scaleY = 1.2f; alpha = 0.55f }.blur(40.dp))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x33110C0A), 0.92f to Night.bg)))
         }
