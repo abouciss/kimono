@@ -112,6 +112,13 @@ export function playingNow(username: string, now = Date.now()): string[] {
   return out;
 }
 
+/** How many streams are playing now, everyone's together: a count, never who. */
+export function liveStreams(now = Date.now()): number {
+  let count = 0;
+  for (const mine of flows.values()) for (const flow of mine.values()) if (live(flow, now)) count++;
+  return count;
+}
+
 /** What this person is streaming now, besides `except`. */
 export function streamsOf(username: string, except?: string, now = Date.now()): string[] {
   const mine = flows.get(username);

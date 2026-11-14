@@ -23,6 +23,7 @@ import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/code";
 import { bank, type BankEntry } from "@/lib/code/feedback";
 import { AiPeople, WatchPeople } from "./people";
+import { liveStreams } from "@/lib/watch/flow";
 import { FeedbackExplorer } from "../../feedback/feedback-explorer";
 import "../../../code/code.css";
 import "../../feedback/feedback.css";
@@ -164,6 +165,8 @@ export default async function AppManagementPage({
     : instance.enabled ? <span className="k-ink-dot k-running">Running</span>
     : <span className="k-ink-dot">Off</span>;
   const name = instance?.name || definition.metadata.name;
+  /* Watch: how many streams are playing right now, all together. */
+  const streaming = id === "kimono-watch" ? liveStreams() : 0;
   const identity = { id, name: definition.metadata.shortName, glyph: definition.metadata.glyph, accent: accentOf((id === "kimono-portal" ? settings.brand.colors : instance?.colors) || definition.metadata.colors) };
   const colors = id === "kimono-portal" ? settings.brand.colors : instance?.colors;
   const canRun = Boolean(instance) && id !== "kimono-portal" && definition.spec.setupReady !== false;
@@ -190,7 +193,7 @@ export default async function AppManagementPage({
           <Crossing kind="kakejiku" className="back" href={back} aria-label="Back to Applications"><LineIcon name="back" /></Crossing>
           <AppBloom className="bloom app-page-bloom" identity={identity} glyphHref={definition.iconUrl} />
           <span><h1>{name}</h1><p className="sub">{definition.metadata.description}</p></span>
-          <div className="end">{dot}{canRun && selectedView === "setup" ? <JointSwitch name="enabled" form="app-setup" defaultChecked={instance!.enabled} label={`Run ${name}`} /> : null}</div>
+          <div className="end">{id === "kimono-watch" && instance?.enabled ? <span className={streaming ? "k-ink-dot k-running" : "k-ink-dot"}>{streaming === 1 ? "1 stream now" : `${streaming} streams now`}</span> : null}{dot}{canRun && selectedView === "setup" ? <JointSwitch name="enabled" form="app-setup" defaultChecked={instance!.enabled} label={`Run ${name}`} /> : null}</div>
         </div>
 
         {instance && availableViews.length > 1 ? <nav className="tabs app-tabs" aria-label="Application views">
