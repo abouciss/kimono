@@ -65,6 +65,18 @@ function one(name: string, w: string[]): Said | undefined {
     case "serve": return { label: "Started an app", detail: flag(w, "--kind"), doing: "Starting an app" };
     case "unserve": return { label: "Stopped the app", doing: "Stopping the app" };
     case "say": return w.includes("--voices") ? { label: "Listed voices", doing: "Listing voices" } : { label: "Spoke", detail: args[0] ? clip(args[0]) : undefined, doing: "Speaking" };
+    case "books": {
+      const [how, book, value] = args;
+      const shelf: Record<string, string> = { want: "Want to read", reading: "Reading", read: "Read" };
+      const liked: Record<string, string> = { down: "not for you", up: "liked", love: "loved" };
+      const named = book && /^(ol|gb|hc|aa):/.test(book) ? undefined : book && clip(book, 60);
+      if (how === "shelve") return value === "off" ? { label: "Took a book off your shelves", detail: named, doing: "Changing your books" } : { label: `Put on ${shelf[value] ?? "a shelf"}`, detail: named, doing: "Changing your books" };
+      if (how === "rate") return { label: value === "off" ? "Took back a rating" : `Marked ${liked[value] ?? "rated"}`, detail: named, doing: "Changing your books" };
+      if (how === "progress") return { label: "Noted how far you are", detail: [named, value && `${value.replace(/%$/, "")}%`].filter(Boolean).join(" · ") || undefined, doing: "Changing your books" };
+      if (how === "review") return { label: "Saved your review", detail: named, doing: "Changing your books" };
+      if (how === "search") return { label: "Looked through your books for", detail: args.slice(1).join(" ") || undefined, doing: "Looking through your books" };
+      return { label: "Looked through your books", doing: "Looking through your books" };
+    }
     case "access": return { label: "Asked for access to", detail: flag(w, "--space"), doing: "Asking for access" };
     default: return undefined;
   }

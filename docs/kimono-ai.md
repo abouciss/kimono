@@ -222,6 +222,25 @@ see nothing inside a space until it is allowed.
   `opened` (what a chat has open, and where) and `opened_files` (each file's last
   agreed state). Tests: `pnpm --filter @kimono/portal test:access`.
 
+## Books
+
+With Kimono Books on, the owner's library comes into each of their chats
+(`lib/code/books.ts`): before a turn, Portal writes every book on their shelves
+to `.kimono/books/library.json` (key, title, authors, ISBNs, genres, shelf, how
+far along, rating, review), only when it changed, and the agent is told how to
+use it. `kimono-books list|search|show` reads it, so recommendations skip what
+they've read or disliked and lean on what they loved.
+
+`kimono-books shelve|rate|progress|review <book> …` changes their shelves.
+`<book>` is a key from the library, an ISBN, or "Title by Author" for a book
+not in it yet, which Portal looks up in Books and takes only when every word
+of the title and author matches. The helper prints a `kimono-books-change {…}`
+line; Portal reads it from the tool result (and drops it from what the chat
+shows), applies it through Books' own model, and tells the agent next message
+what it couldn't find. The chat shows the step in words ("Put on Reading ·
+Dune"). A chat shared with anyone gets no library, and only the owner's turns
+change anything. Tests: `pnpm --filter @kimono/portal test:ai-books`.
+
 ## Sending files
 
 When the answer is a file (a PDF, a spreadsheet, pictures, a zip), the agent

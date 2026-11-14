@@ -32,6 +32,7 @@ import { serveTempLink, tempLinkBase, tempLinkKey } from "./temp-links";
 export { efforts, type Effort } from "./node";
 import { markChat, retitle, shotToDrive, syncDrive, treeAhead } from "./drive";
 import { hasHistory, historyNote, syncHistory } from "./history";
+import { applyBookChanges, booksNote, forgetBooksWritten, syncBooks, takeBookMisses } from "./books";
 import { answersOf, answerText, askedId, askNote, isAskCommand, questionsDir, questionsOf } from "./questions";
 import { gitAccountOf, ownProject } from "./forgejo";
 import { suggestTitle } from "./title";
@@ -607,6 +608,7 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
     const ready = await ensure(config, workspace, who(user), { owner: byOwner });
     /* A new, empty sandbox after all: what was read ahead isn't it. */
     if (ready.fresh && ahead) { ahead.tree = null; ahead.granted = null; }
+    if (ready.fresh) forgetBooksWritten(workspace.id);
     timing.ensured = Date.now();
     const session = second ? second.session : workspaceFor(db(), workspace.id, workspace.owner).session;
     /* The person's other chats, for it to look back on (none in a chat shared with others). Each is a file written
@@ -620,7 +622,9 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
     /* Files the person let it use follow Drive, and what is no longer allowed goes. */
     const openedSynced = syncOpened(db(), config, workspace, { readOnly: turnsByOwner(db(), workspace.id, 2)[1] === false, tree: ahead?.granted }).catch((error) => { console.warn("Kimono AI couldn't sync opened files:", error instanceof Error ? error.message : error); return [] as string[]; });
     /* With Notes on, the person has a notebook before it is named, so the agent can write to it from the first chat. */
-    const [, openedNews, notes] = await Promise.all([driveSynced, openedSynced, byOwner ? notesFor(workspace.owner) : ""]);
+    /* The owner's Kimono Books library, for kimono-books (none in a chat shared with others). */
+    const booksSynced = syncBooks(db(), config, workspace, byOwner).catch((error) => { console.warn("Kimono AI couldn't bring the Books library in:", error instanceof Error ? error.message : error); return false; });
+    const [, openedNews, notes, hasBooks] = await Promise.all([driveSynced, openedSynced, byOwner ? notesFor(workspace.owner) : "", booksSynced]);
     timing.synced = Date.now();
     /* A command like /compact goes to the agent as it is; the Drive news waits for the next real message. */
     const changed = prompt.startsWith("/") || second ? [] : [...takeDriveNews(db(), workspace.id), ...openedNews];
@@ -631,7 +635,7 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
     /* An edited message in a chat from before turns kept their place: a new session, told the conversation so far. */
     const earlier = rewound && "before" in rewound && rewound.before ? `(The person went back and changed one of their messages, so this conversation starts again from it. What was said before it:)\n\n${rewound.before}\n\n(Their changed message:)\n\n` : "";
     told = second ? second.told : `${access ? `${access}\n\n` : ""}${news}${earlier}${from}${prompt}`;
-    const input = { prompt: plan && take ? withNote(told, plan.notes[take.n]) : told, ...(second?.session ? { fork: true } : {}), session, attachments: attachments.map((a) => a.path), effort, thinking: thought.thinking, model, context: [...(byOwner ? [aboutNow(who(user).name), contextFor(db(), workspace.owner), notes, history ? historyNote : "", mediaNote(lastAllowance(workspace.owner))] : []), askNote, noticeSeen(db(), user.username, "islam") ? "" : islamNoticeNote].filter(Boolean).join("\n\n"), resumeAt: second ? second.at : rewound && "at" in rewound ? rewound.at : null, links: tempLinkBase(portalOrigin(), workspace.id), linkKey: tempLinkKey(workspace.id), ...skillsForTurn(db(), workspace.owner, byOwner) };
+    const input = { prompt: plan && take ? withNote(told, plan.notes[take.n]) : told, ...(second?.session ? { fork: true } : {}), session, attachments: attachments.map((a) => a.path), effort, thinking: thought.thinking, model, context: [...(byOwner ? [aboutNow(who(user).name), contextFor(db(), workspace.owner), notes, history ? historyNote : "", hasBooks ? booksNote : "", hasBooks ? takeBookMisses(workspace.id) : "", mediaNote(lastAllowance(workspace.owner))] : []), askNote, noticeSeen(db(), user.username, "islam") ? "" : islamNoticeNote].filter(Boolean).join("\n\n"), resumeAt: second ? second.at : rewound && "at" in rewound ? rewound.at : null, links: tempLinkBase(portalOrigin(), workspace.id), linkKey: tempLinkKey(workspace.id), ...skillsForTurn(db(), workspace.owner, byOwner) };
     const response = await sandbox.turn(config, workspace, input, controller.signal).catch(async (error) => {
       /* The sandbox lost the chat's session (its container was made again): a new
          one is told the conversation so far, so it never starts from nothing. */
@@ -742,6 +746,8 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
         if (translated.result) result = translated.result;
         if (translated.context) context = translated.context;
         for (const call of translated.artifacts ?? []) pendingArtifacts.set(call.id, call);
+        /* Shelf changes kimono-books asked for: only ever the owner's own shelves. */
+        if (translated.books && byOwner) await applyBookChanges(db(), workspace, translated.books).catch((error) => console.warn("Kimono AI couldn't change Books:", error instanceof Error ? error.message : error));
         if (translated.sent) await keepSent(config, workspace, turn, translated.sent).catch((error) => console.warn("Kimono AI couldn't keep a file it sent:", error instanceof Error ? error.message : error));
         for (const event of translated.events) {
           /* An app it used that the person never connected ran on Composio's account: a Pro Tool, marked with its bolt. */

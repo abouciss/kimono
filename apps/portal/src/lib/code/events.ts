@@ -1,4 +1,5 @@
 import { kimonoCommand } from "./kimono-commands";
+import { bookChanges, type BookChange } from "./book-changes";
 import { artifactName, editsOf, shownName, type Edit } from "./artifacts";
 import type { Question, QuestionAnswer } from "./questions";
 
@@ -341,7 +342,7 @@ export type ArtifactCall = { id: string; name: string; action: "wrote" | "edited
 /** A file kimono-send copied aside for the person: its name, and where it is under /workspace. */
 export type SentFile = { name: string; path: string };
 
-export type Translated = { events: CodeEvent[]; session?: string; result?: TurnResult; context?: number; artifacts?: ArtifactCall[]; sent?: SentFile[]; /** What it thought before acting, kept apart from the timeline (lib/code/feedback.ts). */ thinking?: string[]; /** Each tool call in full, what it was given and what it gave back, kept apart for feedback the same way. */ calls?: { id: string; input?: string; output?: string }[] };
+export type Translated = { events: CodeEvent[]; session?: string; result?: TurnResult; context?: number; artifacts?: ArtifactCall[]; sent?: SentFile[]; /** Shelf changes kimono-books asked for (lib/code/books.ts). */ books?: BookChange[]; /** What it thought before acting, kept apart from the timeline (lib/code/feedback.ts). */ thinking?: string[]; /** Each tool call in full, what it was given and what it gave back, kept apart for feedback the same way. */ calls?: { id: string; input?: string; output?: string }[] };
 
 /** The files a kimono-send in this output gave the person, and the output without the line that says so. */
 export function sentFiles(text: string): { files: SentFile[]; shown: string } {
@@ -420,18 +421,20 @@ export function translate(line: unknown): Translated {
     case "user": {
       const events: CodeEvent[] = [];
       const sent: SentFile[] = [];
+      const books: BookChange[] = [];
       const calls: { id: string; output: string }[] = [];
       for (const part of parts) {
         if (part.type === "tool_result" && typeof part.tool_use_id === "string") {
           calls.push({ id: part.tool_use_id, output: resultText(part.content) });
-          const { files, shown } = sentFiles(resultText(part.content));
+          const { files, shown: unsent } = sentFiles(resultText(part.content));
+          const { changes, shown } = bookChanges(unsent);
           const ok = part.is_error !== true;
           events.push({ kind: "tool-result", id: part.tool_use_id, ok, output: clip(shown, 4000) });
           for (const link of connectLinks(shown)) events.push({ kind: "connect", ...link });
-          if (ok) sent.push(...files);
+          if (ok) { sent.push(...files); books.push(...changes); }
         }
       }
-      return { events, session, ...(sent.length ? { sent } : {}), ...(calls.length ? { calls } : {}) };
+      return { events, session, ...(sent.length ? { sent } : {}), ...(books.length ? { books } : {}), ...(calls.length ? { calls } : {}) };
     }
     case "result": {
       const failed = message.is_error === true || (typeof message.subtype === "string" && message.subtype !== "success");
