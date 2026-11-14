@@ -165,9 +165,9 @@ fun rememberFriends(go: Go): FriendsModel {
 @Composable
 fun FriendsPage(go: Go) {
     val m = rememberFriends(go)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = statusTop + 76.dp, bottom = navBottom + 100.dp, start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = statusTop + 76.dp, bottom = navBottom + 100.dp, start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         item {
-            Row(Modifier.padding(top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Friends", style = display(28), modifier = Modifier.weight(1f))
                 InvisibleChip(m)
             }
@@ -187,10 +187,14 @@ fun FriendsPage(go: Go) {
                     }
                 }
                 if (p.friends.isEmpty()) item {
-                    Text("Add friends to see what they're watching.", style = ui(15, color = Night.fg3), modifier = Modifier.padding(vertical = 16.dp))
+                    Text("Add friends to see what they're watching.", style = ui(15, color = Night.fg3), modifier = Modifier.padding(vertical = 8.dp))
                 }
-                items(p.friends, key = { "f" + it.username }) { f ->
-                    FriendCard(f, go, m.askingOf(f), onAsk = { m.askToJoin(f) }, onCancel = m::cancelAsk, onRemove = { m.removing = f })
+                /* One grouped list, whoever's watching now first: a row a friend. */
+                val friends = p.friends.sortedByDescending { it.now != null }
+                if (friends.isNotEmpty()) item { Spacer(Modifier.height(4.dp)) }
+                items(friends.size, key = { "f" + friends[it].username }) { i ->
+                    val f = friends[i]
+                    FriendRow(f, go, m.askingOf(f), first = i == 0, last = i == friends.lastIndex, onAsk = { m.askToJoin(f) }, onCancel = m::cancelAsk, onRemove = { m.removing = f })
                 }
                 item { Heading("Add friends") }
                 item { FindPeopleField(m, Modifier.padding(top = 4.dp, bottom = 4.dp)) }
@@ -231,72 +235,64 @@ fun InvisibleChip(m: FriendsModel) {
 
 @Composable
 private fun Heading(text: String) {
-    Text(text, style = ui(15, FontWeight.Bold, Night.fg2), modifier = Modifier.padding(top = 12.dp))
+    Text(text, style = ui(15, FontWeight.Bold, Night.fg2), modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
 }
 
 @Composable
 private fun PersonRow(who: Person, actions: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         PersonFace(who, who.username, 40.dp)
         Text(who.shown, style = ui(15, FontWeight.Bold), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
     }
 }
 
-/** A friend: their face (lit while they watch), what they're on, and where they are in what they've watched lately. */
+/**
+ * A friend, as a row of one grouped list: their face (ringed while they
+ * watch), a line on what they're on or last watched, and its picture; Ask to
+ * join under it while they watch. The row opens their list and ratings.
+ */
 @Composable
-private fun FriendCard(f: Friend, go: Go, asking: JoinAsk?, onAsk: () -> Unit, onCancel: (JoinAsk) -> Unit, onRemove: () -> Unit) {
+private fun FriendRow(f: Friend, go: Go, asking: JoinAsk?, first: Boolean, last: Boolean, onAsk: () -> Unit, onCancel: (JoinAsk) -> Unit, onRemove: () -> Unit) {
     val now = f.now
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Night.surface2).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            /* Their face and name open their list and ratings. */
-            Row(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickableScaleClipped(RoundedCornerShape(10.dp), { go.friend(f.person) }),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box {
-                PersonFace(f.person, f.username, 44.dp)
-                if (now != null) Box(Modifier.align(Alignment.BottomEnd).offset(1.dp, 1.dp).size(14.dp).clip(CircleShape).background(Night.surface2).padding(2.dp).clip(CircleShape).background(Night.suo))
-            }
+    val latest = f.recent.firstOrNull()
+    val title = if (f.sharing) now?.title ?: latest?.title else null
+    val shape = RoundedCornerShape(if (first) 18.dp else 6.dp, if (first) 18.dp else 6.dp, if (last) 18.dp else 6.dp, if (last) 18.dp else 6.dp)
+    Column(Modifier.fillMaxWidth().clip(shape).background(Night.surface2)) {
+        Row(Modifier.fillMaxWidth().clickableScaleClipped(shape, { go.friend(f.person) }).padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = if (now != null) 8.dp else 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            RingFace(f.person, 48.dp, now != null, Night.surface2)
             Column(Modifier.weight(1f)) {
-                Text(f.shown, style = ui(16, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(when {
-                    !f.sharing -> "Keeps what they watch to themselves"
-                    now != null -> "Watching now"
-                    f.recent.isNotEmpty() -> "Watched ${ago(f.recent[0].at)}"
-                    else -> "Hasn't watched anything yet"
-                }, style = ui(13, color = if (now != null) Night.fg else Night.fg3), maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(f.shown, style = ui(16, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    val `when` = if (now != null) "now" else latest?.takeIf { f.sharing }?.let { ago(it.at) }
+                    if (`when` != null) Text("  $`when`", style = ui(12, if (now != null) FontWeight.Bold else FontWeight.Normal, if (now != null) Night.blush else Night.fg3), maxLines = 1)
+                }
+                /* The title gives way first: the episode always shows. */
+                val (name, rest) = when {
+                    !f.sharing -> "Keeps what they watch private" to null
+                    now != null -> now.title.name to now.label
+                    latest != null -> latest.title.name to (latest.label ?: "Finished".takeIf { latest.finished })
+                    else -> "Nothing watched yet" to null
+                }
+                val style = ui(13, if (now != null) FontWeight.Bold else FontWeight.Normal, if (now != null) Night.blush else Night.fg3)
+                Row {
+                    Text(name, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    if (!rest.isNullOrEmpty()) Text(" · $rest", style = style, maxLines = 1)
+                }
             }
-            }
-            if (now != null) {
-                if (asking != null) PaperButton("Asking…", null, { onCancel(asking) }, tonal = true, height = 38.dp)
-                else PaperButton("Ask to join", Ic.people, onAsk, height = 38.dp)
+            if (title != null) Box(Modifier.size(64.dp, 36.dp).clip(RoundedCornerShape(6.dp)).background(Night.bg).clickableScaleClipped(RoundedCornerShape(6.dp), { go.open(title) })) {
+                app.kimono.watch.ui.Img(title.backdrop ?: title.poster, Modifier.fillMaxSize())
+                val progress = now?.progress ?: latest?.takeIf { !it.finished }?.progress
+                if (progress != null) ProgressLine(progress.toFloat(), Modifier.align(Alignment.BottomStart).fillMaxWidth())
             }
             FriendMenu(f, { go.friend(f.person) }, onRemove)
         }
-        if (now != null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Night.bg).clickableScaleClipped(RoundedCornerShape(10.dp), { go.open(now.title) }),
-            verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(112.dp).size(112.dp, 63.dp)) {
-                app.kimono.watch.ui.Img(now.title.backdrop ?: now.title.poster, Modifier.fillMaxSize())
-                ProgressLine(now.progress.toFloat(), Modifier.align(Alignment.BottomStart).fillMaxWidth())
-            }
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(now.title.name, style = ui(15, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(now.label, "together".takeIf { now.partyId != null }).joinToString(" · ").ifEmpty { now.title.shelf }, style = ui(13, color = Night.fg2), maxLines = 1)
-            }
+        if (now != null) Row(Modifier.fillMaxWidth().padding(start = 74.dp, end = 14.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (asking != null) PaperButton("Asking…", null, { onCancel(asking) }, tonal = true, height = 36.dp)
+            else PaperButton("Ask to join", Ic.people, onAsk, height = 36.dp)
+            if (now.partyId != null) Text("together", style = ui(13, color = Night.fg3), modifier = Modifier.align(Alignment.CenterVertically))
         }
-        val recent = f.recent.filter { it.title.id != now?.title?.id }
-        if (recent.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(recent, key = { it.title.id }) { s ->
-                Column(Modifier.width(84.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(Modifier.clip(RoundedCornerShape(8.dp))) {
-                        PosterCard(s.title, go, width = 84.dp)
-                        if (!s.finished) ProgressLine(s.progress.toFloat(), Modifier.align(Alignment.BottomStart).fillMaxWidth())
-                    }
-                    Text(if (s.finished && s.label == null) "Finished" else listOfNotNull(s.label, "done".takeIf { s.finished && s.label != null }).joinToString(" · "),
-                        style = ui(12, color = Night.fg3), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
-        Spacer(Modifier.size(0.dp))
     }
 }
 
@@ -366,15 +362,14 @@ fun RingFace(person: Person, size: Dp, live: Boolean, behind: androidx.compose.u
 /**
  * Friends on Home, the way a game launcher shows them: a + to add friends,
  * then round faces with names, whoever's watching now first with a ring and
- * the title under them. A face opens [FriendCardDialog].
+ * the title under them. A face opens [FriendCardDialog]. Always there, with
+ * no friends yet too (the + and a line on what friends are for).
  */
 @Composable
 fun FriendsRow(go: Go, onAll: () -> Unit, modifier: Modifier = Modifier, tile: Dp = 76.dp) {
     val m = rememberFriends(go)
-    val watch = LocalWatch.current
-    if (watch.prefs.state.collectAsState().value?.friendsOnHome == false) return
-    val page = m.page ?: return
-    val friends = page.friends.filter { it.sharing }
+    val page = m.page
+    val friends = page?.friends.orEmpty().filter { it.sharing }
     val live = friends.count { it.now != null }
     var picked by remember { mutableStateOf<String?>(null) }
     Column(modifier) {
@@ -382,7 +377,6 @@ fun FriendsRow(go: Go, onAll: () -> Unit, modifier: Modifier = Modifier, tile: D
             Text("Friends", style = ui(18, FontWeight.Bold))
             if (friends.isNotEmpty()) Text(if (live > 0) "  ($live watching)" else "  (${friends.size})", style = ui(16, color = Night.fg3))
             Spacer(Modifier.weight(1f))
-            Text("Hide", style = ui(14, color = Night.fg3), modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickableScaleClipped(RoundedCornerShape(8.dp), { hideFriendsRow(watch) }).padding(horizontal = 8.dp, vertical = 4.dp))
             Text("See all", style = ui(14, color = Night.fg2), modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickableScaleClipped(RoundedCornerShape(8.dp), onAll).padding(horizontal = 8.dp, vertical = 4.dp))
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -390,6 +384,19 @@ fun FriendsRow(go: Go, onAll: () -> Unit, modifier: Modifier = Modifier, tile: D
                 Column(Modifier.width(tile + 8.dp).clip(RoundedCornerShape(12.dp)).clickableScaleClipped(RoundedCornerShape(12.dp), onAll).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(Modifier.size(tile).padding(tile * 0.06f).border(2.dp, Night.line, CircleShape), contentAlignment = Alignment.Center) { I(Ic.add, 30.dp, Night.fg2) }
                     Text(if (friends.isEmpty()) "Add friends" else "Add", style = ui(13, FontWeight.Bold), maxLines = 1, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+            /* Still loading: where faces will be. None yet: what friends are for. */
+            if (page == null) items(3, key = { "wait$it" }) {
+                Column(Modifier.width(tile + 8.dp).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Skeleton(Modifier.size(tile).padding(tile * 0.06f), CircleShape)
+                    Skeleton(Modifier.padding(top = 8.dp).size(44.dp, 12.dp))
+                }
+            }
+            else if (friends.isEmpty()) item("none") {
+                Column(Modifier.height(tile + 8.dp).widthIn(max = 230.dp).padding(start = 6.dp), verticalArrangement = Arrangement.Center) {
+                    Text("See what friends are watching", style = ui(15, FontWeight.Bold))
+                    Text("and watch together.", style = ui(14, color = Night.fg3), modifier = Modifier.padding(top = 2.dp))
                 }
             }
             items(friends, key = { it.username }) { f ->
@@ -403,12 +410,6 @@ fun FriendsRow(go: Go, onAll: () -> Unit, modifier: Modifier = Modifier, tile: D
         }
     }
     friends.firstOrNull { it.username == picked }?.let { f -> FriendCardDialog(f, m, go) { picked = null } }
-}
-
-/** Takes the friends row off Home, everywhere; Settings › Friends brings it back. */
-fun hideFriendsRow(watch: app.kimono.watch.WatchServices) {
-    watch.prefs.set("friendsOnHome", false) { it.copy(friendsOnHome = false) }
-    watch.toasts.show("Friends hidden from Home. Settings › Friends brings them back")
 }
 
 /** A friend up close: what they're on (or last watched), Ask to join while they watch, and Open. */
