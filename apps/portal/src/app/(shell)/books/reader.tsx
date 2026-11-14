@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MorphLoader } from "@kimono/ui";
 import { booksApi, type BookFileInfo } from "./api";
+import { findPage, pageAt, printPages, type PagedBook, type PrintPage } from "./print-pages";
 
 /*
  * Reading in Kimono: an EPUB laid out in pages (epub.js), or a PDF in the
@@ -30,10 +31,10 @@ type EpubBook = {
   loaded: { navigation: Promise<{ toc: NavItem[] }> };
   renderTo(el: HTMLElement, options: Record<string, unknown>): Rendition;
   locations: { generate(chars: number): Promise<string[]>; percentageFromCfi(cfi: string): number; cfiFromPercentage(p: number): string };
-  spine: { get(target: string): { href: string } | null };
   getRange(cfi: string): Promise<Range>;
   destroy(): void;
-};
+} & PagedBook;
+type Cfi = { compare(a: string, b: string): number };
 
 type Paper = "paper" | "sepia" | "dusk" | "night";
 const papers: Record<Paper, { label: string; bg: string; ink: string }> = {
@@ -93,7 +94,11 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
 }) {
   const stage = useRef<HTMLDivElement>(null);
   const rendition = useRef<Rendition | null>(null);
-  const opened = useRef<{ book: EpubBook; toc: NavItem[] } | null>(null);
+  const opened = useRef<{ book: EpubBook; toc: NavItem[]; cfi: Cfi } | null>(null);
+  /* The print edition's pages, when the book carries them; otherwise the page you're on in this chapter. */
+  const [printing, setPrinting] = useState<{ pages: PrintPage[]; cfi: Cfi }>({ pages: [], cfi: { compare: () => 0 } });
+  const pages = printing.pages;
+  const [here, setHere] = useState<{ cfi: string; page: number; of: number } | null>(null);
   const [fraction, setFraction] = useState(startAt);
   const [chapter, setChapter] = useState("");
   const [ready, setReady] = useState(file.format === "pdf");
@@ -158,7 +163,9 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
           if (!cancelled) setProblem(probe.status === 202 ? "This book is still being made. Try again in a few minutes." : said?.error ?? "This book didn't open.");
           return;
         }
-        const ePub = (await import("epubjs")).default as unknown as (url: string, options?: Record<string, unknown>) => EpubBook;
+        const epubjs = await import("epubjs");
+        const ePub = epubjs.default as unknown as (url: string, options?: Record<string, unknown>) => EpubBook;
+        const cfi = new (epubjs.EpubCFI as unknown as new () => Cfi)();
         book = ePub(partsUrl(file), { openAs: "directory" });
         /* And a limit, so a book that's damaged inside says so rather than spinning. */
         await Promise.race([book.ready, new Promise((_, reject) => setTimeout(() => reject(new Error("took too long")), 45_000))]);
@@ -167,7 +174,7 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
         const first = prefs.read();
         const r = book.renderTo(stage.current, { width: "100%", height: "100%", flow: first.layout === "scroll" ? "scrolled-doc" : "paginated", spread: first.layout === "spread" ? "auto" : "none", allowScriptedContent: false });
         rendition.current = r;
-        opened.current = { book, toc };
+        opened.current = { book, toc, cfi };
         /*
          * epub.js puts a theme's sheet in the first time it's picked and never takes it out, so the colours
          * hang on the class it gives the chosen one (on the book's body, not its html): otherwise night
@@ -191,14 +198,17 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
         if (cancelled) return;
         await r.display(opening > 0 && opening < 1 ? book.locations.cfiFromPercentage(opening) : undefined);
         r.on("relocated", (...args: unknown[]) => {
-          const loc = args[0] as { start?: { cfi?: string; href?: string }; atEnd?: boolean };
+          const loc = args[0] as { start?: { cfi?: string; href?: string; displayed?: { page: number; total: number } }; end?: { cfi?: string }; atEnd?: boolean };
           if (!book || !loc.start?.cfi) return;
+          /* The print page is the last one that begins on this screen, so turning to page 2 says page 2. */
+          setHere({ cfi: loc.end?.cfi ?? loc.start.cfi, page: loc.start.displayed?.page ?? 0, of: loc.start.displayed?.total ?? 0 });
           setFraction(loc.atEnd ? 1 : Math.min(1, Math.max(0, book.locations.percentageFromCfi(loc.start.cfi))));
           const here = loc.start.href?.split("#")[0];
           setChapter(toc.find((t) => t.href.split("#")[0] === here)?.label.trim() ?? "");
         });
         r.on("keyup", (...args: unknown[]) => keys(args[0] as KeyboardEvent));
         setReady(true);
+        void printPages(book, cfi, () => cancelled).then((p) => { if (!cancelled) setPrinting({ pages: p, cfi }); }).catch(() => {});
       } catch (error) {
         console.error(error);
         if (!cancelled) setProblem("This book didn't open. The copy may be damaged; save it and try it elsewhere.");
@@ -231,7 +241,7 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
   }, [keys]);
 
   /* Seeking: what's at a point in the book (its chapter and a line of it), and going there. */
-  const peek = useCallback(async (f: number): Promise<{ chapter: string; text: string } | null> => {
+  const peek = useCallback(async (f: number): Promise<{ chapter: string; text: string; page?: string } | null> => {
     const o = opened.current;
     if (!o) return null;
     const cfi = o.book.locations.cfiFromPercentage(Math.min(0.999, Math.max(0, f)));
@@ -245,8 +255,8 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
       const el = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node as Element)?.closest("p, li, blockquote, h1, h2, h3, h4, div");
       text = (el?.textContent ?? node.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 220);
     } catch { /* the line is a nicety */ }
-    return { chapter, text };
-  }, []);
+    return { chapter, text, page: pageAt(pages, cfi, o.cfi)?.label };
+  }, [pages]);
   const seek = useCallback((f: number) => {
     const o = opened.current, r = rendition.current;
     if (!o || !r) return;
@@ -255,6 +265,16 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
     const cfi = o.book.locations.cfiFromPercentage(Math.min(0.999, Math.max(0, f)));
     if (cfi) void r.display(cfi);
   }, []);
+
+  const goToPage = useCallback((typed: string) => {
+    const r = rendition.current, p = findPage(pages, typed);
+    if (!r || !p) return false;
+    // eslint-disable-next-line react-hooks/immutability -- only ever called from the page box's submit, never while rendering
+    moved.current = true;
+    void r.display(p.cfi);
+    return true;
+  }, [pages]);
+  const printed = here && pages.length ? pageAt(pages, here.cfi, printing.cfi) : null;
 
   const touch = useRef<number | null>(null);
   const paper = papers[look.paper];
@@ -291,6 +311,9 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
         {problem ? <div className="kb-reader-wait"><p>{problem}</p></div> : null}
       </div>}
     {file.format === "epub" ? <footer className="kb-reader-foot">
+      {pages.length
+        ? <PageJump label={printed?.label ?? pages[0].label} first={pages[0].label} last={pages[pages.length - 1].label} onGo={goToPage} />
+        : here && here.of > 1 && look.layout !== "scroll" ? <span className="kb-reader-pages" title="Pages in this chapter on this screen">{here.page} of {here.of} in chapter</span> : null}
       <SeekBar fraction={fraction} ready={ready} peek={peek} onSeek={seek} />
       <span>{Math.round(fraction * 100)}%</span>
     </footer> : null}
@@ -303,11 +326,11 @@ export function Reader({ bookKey, title, author, file, startAt, onClose, onProgr
  * there and a line of it, click or drag to go. Arrow keys step it too.
  */
 function SeekBar({ fraction, ready, peek, onSeek }: {
-  fraction: number; ready: boolean; peek: (f: number) => Promise<{ chapter: string; text: string } | null>; onSeek: (f: number) => void;
+  fraction: number; ready: boolean; peek: (f: number) => Promise<{ chapter: string; text: string; page?: string } | null>; onSeek: (f: number) => void;
 }) {
   const bar = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ f: number; x: number; w: number } | null>(null);
-  const [shown, setShown] = useState<{ f: number; chapter: string; text: string } | null>(null);
+  const [shown, setShown] = useState<{ f: number; chapter: string; text: string; page?: string } | null>(null);
   const [drag, setDrag] = useState<number | null>(null);
   /* Where a seek is going, held until the book gets there, so the bar doesn't fall back meanwhile. */
   const [held, setHeld] = useState<{ to: number; from: number } | null>(null);
@@ -341,10 +364,32 @@ function SeekBar({ fraction, ready, peek, onSeek }: {
     </span>
     <span className="kb-seek-thumb" style={{ left: `${filled * 100}%` }} />
     {hover ? <div className="kb-seek-peek" style={{ left }}>
-      <b>{shownHere?.chapter || "\u00a0"}<span>{Math.round(hover.f * 100)}%</span></b>
+      <b>{shownHere?.chapter || "\u00a0"}<span>{shownHere?.page ? `p. ${shownHere.page} · ` : ""}{Math.round(hover.f * 100)}%</span></b>
       {shownHere?.text ? <p>{shownHere.text}</p> : <p className="kb-seek-wait">{ready ? "\u2026" : ""}</p>}
     </div> : null}
   </div>;
+}
+
+/**
+ * The print edition's page you're on, and a way to turn to one: what you'd
+ * cite, or what a class says to open at. Only for books that mark them.
+ */
+function PageJump({ label, first, last, onGo }: { label: string; first: string; last: string; onGo: (typed: string) => boolean }) {
+  const [asking, setAsking] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [wrong, setWrong] = useState(false);
+  if (!asking) return <button className="kb-reader-pages kb-reader-pagebtn" title="Print edition page · go to a page" onClick={() => { setTyped(""); setWrong(false); setAsking(true); }}>p. {label}</button>;
+  return <form className="kb-reader-pageask" onSubmit={(e) => { e.preventDefault(); if (onGo(typed)) setAsking(false); else setWrong(true); }}>
+    <label>
+      <span>Page</span>
+      <input autoFocus value={typed} aria-invalid={wrong} placeholder={label} aria-label={`Go to a page, ${first} to ${last}`}
+        onChange={(e) => { setTyped(e.target.value); setWrong(false); }}
+        onKeyUp={(e) => { e.stopPropagation(); if (e.key === "Escape") setAsking(false); }}
+        onKeyDown={(e) => e.stopPropagation()}
+        onBlur={() => setAsking(false)} />
+    </label>
+    {wrong ? <em>{first}–{last}</em> : null}
+  </form>;
 }
 
 /** The reading settings: one panel for the page, the type and the layout. */

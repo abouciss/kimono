@@ -35,6 +35,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -89,7 +93,9 @@ import kotlinx.coroutines.launch
 /* ── The book's shape: its package, read from the EPUB's XML ───────────── */
 
 private class Chapter(val href: String, val title: String, val weight: Int)
-private class Epub(val title: String, val base: String, val chapters: List<Chapter>)
+/** A page of the print edition, where the publisher marked one: its label ("112", "xii"), the chapter and the anchor in it. */
+private class PrintPage(val label: String, val chapter: Int, val id: String)
+private class Epub(val title: String, val base: String, val chapters: List<Chapter>, val pages: List<PrintPage> = emptyList())
 
 private sealed interface Block {
     class Heading(val level: Int, val text: AnnotatedString) : Block
@@ -119,6 +125,9 @@ private fun resolve(from: String, href: String): String {
     return parts.joinToString("/")
 }
 
+private fun resolveWithAnchor(from: String, href: String): String =
+    resolve(from, href) + (href.substringAfter('#', "").takeIf { it.isNotEmpty() }?.let { "#$it" } ?: "")
+
 private suspend fun loadEpub(books: Books, file: BookFile, cache: String, fallbackTitle: String): Epub {
     val container = books.epubPart(file.address, "META-INF/container.xml", cache).decodeToString()
     val opfPath = Regex("""full-path\s*=\s*"([^"]+)"""").find(container)?.groupValues?.get(1) ?: error("This book has no package.")
@@ -131,9 +140,17 @@ private suspend fun loadEpub(books: Books, file: BookFile, cache: String, fallba
     val spine = Regex("""<itemref\b[^>]*idref\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(opf).mapNotNull { manifest[it.groupValues[1]]?.first }.toList()
     /* Chapter names from the book's own contents page, when it has one. */
     val names = mutableMapOf<String, String>()
+    /* And the print edition's pages (EPUB 3's page-list), as label and target, which aren't chapter names. */
+    val marked = mutableListOf<Pair<String, String>>()
+    val pageList = Regex("""<nav\b[^>]*epub:type\s*=\s*["'][^"']*\bpage-list\b[^"']*["'][^>]*>(.*?)</nav>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    val link = Regex("""<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     manifest.values.firstOrNull { "nav" in it.second.split(' ') }?.first?.let { nav ->
         runCatching {
-            val html = books.epubPart(file.address, nav, cache).decodeToString()
+            val full = books.epubPart(file.address, nav, cache).decodeToString()
+            pageList.find(full)?.groupValues?.get(1)?.let { list ->
+                link.findAll(list).forEach { marked += decode(it.groupValues[2].replace(Regex("<[^>]+>"), "")).trim() to resolveWithAnchor(nav, decode(it.groupValues[1])) }
+            }
+            val html = full.replace(pageList, "")
             Regex("""<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(html).forEach {
                 val target = resolve(nav, decode(it.groupValues[1]))
                 names.getOrPut(target) { decode(it.groupValues[2].replace(Regex("<[^>]+>"), "")).trim() }
@@ -141,13 +158,32 @@ private suspend fun loadEpub(books: Books, file: BookFile, cache: String, fallba
         }
     }
     val title = Regex("""<dc:title[^>]*>(.*?)</dc:title>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(opf)?.groupValues?.get(1)?.let { decode(it).trim() } ?: fallbackTitle
+    /* EPUB 2 keeps its print pages in toc.ncx instead. */
+    if (marked.isEmpty()) Regex("""<item\b[^>]*media-type\s*=\s*["']application/x-dtbncx\+xml["'][^>]*>""", RegexOption.IGNORE_CASE).find(opf)?.let { attr(it.value, "href") }?.let { ncx ->
+        runCatching {
+            val path = resolve(opfPath, decode(ncx))
+            val xml = books.epubPart(file.address, path, cache).decodeToString()
+            Regex("""<pageTarget\b[^>]*>(.*?)</pageTarget>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(xml).forEach { t ->
+                val label = Regex("""<text[^>]*>(.*?)</text>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(t.groupValues[1])?.groupValues?.get(1)?.let { decode(it).trim() }
+                val src = Regex("""<content\b[^>]*>""", RegexOption.IGNORE_CASE).find(t.groupValues[1])?.let { attr(it.value, "src") }
+                if (!label.isNullOrEmpty() && src != null) marked += label to resolveWithAnchor(path, decode(src))
+            }
+        }
+    }
     val chapters = spine.mapIndexed { i, href -> Chapter(href, names[href] ?: "Part ${i + 1}", 1) }
     if (chapters.isEmpty()) error("This book has no chapters.")
-    return Epub(title, opfPath, chapters)
+    val pages = marked.mapNotNull { (label, target) ->
+        val i = chapters.indexOfFirst { it.href == target.substringBefore('#') }
+        if (label.isEmpty() || i < 0) null else PrintPage(label, i, target.substringAfter('#', ""))
+    }
+    return Epub(title, opfPath, chapters, pages)
 }
 
-/** A chapter's XHTML as blocks of styled text and images. Tolerant: books' markup varies a lot. */
-private fun blocksOf(xhtml: String, path: String): List<Block> {
+/**
+ * A chapter's XHTML as blocks of styled text and images. Tolerant: books' markup varies a lot.
+ * Where each of `anchors` sits is noted too (the block it falls in), for the print edition's page marks.
+ */
+private fun blocksOf(xhtml: String, path: String, anchors: Set<String> = emptySet(), found: MutableMap<String, Int>? = null): List<Block> {
     val body = xhtml.substringAfter("<body", xhtml).substringAfter('>')
     val out = mutableListOf<Block>()
     val text = StringBuilder()
@@ -184,6 +220,7 @@ private fun blocksOf(xhtml: String, path: String): List<Block> {
         val closing = t.startsWith("</")
         val name = Regex("""^</?\s*([a-zA-Z0-9:]+)""").find(t)?.groupValues?.get(1)?.lowercase()?.substringAfter(':') ?: continue
         val selfClosing = t.endsWith("/>")
+        if (found != null && !closing) attr(t, "id")?.let { if (it in anchors) found.getOrPut(it) { out.size } }
         when (name) {
             "script", "style", "head", "title" -> if (!selfClosing) skip += if (closing) -1 else 1
             "h1", "h2", "h3", "h4", "h5", "h6" -> { flush(); heading = if (closing) 0 else name[1].digitToInt() }
@@ -221,6 +258,8 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
     var book by remember { mutableStateOf<Epub?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
     val chapters = remember { mutableStateMapOf<Int, List<Block>>() }
+    /* For each chapter loaded, the block each print page begins in. */
+    val marks = remember { mutableStateMapOf<Int, Map<String, Int>>() }
     var at by remember { mutableStateOf(0) }
     val night = app.kimono.theme.LocalNight.current
     var paper by remember { mutableStateOf(if (night) Paper.Night else Paper.Paper) }
@@ -241,7 +280,9 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
         chapters[i]?.let { return it }
         val epub = book ?: return emptyList()
         val href = epub.chapters[i].href
-        val blocks = blocksOf(books.epubPart(file.address, href, cache).decodeToString(), href)
+        val found = mutableMapOf<String, Int>()
+        val blocks = blocksOf(books.epubPart(file.address, href, cache).decodeToString(), href, epub.pages.filter { it.chapter == i }.map { it.id }.toSet(), found)
+        marks[i] = found
         chapters[i] = blocks
         return blocks
     }
@@ -324,6 +365,35 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
         }
     }
 
+    /* Turning to a print page by its label ("112", "xii"), when the book marks them. */
+    fun goToPage(typed: String): Boolean {
+        val epub = book ?: return false
+        val want = typed.trim().lowercase().removePrefix("page").removePrefix("p.").trim()
+        val p = epub.pages.firstOrNull { it.label.lowercase() == want } ?: return false
+        moved = true
+        scope.launch {
+            runCatching { chapter(p.chapter) }.onSuccess { blocks ->
+                at = p.chapter
+                list.scrollToItem((if (p.id.isEmpty()) 0 else marks[p.chapter]?.get(p.id) ?: 0).coerceIn(0, (blocks.size - 1).coerceAtLeast(0)))
+                if (p.chapter + 1 < epub.chapters.size) launch { runCatching { chapter(p.chapter + 1) } }
+            }
+        }
+        return true
+    }
+    /* The print page you're on: the last one that begins on the screen (so turning to page 2 says page 2). */
+    fun printedHere(): PrintPage? {
+        val epub = book ?: return null
+        if (epub.pages.isEmpty()) return null
+        val info = list.layoutInfo
+        val lastSeen = info.visibleItemsInfo.lastOrNull { it.offset < info.viewportEndOffset - info.afterContentPadding }?.index ?: 0
+        var best: PrintPage? = null
+        for (p in epub.pages) when {
+            p.chapter < at -> best = p
+            p.chapter == at -> { val idx = if (p.id.isEmpty()) 0 else marks[at]?.get(p.id) ?: continue; if (idx <= lastSeen) best = p }
+        }
+        return best
+    }
+
     Dialog(onDismissRequest = onClose, properties = app.kimono.ui.edgeToEdgeDialog()) {
         Box(Modifier.fillMaxSize().background(paper.bg)) {
             val epub = book
@@ -391,6 +461,7 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
             if (epub != null) {
                 val within = if (!list.canScrollForward) 1f else if (list.layoutInfo.totalItemsCount > 1) list.firstVisibleItemIndex.toFloat() / (list.layoutInfo.totalItemsCount - 1) else 0f
                 val fraction = ((at + within) / epub.chapters.size).coerceIn(0f, 1f)
+                val printed = printedHere()?.label?.let { "p. $it · " } ?: ""
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(if (chrome) paper.bg else Color.Transparent).navigationBarsPadding()) {
                     AnimatedVisibility(chrome, enter = fadeIn(), exit = fadeOut()) {
                         /* With the bars up, one compact row: turn back, a bar to jump anywhere, turn on; where you are above it. */
@@ -398,7 +469,7 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
                             var seeking by remember { mutableStateOf<Float?>(null) }
                             val showing = seeking ?: fraction
                             val chapterAt = ((showing * epub.chapters.size).toInt().coerceIn(0, epub.chapters.size - 1))
-                            Text(if (seeking != null) epub.chapters[chapterAt].title else if (finished) "Finished · on your shelf as Read" else "Chapter ${chapterAt + 1} of ${epub.chapters.size} · ${(showing * 100).toInt()}%",
+                            Text(if (seeking != null) epub.chapters[chapterAt].title else if (finished) "Finished · on your shelf as Read" else "${printed}Chapter ${chapterAt + 1} of ${epub.chapters.size} · ${(showing * 100).toInt()}%",
                                 color = paper.ink.copy(alpha = .7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -415,13 +486,24 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
                         Box(Modifier.weight(1f).height(3.dp).clip(CircleShape).background(paper.ink.copy(alpha = .1f))) {
                             Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceAtLeast(.01f)).background(paper.ink.copy(alpha = .4f)))
                         }
-                        Text("${(fraction * 100).toInt()}%", color = paper.ink.copy(alpha = .45f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 12.dp))
+                        Text("$printed${(fraction * 100).toInt()}%", color = paper.ink.copy(alpha = .45f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 12.dp))
                     }
                 }
             }
         }
         if (contents && book != null) InkSheet(onDismissRequest = { contents = false }, seed = "contents", wash = false) {
             Text("Contents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            /* Books that carry the print edition's pages can be opened at one: what you'd cite, or what a class says to turn to. */
+            book!!.pages.takeIf { it.isNotEmpty() }?.let { pages ->
+                var typed by remember { mutableStateOf("") }
+                var wrong by remember { mutableStateOf(false) }
+                OutlinedTextField(typed, { typed = it; wrong = false }, label = { Text("Go to page") }, singleLine = true, isError = wrong,
+                    placeholder = { Text(printedHere()?.label ?: pages.first().label) },
+                    supportingText = if (wrong) { { Text("${pages.first().label}–${pages.last().label}") } } else null,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { if (goToPage(typed)) contents = false else wrong = true }),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp))
+            }
             LazyColumn(Modifier.heightIn(max = 520.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                 itemsIndexed(book!!.chapters) { i, c ->
                     Row(Modifier.fillMaxWidth().clickable { contents = false; go(i) }.padding(horizontal = 24.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
