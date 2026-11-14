@@ -1,6 +1,7 @@
 package app.kimono.watch.tv
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -145,14 +146,12 @@ private fun FriendBlock(f: Friend, m: FriendsModel, go: Go) {
     }
 }
 
-/** Friends on the TV's Home: a + (the Friends page), then round faces, whoever's watching now first with a ring; a face opens their card. */
+/** Friends on the TV's Home: a + (the Friends page), then round faces, whoever's watching now first with a ring; a face opens their card. Always there, with no friends yet too. */
 @Composable
 fun TvHomeFriends(go: Go, onFriends: () -> Unit, modifier: Modifier = Modifier) {
     val m = rememberFriends(go)
-    val watch = app.kimono.watch.LocalWatch.current
-    if (watch.prefs.state.collectAsState().value?.friendsOnHome == false) return
-    val page = m.page ?: return
-    val friends = page.friends.filter { it.sharing }
+    val page = m.page
+    val friends = page?.friends.orEmpty().filter { it.sharing }
     val live = friends.count { it.now != null }
     var picked by remember { mutableStateOf<String?>(null) }
     Column(modifier.padding(bottom = 28.dp)) {
@@ -166,6 +165,12 @@ fun TvHomeFriends(go: Go, onFriends: () -> Unit, modifier: Modifier = Modifier) 
                     }
                 }
             }
+            if (page != null && friends.isEmpty()) item("none") {
+                Column(Modifier.height(140.dp).padding(start = 8.dp), verticalArrangement = Arrangement.Center) {
+                    Text("See what friends are watching", style = ui(17, FontWeight.Bold))
+                    Text("and watch together.", style = ui(15, color = Night.fg3), modifier = Modifier.padding(top = 2.dp))
+                }
+            }
             items(friends, key = { it.username }) { f ->
                 Pill(onClick = { picked = f.username }, shape = RoundedCornerShape(14.dp)) {
                     Column(Modifier.width(112.dp).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -173,14 +178,6 @@ fun TvHomeFriends(go: Go, onFriends: () -> Unit, modifier: Modifier = Modifier) 
                         Text(f.shown.substringBefore(' '), style = ui(15, FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
                         Text(f.now?.title?.name ?: f.recent.firstOrNull()?.let { ago(it.at) } ?: "", style = ui(12, if (f.now != null) FontWeight.Bold else FontWeight.Normal, if (f.now != null) Night.blush else Night.fg3),
                             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 6.dp))
-                    }
-                }
-            }
-            item("hide") {
-                Pill(onClick = { app.kimono.watch.phone.hideFriendsRow(watch) }, shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.width(112.dp).padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(88.dp).padding(5.dp).border(2.dp, Night.line, CircleShape), contentAlignment = Alignment.Center) { app.kimono.watch.ui.I(Ic.close, 30.dp, Night.fg3) }
-                        Text("Hide", style = ui(15, FontWeight.Bold, Night.fg2), modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
