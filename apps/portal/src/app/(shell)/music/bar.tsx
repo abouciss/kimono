@@ -28,8 +28,10 @@ export function PlayerChrome() {
 
 /* ── A slider: the song's place, and the volume ────────────────────────── */
 
-function Slider({ value, max, onChange, onCommit, label, format, className }: {
+function Slider({ value, max, onChange, onCommit, label, format, className, wave, still }: {
   value: number; max: number; onChange?: (v: number) => void; onCommit: (v: number) => void; label: string; format?: (v: number) => string; className?: string;
+  /** The song's place: drawn as the phone's ink wave (Material's media bar), flat while `still` (paused). */
+  wave?: boolean; still?: boolean;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
@@ -50,7 +52,9 @@ function Slider({ value, max, onChange, onCommit, label, format, className }: {
       if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); onCommit(Math.min(max, value + step)); }
       if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); onCommit(Math.max(0, value - step)); }
     }}>
-    <span className="km-slider-rail"><span className="km-slider-fill" /></span>
+    {wave
+      ? <span className="km-slider-wave" aria-hidden="true"><InkWave value={max ? shown / max : 0} still={still} glide={false} label="" /></span>
+      : <span className="km-slider-rail"><span className="km-slider-fill" /></span>}
     <span className="km-slider-knob" />
   </div>;
 }
@@ -128,7 +132,8 @@ function SongPlace({ under = false }: { under?: boolean }) {
   const p = usePlayer();
   const { position, duration } = usePosition();
   const [scrub, setScrub] = useState<number | null>(null);
-  const rail = <Slider label="Place in the song" value={position} max={duration} format={(v) => `${clock(v)} of ${clock(duration)}`} onChange={setScrub} onCommit={(v) => { setScrub(null); p.seek(v); }} />;
+  const rail = <Slider label="Place in the song" value={position} max={duration} format={(v) => `${clock(v)} of ${clock(duration)}`} onChange={setScrub} onCommit={(v) => { setScrub(null); p.seek(v); }}
+    wave still={!p.playing || p.waiting} className="km-slider-is-wave" />;
   if (under) return <div className="km-seek km-seek-under">{rail}<span className="km-time">{clock(scrub ?? position)}</span><span className="km-time">{clock(duration)}</span></div>;
   return <div className="km-seek"><span className="km-time">{clock(scrub ?? position)}</span>{rail}<span className="km-time">{clock(duration)}</span></div>;
 }

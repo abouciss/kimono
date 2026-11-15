@@ -94,7 +94,6 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
   }, [sk, titleId, ep?.season, ep?.episode]);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [buffered, setBuffered] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -201,7 +200,7 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
     Object.assign(live.current, { creditsDone: false, prepared: false, autoSkipped: false, loading: true, avoid: opts.avoid ?? [] });
     v.pause();
     setLoading(true); setProblem(null); setPost(null); setPostOut(false); setSkip(null); setCue(""); setPinfo(false); setSheet(null);
-    setTime(0); setDuration(0); setBuffered(0); setCtl(true); setEnded(false);
+    setTime(0); setDuration(0); setCtl(true); setEnded(false);
     /* A new start (not the one open() just began): the ring from the top. */
     if (ring.current.step !== 0) startRing();
     try {
@@ -525,7 +524,6 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
     const onPause = () => { setPaused(true); if (!live.current.loading) { save(); showCtl(true); } };
     const onWaiting = () => setBuffering(true);
     const onGoing = () => setBuffering(false);
-    const onProgress = () => { if (v.buffered.length && v.duration) setBuffered(v.buffered.end(v.buffered.length - 1) / v.duration); };
     const onMeta = () => {
       setDuration(v.duration || 0);
       /* Pick the tracks the server planned, from the stream's own lists. */
@@ -591,14 +589,14 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("play", onPlay); v.addEventListener("pause", onPause);
     v.addEventListener("waiting", onWaiting); v.addEventListener("playing", onGoing); v.addEventListener("canplay", onGoing); v.addEventListener("seeked", onGoing);
-    v.addEventListener("progress", onProgress); v.addEventListener("loadedmetadata", onMeta); v.addEventListener("ended", onEnded);
+    v.addEventListener("loadedmetadata", onMeta); v.addEventListener("ended", onEnded);
     v.textTracks?.addEventListener("change", onCue);
     const cueTimer = setInterval(onCue, 250);
     return () => {
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("play", onPlay); v.removeEventListener("pause", onPause);
       v.removeEventListener("waiting", onWaiting); v.removeEventListener("playing", onGoing); v.removeEventListener("canplay", onGoing); v.removeEventListener("seeked", onGoing);
-      v.removeEventListener("progress", onProgress); v.removeEventListener("loadedmetadata", onMeta); v.removeEventListener("ended", onEnded);
+      v.removeEventListener("loadedmetadata", onMeta); v.removeEventListener("ended", onEnded);
       v.textTracks?.removeEventListener("change", onCue);
       clearInterval(cueTimer);
     };
@@ -914,8 +912,8 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
         onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); const f = atX(event.clientX); setDrag(f); peek(f); showCtl(true); }}
         onPointerUp={(event) => { if (drag === null) return; const v = video.current; const f = atX(event.clientX); setDrag(null); setPeekAt(null); if (v && v.duration) { seekTo(f * v.duration); setTime(v.currentTime); } showCtl(); }}>
         <div className="kw-track" ref={track}>
-          <div className="kw-buf" style={{ width: `${buffered * 100}%` }} />
-          <div className="kw-fill" style={{ width: `${(shownT / d) * 100}%` }} />
+          {/* Material's wavy media bar in ink, as on the phone: flat while paused. */}
+          <span className="kw-wave" aria-hidden="true"><InkWave value={d ? shownT / d : 0} still={paused} glide={drag === null ? undefined : false} label="" /></span>
           {segs.map(([a, b]) => <div key={a} className="kw-seg" style={{ left: `${(a / d) * 100}%`, width: `${((b - a) / d) * 100}%` }} />)}
           <div className="kw-knob" style={{ left: `${(shownT / d) * 100}%` }} />
           <div className="kw-thumb" style={{ left: thumbLeft }}>
