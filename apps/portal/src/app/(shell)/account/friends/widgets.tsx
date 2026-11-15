@@ -41,7 +41,7 @@ export type BoardData = {
   books?: BooksExtras;
   color: string;
   /** Your own profile, not seen as a friend: friend requests waiting, whether friends see your friends, the rows you keep to yourself ("watch:watching") and how to share one. */
-  own?: { asking: number; kept: boolean; keptRows?: string[]; friendsOnlyRows?: string[]; onShare?: (row: string, to: "friends" | "everyone") => void };
+  own?: { asking: number; kept: boolean; keptRows?: string[]; friendsOnlyRows?: string[]; publicProfile?: boolean; onShare?: (row: string, to: "friends" | "everyone") => void };
 };
 
 const kinds: { kind: WidgetKind; name: string; says: string; icon: LineIconName; sizes: WidgetSize[]; size: WidgetSize }[] = [
@@ -170,12 +170,12 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
         onDragEnd={() => setDragging(null)}>
         <WidgetView w={w} d={data} onEditLinks={onEditLinks} />
         {/* Kept to yourself: said on the widget, with the way to share it right there. */}
-        {!arranging && widgetRow[w.kind] && keptRows.includes(widgetRow[w.kind]!) ? <span className="wg-kept">
-          <LineIcon name="lock" /><span>Only you</span>
-          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, "friends")}>Show</button> : null}
-        </span> : !arranging && widgetRow[w.kind] && friendsOnlyRows.includes(widgetRow[w.kind]!) ? <span className="wg-kept is-friends">
-          <LineIcon name="people" /><span>Friends only</span>
-          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, "everyone")}>Everyone</button> : null}
+        {!arranging && widgetRow[w.kind] && keptRows.includes(widgetRow[w.kind]!) ? <span className="wg-kept" title="Your privacy settings keep this to you">
+          <LineIcon name="lock" /><span>{data.own?.publicProfile ? "Nobody else sees this" : "Friends don't see this"}</span>
+          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, data.own?.publicProfile ? "everyone" : "friends")}>Share</button> : null}
+        </span> : !arranging && widgetRow[w.kind] && friendsOnlyRows.includes(widgetRow[w.kind]!) ? <span className="wg-kept" title="Your privacy settings keep this to friends">
+          <LineIcon name="people" /><span>Only friends see this</span>
+          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, "everyone")}>Make public</button> : null}
         </span> : null}
         {arranging ? <div className="wg-edit">
           <button type="button" className="wg-x" aria-label={`Remove ${kindOf(w.kind).name}`} onClick={() => drop(w.id)}><LineIcon name="close" /></button>

@@ -283,9 +283,11 @@ export function ProfileView({ username, home = false, standalone = false }: { us
   const color = colorOf(p.open ? p.color : null);
   /* The widgets are the profile: what each app shows, and your friends, live in them. */
   /* What you keep to yourself, row by row ("watch:watching"): a whole app kept keeps all its rows. */
-  const keptRows = privacy ? privacy.apps.flatMap((a) => a.rows.filter((r) => !a.shown || !r.shown).map((r) => `${a.app}:${r.kind}`)) : [];
-  /* On a public profile: what friends see and the link doesn't. */
-  const friendsOnlyRows = privacy?.visibility === "public" ? privacy.apps.flatMap((a) => a.rows.filter((r) => a.shown && r.shown && (a.everyone === false || r.everyone === false)).map((r) => `${a.app}:${r.kind}`)) : [];
+  /* Warnings only where a widget is narrower than the profile: kept to you on a profile others see, or friends-only on a public one. */
+  const seen = privacy && !privacy.invisible && privacy.visibility !== "private";
+  const keptRows = seen ? privacy.apps.flatMap((a) => a.rows.filter((r) => !a.shown || !r.shown).map((r) => `${a.app}:${r.kind}`)) : [];
+  const friendsOnlyRows = seen && privacy.visibility === "public" ? privacy.apps.flatMap((a) => a.rows.filter((r) => a.shown && r.shown && (a.everyone === false || r.everyone === false)).map((r) => `${a.app}:${r.kind}`)) : [];
+  const publicProfile = privacy?.visibility === "public";
   /* Shares one row as far as asked: its app first if the whole app was kept back. */
   const shareRow = async (row: string, to: "friends" | "everyone") => {
     const [app] = row.split(":");
@@ -296,7 +298,7 @@ export function ProfileView({ username, home = false, standalone = false }: { us
       setToast(to === "everyone" ? "Everyone sees it" : "Friends see it"); await load();
     } catch (e) { setProblem(message(e)); }
   };
-  const board = p.open ? { person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex, own: p.you && !preview ? { asking: asked, kept: Boolean(friendsKept), keptRows, friendsOnlyRows, onShare: (row: string, to: "friends" | "everyone") => void shareRow(row, to) } : undefined } : null;
+  const board = p.open ? { person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex, own: p.you && !preview ? { asking: asked, kept: Boolean(friendsKept), keptRows, friendsOnlyRows, publicProfile, onShare: (row: string, to: "friends" | "everyone") => void shareRow(row, to) } : undefined } : null;
   /* Invisible, seen as a friend: what they get is your name and portrait. */
   const closedToFriends = preview && invisible;
 
@@ -437,7 +439,7 @@ function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy
       <div className="fr-wsw-modes is-three" role="radiogroup" aria-label="Who sees your profile">
         {([
           ["friends", "people", "Friends", "Your friends see what you choose below"],
-          ["public", "link", "Anyone with the link", "You choose what's for friends and what's for everyone"],
+          ["public", "link", "Public", "Anyone with the link; you choose what's for friends and what's for everyone"],
           ["private", "lock", "Only me", "Friends see your name and picture"],
         ] as const).map(([v, icon, name, says]) => <button key={v} type="button" role="radio" aria-checked={now.visibility === v} className={now.visibility === v ? "is-on" : undefined} onClick={() => void change({ visibility: v })}>
           <LineIcon name={icon} /><b>{name}</b><small>{says}</small>
