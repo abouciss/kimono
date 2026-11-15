@@ -87,6 +87,11 @@ export function HomeView() {
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!home) return <Loading />;
   const first = p.you.name.split(/\s+/)[0];
+  const personal = home.listenAgain.length >= 6;
+  const chart = <section className="km-chart">
+    <header><h2 className="k-heading">{personal ? "Popular right now" : home.charts.title}</h2><Crossing kind="kakejiku" className="km-shelf-all" href={hrefOf.mix("chart")}>Show all</Crossing></header>
+    <Songs tracks={home.charts.items.slice(0, 10)} source={{ kind: "mix", id: "chart", title: home.charts.title }} numbered className="km-chart-songs" />
+  </section>;
   return <div className="km-page km-home">
     <header className="km-hello">
       <Crossing kind="kakejiku" href="/music/you" className="km-hello-you" aria-label="Your music">
@@ -105,25 +110,32 @@ export function HomeView() {
     </div>
 
     <PartyInvites />
+    {home.listenAgain.length >= 6 ? <ListenAgain tracks={home.listenAgain} /> : null}
     {friends?.length ? <FriendsListening friends={friends} /> : null}
     <SentToYou />
 
-    {/* A mix or two sits beside the chart; more get a shelf of their own. */}
-    <div className={home.mixes.length && home.mixes.length <= 2 ? "km-duo" : "km-duo is-single"}>
+    {home.yourArtists.length ? <Shelf title="Your artists">
+      {home.yourArtists.map((a) => <ArtistCard key={a.key} artist={a} />)}
+    </Shelf> : null}
+
+    {/* Someone new starts from the chart, beside a mix or two; once you've a history, it waits further down. */}
+    {personal ? <>
       {home.mixes.length ? <Shelf title="Made for you">
         {home.mixes.map((m) => <SetCard key={m.id} title={m.title} sub={`${m.items.length} songs`} covers={[...new Set(m.items.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))]}
           href={hrefOf.mix(m.id)} onPlay={() => p.play(m.items, 0, { kind: "mix", id: m.id, title: m.title })} />)}
       </Shelf> : null}
-
-      <section className="km-chart">
-        <header><h2 className="k-heading">{home.charts.title}</h2><Crossing kind="kakejiku" className="km-shelf-all" href={hrefOf.mix("chart")}>Show all</Crossing></header>
-        <Songs tracks={home.charts.items.slice(0, 10)} source={{ kind: "mix", id: "chart", title: home.charts.title }} numbered className="km-chart-songs" />
-      </section>
-    </div>
-
-    {home.artists.length ? <Shelf title={home.greeting === "back" ? "Artists for you" : "Popular artists"}>
-      {home.artists.map((a) => <ArtistCard key={a.key} artist={a} />)}
-    </Shelf> : null}
+      {home.artists.length ? <Shelf title="Artists for you">{home.artists.map((a) => <ArtistCard key={a.key} artist={a} />)}</Shelf> : null}
+      {chart}
+    </> : <>
+      <div className={home.mixes.length && home.mixes.length <= 2 ? "km-duo" : "km-duo is-single"}>
+        {home.mixes.length ? <Shelf title="Made for you">
+          {home.mixes.map((m) => <SetCard key={m.id} title={m.title} sub={`${m.items.length} songs`} covers={[...new Set(m.items.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))]}
+            href={hrefOf.mix(m.id)} onPlay={() => p.play(m.items, 0, { kind: "mix", id: m.id, title: m.title })} />)}
+        </Shelf> : null}
+        {chart}
+      </div>
+      {home.artists.length ? <Shelf title={home.greeting === "back" ? "Artists for you" : "Popular artists"}>{home.artists.map((a) => <ArtistCard key={a.key} artist={a} />)}</Shelf> : null}
+    </>}
 
     {home.albums.length ? <Shelf title="Popular albums">
       {home.albums.map((a) => <AlbumCard key={a.key} album={a} />)}
@@ -136,6 +148,61 @@ export function HomeView() {
       </div>
     </section> : null}
   </div>;
+}
+
+/**
+ * Listen again: the songs you play most, nine to a page (three by three), and
+ * swiped sideways for the next nine. The first page is your top nine.
+ */
+function ListenAgain({ tracks }: { tracks: Track[] }) {
+  const p = usePlayer();
+  const row = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(0);
+  const pages: Track[][] = [];
+  for (let i = 0; i < tracks.length; i += 9) pages.push(tracks.slice(i, i + 9));
+  const source = { kind: "history", id: "most", title: "Listen again" } as const;
+  const turn = (by: number) => {
+    const el = row.current;
+    const target = el?.children[Math.max(0, Math.min(pages.length - 1, page + by))] as HTMLElement | undefined;
+    if (el && target) el.scrollTo({ left: target.offsetLeft - el.offsetLeft - parseFloat(getComputedStyle(el).scrollPaddingLeft || "0"), behavior: "smooth" });
+  };
+  const onScroll = () => {
+    const el = row.current;
+    if (!el) return;
+    const first = el.children[0] as HTMLElement | undefined;
+    const w = first ? first.offsetWidth + parseFloat(getComputedStyle(el).columnGap || "0") : el.clientWidth;
+    setPage(Math.round(el.scrollLeft / w));
+  };
+  return <section className="km-again">
+    <header>
+      <span className="km-again-who">
+        <Portrait name={p.you.name} username={p.you.username} picture={p.you.picture} size={36} />
+        <span><small>{p.you.name.split(/\s+/)[0]}</small><h2 className="k-heading">Listen again</h2></span>
+      </span>
+      {pages.length > 1 ? <span className="km-again-turn">
+        <button type="button" className="km-iconbtn" aria-label="Back" disabled={page === 0} onClick={() => turn(-1)}><Icon name="back" /></button>
+        <button type="button" className="km-iconbtn km-again-next" aria-label="More" disabled={page >= pages.length - 1} onClick={() => turn(1)}><Icon name="back" /></button>
+      </span> : null}
+    </header>
+    <div className="km-again-row" ref={row} onScroll={onScroll}>
+      {pages.map((list, n) => <div key={n} className="km-again-page">
+        {list.map((t) => {
+          const i = tracks.indexOf(t);
+          const now = p.current?.key === t.key;
+          return <button key={t.key} type="button" className={cx("km-again-tile", now && "km-now")} onClick={() => now ? p.toggle() : p.play(tracks, i, source)} aria-label={`Play ${t.title}`}>
+            <span className="km-again-art">
+              <Cover src={t.album?.cover} className="km-again-cover" />
+              {i < 3 ? <span className="km-again-rank" aria-hidden="true">{i + 1}</span> : null}
+              {now && p.playing ? <span className="km-again-on"><Bars /></span> : null}
+            </span>
+            <span className="km-again-title">{t.title}</span>
+            <span className="km-again-sub">{t.artists.map((a) => a.name).join(", ")}</span>
+          </button>;
+        })}
+      </div>)}
+    </div>
+    {pages.length > 1 ? <span className="km-again-dots" aria-hidden="true">{pages.map((_, n) => <i key={n} className={cx(n === page && "is-on")} />)}</span> : null}
+  </section>;
 }
 
 /** What friends are on: live first, each with the song (press it to play it) and when. */

@@ -56,7 +56,8 @@ data class Album(
 
 @Serializable
 data class MusicHome(
-    val greeting: String = "new", val jumpBack: List<Track> = emptyList(), val mixes: List<TrackRow> = emptyList(), val artists: List<Artist> = emptyList(),
+    val greeting: String = "new", val jumpBack: List<Track> = emptyList(),
+    val listenAgain: List<Track> = emptyList(), val yourArtists: List<Artist> = emptyList(), val mixes: List<TrackRow> = emptyList(), val artists: List<Artist> = emptyList(),
     val charts: TrackRow? = null, val albums: List<Album> = emptyList(), val playlists: List<Playlist> = emptyList(), val genres: List<Genre> = emptyList(),
 )
 

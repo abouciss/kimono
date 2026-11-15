@@ -380,7 +380,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             /* Music: Home, You and Search in the bar; an artist, album, song, playlist or party opened over them. */
             fun musicGo(to: String) { if (to == "music" || to == "music/you" || to == "music/search") goTab(to) else nav.navigate(to) }
             val gold = app.kimono.data.Music.GOLD
-            composable("music") { AppAccentTheme(gold) { app.kimono.screens.MusicHomeScreen(player, me?.name?.substringBefore(' ')?.takeIf { it.isNotBlank() }, ::musicGo) { goTab("music/search") } } }
+            composable("music") { AppAccentTheme(gold) { app.kimono.screens.MusicHomeScreen(player, me, ::musicGo) { goTab("music/search") } } }
             composable("music/you") { AppAccentTheme(gold) { app.kimono.screens.MusicYouScreen(player, me, ::musicGo) { goTab("music/search") } } }
             composable("music/search") { AppAccentTheme(gold) { app.kimono.screens.MusicSearchScreen(player, ::musicGo) { goTab("music") } } }
             composable("music/liked") { AppAccentTheme(gold) { app.kimono.screens.MusicLikedScreen(player, ::musicGo) { nav.popBackStack() } } }
