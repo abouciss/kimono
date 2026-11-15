@@ -315,7 +315,13 @@ fun ArtistTile(artist: Artist, go: MusicGo, width: Dp = 120.dp) {
 
 @Composable
 fun PlaylistTile(player: MusicPlayer, pl: Playlist, go: MusicGo, width: Dp = 148.dp) =
-    SleeveTile(pl.name, if (pl.count == 1) "1 song" else "${pl.count} songs", pl.covers.firstOrNull(), player.source?.kind == "playlist" && player.source?.id == pl.id && player.playing, width, covers = pl.covers) { go(MusicRoutes.playlist(pl.id)) }
+    SleeveTile(pl.name, when {
+        pl.invited -> "Asked by ${pl.owner ?: "a friend"}"
+        pl.owner != null -> "By ${pl.owner}"
+        pl.shared > 0 -> "Shared · ${songs(pl.count)}"
+        pl.public -> "Public · ${songs(pl.count)}"
+        else -> songs(pl.count)
+    }, pl.covers.firstOrNull(), player.source?.kind == "playlist" && player.source?.id == pl.id && player.playing, width, covers = pl.covers) { go(MusicRoutes.playlist(pl.id)) }
 
 /* ── A song's menu ──────────────────────────────────────────────────────── */
 
@@ -359,7 +365,8 @@ fun AddToPlaylist(player: MusicPlayer, tracks: List<Track>, onDone: () -> Unit) 
     var lists by remember { mutableStateOf<List<Playlist>?>(null) }
     var naming by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) { lists = runCatching { player.music.playlists() }.getOrDefault(emptyList()) }
+    /* Only ones you can add to: yours, and ones you've joined (not ones you're only asked onto). */
+    LaunchedEffect(Unit) { lists = runCatching { player.music.playlists() }.getOrDefault(emptyList()).filter { !it.invited } }
     InkSheet(onDismissRequest = onDone, seed = "add") {
         InkTitle("Add to playlist", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         if (naming) {
@@ -444,3 +451,5 @@ fun MusicProblem(text: String, retry: () -> Unit) {
 
 /** Point on a circle, for drawing. */
 internal fun around(c: Offset, r: Float, degrees: Float) = Offset(c.x + r * cos(degrees * PI.toFloat() / 180f), c.y + r * sin(degrees * PI.toFloat() / 180f))
+
+internal fun songs(n: Int) = if (n == 1) "1 song" else "$n songs"

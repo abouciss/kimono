@@ -53,6 +53,8 @@ private val glyphs: Map<String, List<String>> = mapOf(
     "file" to listOf("M41 36 H54 L60 42 V64 H41 Z", "M54 36 V42 H60"),
     "code" to listOf("M43 40 L34 50 L43 60", "M57 40 L66 50 L57 60", "M53 37 L47 63"),
     /* An open book, its two pages meeting at the spine: Books. */
+    /* A note, its head tilted and its flag curling: Music (packages/ui glyphs). */
+    "music" to listOf("M37.34 62.16a7 5.5-18 1 0 13.32-4.32a7 5.5-18 1 0-13.32 4.32z", "M50.5 58V35C54 40 61 41 63 49"),
     "book" to listOf("M50 41 C44 37 38 36 33 37 V62 C38 61 44 62 50 66 C56 62 62 61 67 62 V37 C62 36 56 37 50 41 Z", "M50 41 V66"),
 )
 

@@ -444,6 +444,10 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     }
     AppAccentTheme(app.kimono.data.Music.GOLD) {
         app.kimono.screens.NowPlaying(player) { to -> nav.navigate(to) }
+        /* Asked once, the first time Music is opened with a friend. */
+        var askedSharing by remember { mutableStateOf(false) }
+        if (inMusic) askedSharing = true
+        if (askedSharing) app.kimono.screens.MusicSharingAsk(player)
         if (inMusic && !player.nowPlayingOpen) player.toast?.let { app.kimono.screens.Toast(it, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (chrome) 150.dp else 24.dp)) }
     }
     }

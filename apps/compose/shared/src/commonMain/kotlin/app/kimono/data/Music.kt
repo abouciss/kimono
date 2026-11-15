@@ -43,7 +43,11 @@ data class Album(
 )
 
 @Serializable data class Artist(val key: String, val name: String, val picture: String? = null, val fans: Long = 0, val tags: List<String> = emptyList())
-@Serializable data class Playlist(val id: String, val name: String, val count: Int = 0, val covers: List<String> = emptyList(), val updatedAt: String = "")
+/** `owner`: whose it is when it isn't yours; `invited`: you've been asked on and haven't answered; `shared`: how many have joined. */
+@Serializable data class Playlist(
+    val id: String, val name: String, val count: Int = 0, val covers: List<String> = emptyList(), val updatedAt: String = "",
+    val public: Boolean = false, val shared: Int = 0, val owner: String? = null, val invited: Boolean = false,
+)
 @Serializable data class TrackRow(val id: String, val title: String, val items: List<Track> = emptyList())
 @Serializable data class Genre(val id: Int, val name: String, val picture: String? = null)
 @Serializable data class LyricLine(val at: Double, val line: String)
@@ -65,12 +69,19 @@ data class MusicMe(
 @Serializable data class ArtistPage(val artist: Artist, val top: List<Track> = emptyList(), val albums: List<Album> = emptyList(), val related: List<Artist> = emptyList(), val rating: String? = null)
 @Serializable data class AlbumPage(val album: Album, val rating: String? = null)
 @Serializable data class TrackPage(val track: Track, val rating: String? = null)
+@Serializable data class PlaylistMember(val username: String, val name: String = "", val picture: String? = null, val joined: Boolean = false)
 @Serializable
 data class PlaylistPage(
     val id: String, val name: String, val updatedAt: String = "", val tracks: List<Track> = emptyList(), val owner: MusicPerson? = null, val mine: Boolean = true,
-    /** Public, private or shared, once the web's playlists have them. */
-    val visibility: String? = null,
-)
+    /** owner, member (joined, edits the songs), invited (asked, hasn't answered), listener (a friend's public one). */
+    val role: String? = null, val public: Boolean = false, val members: List<PlaylistMember> = emptyList(),
+) {
+    val who get() = role ?: if (mine) "owner" else "listener"
+    val edits get() = who == "owner" || who == "member"
+    val joined get() = members.filter { it.joined }
+}
+@Serializable data class SharingChoice(val key: String, val says: String, val on: Boolean = false)
+@Serializable data class SharingAsk(val ask: Boolean = false, val asks: List<SharingChoice> = emptyList())
 @Serializable data class SearchResults(val tracks: List<Track> = emptyList(), val albums: List<Album> = emptyList(), val artists: List<Artist> = emptyList())
 @Serializable data class SongStatus(val stage: String, val fraction: Double? = null)
 @Serializable data class QueueSource(val kind: String, val id: String, val title: String)
@@ -163,10 +174,19 @@ class Music(val session: Session) {
     suspend fun setPlaylist(id: String, keys: List<String>): PlaylistPage = send<OnePlaylist>("playlists/${id.encodeURLPathPart()}", HttpMethod.Patch, buildJsonObject { putJsonArray("keys") { keys.forEach { add(it) } } }).playlist
     suspend fun addToPlaylist(id: String, keys: List<String>): PlaylistPage = send<OnePlaylist>("playlists/${id.encodeURLPathPart()}", HttpMethod.Patch, buildJsonObject { putJsonArray("add") { keys.forEach { add(it) } } }).playlist
     suspend fun deletePlaylist(id: String) { session.call("$BASE/playlists/${id.encodeURLPathPart()}", HttpMethod.Delete) }
-    /** Sets who sees a playlist ("public", "private"), where the Portal has it; false where it doesn't yet. */
-    suspend fun setVisibility(id: String, visibility: String): Boolean = runCatching {
-        send<OnePlaylist>("playlists/${id.encodeURLPathPart()}", HttpMethod.Patch, buildJsonObject { put("visibility", visibility) }); true
-    }.getOrDefault(false)
+    /** A change to a playlist's sharing: `{public}`, `{invite}`, `{drop}`, `{join}`, `{leave}`. Answers the playlist as it is now. */
+    suspend fun changePlaylist(id: String, body: JsonObject): PlaylistPage = send<OnePlaylist>("playlists/${id.encodeURLPathPart()}", HttpMethod.Patch, body).playlist
+    suspend fun setPublic(id: String, on: Boolean) = changePlaylist(id, buildJsonObject { put("public", on) })
+    suspend fun invite(id: String, username: String) = changePlaylist(id, buildJsonObject { put("invite", username) })
+    suspend fun drop(id: String, username: String) = changePlaylist(id, buildJsonObject { put("drop", username) })
+    suspend fun join(id: String) = changePlaylist(id, buildJsonObject { put("join", true) })
+    suspend fun leave(id: String) { session.call("$BASE/playlists/${id.encodeURLPathPart()}", HttpMethod.Patch) { contentType(ContentType.Application.Json); setBody(buildJsonObject { put("leave", true) }.toString()) } }
+
+    /** Whether Music should ask, the first time, what friends see of it. */
+    suspend fun sharingAsk(): SharingAsk = json.decodeFromString(session.call("/api/v1/profile/sharing?app=music"))
+    suspend fun saveSharing(on: List<String>) {
+        session.call("/api/v1/profile", HttpMethod.Patch) { contentType(ContentType.Application.Json); setBody(buildJsonObject { put("share", "music"); putJsonArray("on") { on.forEach { add(it) } } }.toString()) }
+    }
 
     /** The song's audio on this Kimono: AAC in MP4, with byte ranges. */
     fun streamUrl(key: String) = "${session.server.orEmpty()}$BASE/stream?key=${q(key)}"
