@@ -45,6 +45,8 @@ interface IosHost {
     fun openSignIn(url: String, redirect: String, done: (String?) -> Unit)
     /** A photo from the picker, squared to a 512×512 PNG, or null. */
     fun pickPicture(done: (NSData?) -> Unit)
+    /** A photo from the picker, cut 3:1 from the middle to a 2400×800 JPEG, or null. */
+    fun pickBanner(done: (NSData?) -> Unit)
     fun openUrl(url: String)
     fun cacheDir(): String
     /** Shows a downloaded file in Quick Look, with its share button. */
@@ -122,6 +124,8 @@ private class IosPlatform(private val host: IosHost) : Platform {
         suspendCancellableCoroutine { waiting -> host.openSignIn(url, redirect) { waiting.resume(it) } }
     override suspend fun pickPicture(): ByteArray? =
         suspendCancellableCoroutine { waiting -> host.pickPicture { waiting.resume(it?.toByteArray()) } }
+    override suspend fun pickBanner(): ByteArray? =
+        suspendCancellableCoroutine { waiting -> host.pickBanner { waiting.resume(it?.toByteArray()) } }
     override val os = "ios"
     override fun openUrl(url: String) = host.openUrl(url)
     /* Only for the schemes listed under LSApplicationQueriesSchemes; any other answers false. */

@@ -48,6 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -261,18 +263,65 @@ fun WidgetView(w: Widget, d: BoardData, act: BoardActions) {
 
 /* ── The record ───────────────────────────────────────────────────────── */
 
+/*
+ * What's playing: the sleeve on a wash of the cover's own colours. While they
+ * listen the record slides out of it and turns; stopped, it tucks back in.
+ */
 @Composable
 private fun Turntable(w: Widget, d: BoardData, act: BoardActions) {
-    val l = d.music?.listening
-    Card(onClick = l?.let { { act.openWeb(songPath(it.track.key)) } }) {
+    val l = d.music?.listening ?: return Card { Empty("music", "Nothing played yet") }
+    val cover = d.pic(sharp(l.track.album?.cover))
+    Card(color = Color(0xFF16110E), onClick = { act.openWeb(songPath(l.track.key)) }) {
+        if (cover != null) AsyncImage(cover, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.8f; scaleY = 1.8f; alpha = .6f }.blur(36.dp))
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.Black.copy(alpha = .45f), Color.Black.copy(alpha = .15f)))))
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val disc = when (w.size) { "s" -> min(maxWidth.value, maxHeight.value) * .78f; "m" -> maxHeight.value - 28f; else -> min(maxWidth.value * .74f, maxHeight.value * .66f) }.dp
-            Laid(w.size, { Record(d.pic(sharp(l?.track?.album?.cover)), l?.live == true, disc) }, if (l == null) ({ Sub("Nothing played yet", align = TextAlign.Center) }) else ({
-                Kicker(if (l.live) "Listening now" else "Last listened · ${ago(l.at)}", live = l.live)
-                Title(l.track.title, big = w.size == "l" || w.size == "xl", align = if (w.size == "m") null else TextAlign.Center)
-                Sub(l.track.by, align = if (w.size == "m") null else TextAlign.Center)
-                if (w.size == "xl") l.track.album?.let { Sub(it.title, align = TextAlign.Center) }
-            }))
+            val mw = maxWidth.value; val mh = maxHeight.value
+            val words: @Composable ColumnScope.() -> Unit = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    if (l.live) Bars()
+                    Text(if (l.live) "Now" else ago(l.at), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White.copy(alpha = .8f))
+                }
+                Title(l.track.title, big = w.size == "l" || w.size == "xl", color = Color.White)
+                Sub(l.track.by, color = Color.White.copy(alpha = .72f))
+                if (w.size == "xl") l.track.album?.let { Sub(it.title, color = Color.White.copy(alpha = .6f)) }
+            }
+            when (w.size) {
+                "s" -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Sleeve(cover, l.live, min(mw / 1.6f, mh * .72f).dp) }
+                "m", "xl" -> Row(Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Sleeve(cover, l.live, min(mh - 28f, mw * .36f).dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp), content = words)
+                }
+                else -> Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom)) {
+                    Sleeve(cover, l.live, min(mw / 1.6f, mh * .5f).dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp), content = words)
+                }
+            }
+        }
+    }
+}
+
+/** The album's sleeve with its record behind it: out and turning while [live], tucked nearly away when not. */
+@Composable
+private fun Sleeve(cover: String?, live: Boolean, side: Dp) {
+    val out by androidx.compose.animation.core.animateFloatAsState(if (live) .56f else .16f, androidx.compose.animation.core.spring(.6f, 120f), label = "out")
+    Box(Modifier.width(side * 1.58f).height(side)) {
+        Box(Modifier.offset(x = side * out, y = side * .04f)) { Record(cover, live, side * .92f) }
+        Box(Modifier.size(side).shadow(14.dp, RoundedCornerShape(5.dp)).clip(RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 3.dp, bottomEnd = 3.dp)).background(Color(0xFF2A221D)), contentAlignment = Alignment.Center) {
+            if (cover != null) AsyncImage(cover, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            else Icon(kimonoIcon("music"), null, tint = Color.White.copy(alpha = .5f), modifier = Modifier.size(side * .3f))
+        }
+    }
+}
+
+/** Four thin bars rising and falling: something is playing right now. */
+@Composable
+private fun Bars() {
+    val still = LocalStill.current
+    val t = rememberInfiniteTransition(label = "bars")
+    Row(Modifier.height(12.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        listOf(1000, 700, 1200, 850).forEach { ms ->
+            val h = if (still) .7f else t.animateFloat(.2f, 1f, infiniteRepeatable(tween(ms, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bar").value
+            Box(Modifier.width(3.dp).fillMaxHeight(h).clip(RoundedCornerShape(topStart = 1.dp, topEnd = 1.dp)).background(Color.White))
         }
     }
 }
@@ -361,7 +410,7 @@ private fun book3d(key: String, title: String, author: String?, cover: String?) 
 @Composable
 private fun bookWidth(size: String, w: Float, h: Float): Dp = when (size) {
     "s" -> min(w * .46f, h * .5f)
-    "m" -> min(w * .26f, (h - 28f) / 1.55f)
+    "m" -> min(w * .24f, (h - 44f) / 1.55f)
     else -> min(w * .4f, h * .38f)
 }.dp
 
@@ -372,7 +421,8 @@ private fun Reading(w: Widget, d: BoardData, act: BoardActions) {
     val author = b.subtitle?.substringBefore(" · ")?.trim()
     Card(onClick = { act.openBook(b.itemId) }) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            Laid(w.size, { Book3D(book3d(b.itemId, b.title, author, d.pic(b.cover)), bookWidth(w.size, maxWidth.value, maxHeight.value), still = true) }) {
+            val width = bookWidth(w.size, maxWidth.value, maxHeight.value)
+            Laid(w.size, { Lamplit(width) { Book3D(book3d(b.itemId, b.title, author, d.pic(b.cover)), width, progress = b.progress, still = true) } }) {
                 Kicker("Reading")
                 Title(b.title, big = w.size != "m", align = if (w.size == "m") null else TextAlign.Center)
                 author?.let { Sub(it, align = if (w.size == "m") null else TextAlign.Center) }
@@ -380,6 +430,34 @@ private fun Reading(w: Widget, d: BoardData, act: BoardActions) {
             }
         }
     }
+}
+
+/** A book in its own lamplight: a warm pool that breathes behind it, and specks of gold drifting up off the pages. */
+@Composable
+private fun Lamplit(width: Dp, book: @Composable () -> Unit) {
+    val still = LocalStill.current
+    val t = rememberInfiniteTransition(label = "lamp")
+    val breath = if (still) .5f else t.animateFloat(0f, 1f, infiniteRepeatable(tween(2500, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breath").value
+    val drift = if (still) 0f else t.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = LinearEasing)), label = "drift").value
+    val tint = LocalBoardColor.current
+    Box(
+        Modifier.width(width).drawBehind {
+            val r = size.width * (1.15f + .12f * breath)
+            drawCircle(Brush.radialGradient(listOf(Color(0xFFFFD38A).copy(alpha = .34f + .16f * breath), tint.copy(alpha = .14f), Color.Transparent), center, r), r, center)
+        }.drawWithContent {
+            drawContent()
+            if (still) return@drawWithContent
+            repeat(7) { i ->
+                val phase = (drift + i / 7f) % 1f
+                val x = size.width * (.12f + i * .13f) + sin((phase * 2 + i) * PI.toFloat()) * 4.dp.toPx()
+                val y = size.height * (.9f - phase * .95f)
+                val a = sin(phase * PI.toFloat())
+                drawCircle(Color(0xFFFFD282).copy(alpha = .28f * a), 5.dp.toPx(), Offset(x, y))
+                drawCircle(Color(0xFFFFE2A6).copy(alpha = .95f * a), (if (i % 2 == 0) 1.8f else 1.3f).dp.toPx(), Offset(x, y))
+            }
+        },
+        contentAlignment = Alignment.Center,
+    ) { book() }
 }
 
 @Composable
@@ -392,79 +470,63 @@ internal fun Progress(f: Float, track: Color = MaterialTheme.colorScheme.onSurfa
     }
 }
 
-/* ── Watching: a little television, switched on to the show ──────────── */
+/* ── Watching: a strip of film, the poster its frame ──────────────────── */
 
 @Composable
 private fun Watching(w: Widget, d: BoardData, act: BoardActions) {
-    val t = d.item("watch", "watching")
-    Card(onClick = t?.let { { act.openWeb(it.href ?: watchPath(it.itemId)) } }) {
+    val t = d.item("watch", "watching") ?: return Card { Empty("film", "Nothing on right now") }
+    val cover = d.pic(t.cover)
+    Card(onClick = { act.openWeb(t.href ?: watchPath(t.itemId)) }) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val tv = when (w.size) { "s" -> min(maxWidth.value * .84f, maxHeight.value * 1.05f); "m" -> min(maxWidth.value * .46f, (maxHeight.value - 28f) * 1.25f); else -> min(maxWidth.value * .86f, maxHeight.value * .82f) }.dp
-            Laid(w.size, { Television(d.pic(t?.cover), t?.subtitle, t?.progress?.toFloat(), tv) }, if (t == null) ({ Sub("Nothing on right now", align = TextAlign.Center) }) else ({
-                Kicker("Watching", live = true)
-                Title(t.title, big = w.size != "m", align = if (w.size == "m") null else TextAlign.Center)
-                t.subtitle?.let { Sub(it, align = if (w.size == "m") null else TextAlign.Center) }
-            }))
+            val mh = maxHeight
+            val words: @Composable ColumnScope.() -> Unit = {
+                Kicker("Watching")
+                Title(t.title, big = w.size != "m")
+                t.subtitle?.let { ep ->
+                    Text(ep, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = .06.sp), color = inkOf(LocalBoardColor.current),
+                        modifier = Modifier.padding(top = 4.dp).rotate(-3f).border(1.5.dp, inkOf(LocalBoardColor.current), RoundedCornerShape(3.dp)).padding(horizontal = 7.dp, vertical = 2.dp))
+                }
+            }
+            when (w.size) {
+                "s" -> FilmStrip(cover, Modifier.fillMaxSize())
+                "m" -> Row(Modifier.fillMaxSize().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    FilmStrip(cover, Modifier.fillMaxHeight().width(mh * .78f))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp), content = words)
+                }
+                else -> Column(Modifier.fillMaxSize()) {
+                    FilmStrip(cover, Modifier.fillMaxWidth().weight(1f))
+                    Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp), content = words)
+                }
+            }
+            /* How far: inked along the foot. */
+            t.progress?.takeIf { it > 0 }?.let { f ->
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .18f))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(f.toFloat().coerceIn(0f, 1f)).clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp)).background(LocalBoardColor.current))
+                }
+            }
         }
     }
 }
 
-private val Walnut = Color(0xFF6B4A35)
-
-/**
- * A wooden set with its rabbit ears: the poster on a curved screen behind
- * scanlines and glass, what's on in green on the screen, two knobs and a
- * light on its side. It switches on as it arrives: a bright line opening
- * into the picture.
- */
+/** A length of 35mm film, tilted a touch: sprocket holes along both edges and the poster in its frame. */
 @Composable
-internal fun Television(cover: String?, label: String?, progress: Float?, width: Dp) {
-    val still = LocalStill.current
-    val on = remember(cover) { Animatable(if (still || cover == null) 1f else 0f) }
-    LaunchedEffect(cover) { if (!still && cover != null) { delay(150); on.animateTo(1f, tween(900, easing = { t -> if (t < .45f) 0.02f * t / .45f else .02f + (1 - .02f) * (1 - (1 - (t - .45f) / .55f).pow(3)) })) } }
-    Column(Modifier.width(width), horizontalAlignment = Alignment.CenterHorizontally) {
-        /* The ears, on their little base. */
-        Canvas(Modifier.width(width * .5f).height(width * .17f)) {
-            val base = Offset(size.width / 2, size.height)
-            val ink = Color(0xFF6F6259)
-            listOf(-32f, 28f).forEach { deg ->
-                val rad = (deg - 90) * PI.toFloat() / 180
-                val tip = Offset(base.x + cos(rad) * size.height * 1.05f, base.y + sin(rad) * size.height * 1.05f)
-                drawLine(ink, base, tip, 2.dp.toPx(), StrokeCap.Round)
-                drawCircle(ink, 3.dp.toPx(), tip)
+private fun FilmStrip(cover: String?, modifier: Modifier) {
+    Box(
+        modifier.graphicsLayer { rotationZ = -2f; scaleX = 1.06f; scaleY = 1.06f }.background(Color(0xFF15110E)).drawWithContent {
+            drawContent()
+            val hole = Size(6.dp.toPx(), 7.dp.toPx())
+            val step = 16.dp.toPx()
+            var x = 5.dp.toPx()
+            while (x < size.width) {
+                drawRoundRect(Color(0xFFE9E2D6).copy(alpha = .85f), Offset(x, 4.dp.toPx()), hole, CornerRadius(1.5.dp.toPx()))
+                drawRoundRect(Color(0xFFE9E2D6).copy(alpha = .85f), Offset(x, size.height - 4.dp.toPx() - hole.height), hole, CornerRadius(1.5.dp.toPx()))
+                x += step
             }
-            drawRoundRect(Color(0xFF4B3F39), Offset(base.x - 8.dp.toPx(), base.y - 5.dp.toPx()), Size(16.dp.toPx(), 6.dp.toPx()), CornerRadius(6.dp.toPx(), 6.dp.toPx()))
-        }
-        Row(
-            Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(width * .12f)).clip(RoundedCornerShape(width * .12f)).background(Walnut)
-                .drawWithContent {
-                    drawContent()
-                    drawRoundRect(Color(0xFF7D583F), cornerRadius = CornerRadius(size.width * .12f), style = Stroke(2.dp.toPx()))
-                    drawLine(Color(0xFF573B2A), Offset(size.width * .1f, size.height - 2.dp.toPx()), Offset(size.width * .9f, size.height - 2.dp.toPx()), 4.dp.toPx())
-                }
-                .padding(width * .065f),
-            horizontalArrangement = Arrangement.spacedBy(width * .05f), verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.weight(1f).aspectRatio(4f / 3f).clip(RoundedCornerShape(percent = 18)).background(Color(0xFF121513))) {
-                if (cover != null) AsyncImage(cover, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { scaleY = on.value; alpha = .4f + .6f * on.value })
-                /* Scanlines, the glass over them, and the dark round its edge. */
-                Canvas(Modifier.fillMaxSize()) {
-                    var y = 0f
-                    while (y < size.height) { drawLine(Color.Black.copy(alpha = .22f), Offset(0f, y), Offset(size.width, y), 1f); y += 3f }
-                    drawRect(Brush.radialGradient(listOf(Color.White.copy(alpha = .18f), Color.Transparent), Offset(size.width * .3f, size.height * .2f), size.width * .6f))
-                    drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .55f)), center, size.maxDimension * .75f))
-                    if (on.value < .3f && cover != null) drawRect(Color.White.copy(alpha = (1 - on.value / .3f) * .9f), Offset(0f, size.height / 2 - 1.5f), Size(size.width, 3f))
-                }
-                if (label != null) Text("▶ $label", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = if (width > 200.dp) 13.sp else 9.sp, shadow = androidx.compose.ui.graphics.Shadow(Color(0xCC96FF82), blurRadius = 8f)),
-                    color = Color(0xFFC8FFB8), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp, top = 6.dp, end = 8.dp))
-                if (progress != null && progress > 0) Box(Modifier.align(Alignment.BottomCenter).padding(horizontal = 8.dp, vertical = 6.dp).fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .25f))) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(progress.coerceIn(0f, 1f)).background(Color(0xFFC8FFB8)))
-                }
-            }
-            Column(Modifier.width(width * .12f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(width * .04f)) {
-                repeat(2) { Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape).background(Color(0xFFE2DBCF)).border(width * .015f, Color(0xFFBDB4A7), CircleShape)) }
-                Box(Modifier.size(width * .04f).clip(CircleShape).background(if (cover != null) Color(0xFF8FD16A) else Color(0xFF4A3122)))
-            }
+        }.padding(horizontal = 7.dp, vertical = 15.dp),
+    ) {
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(3.dp)).background(Color(0xFF2A221D)), contentAlignment = Alignment.Center) {
+            if (cover != null) AsyncImage(cover, null, contentScale = ContentScale.Crop, alignment = androidx.compose.ui.BiasAlignment(0f, -.5f), modifier = Modifier.fillMaxSize())
+            else Icon(kimonoIcon("film"), null, tint = Color.White.copy(alpha = .5f), modifier = Modifier.size(28.dp))
         }
     }
 }

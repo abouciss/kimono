@@ -146,6 +146,7 @@ fun YouScreen(session: Session, platform: Platform, me: AccountProfile?, friends
             session.refreshMe()
         },
         settings = { open("settings") },
+        pickBanner = { platform.pickBanner() },
     ))
 }
 

@@ -55,6 +55,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -110,7 +111,7 @@ import kotlinx.coroutines.delay
 class WidgetKind(val kind: String, val name: String, val says: String, val icon: String, val sizes: List<String>, val size: String)
 
 val widgetKinds = listOf(
-    WidgetKind("listening", "Now playing", "Your record, spinning while you listen", "music", listOf("s", "m", "l", "xl"), "l"),
+    WidgetKind("listening", "Now playing", "What you're playing, the record sliding out of its sleeve while you listen", "music", listOf("s", "m", "l", "xl"), "l"),
     WidgetKind("song", "Favourite song", "One song to sum you up", "music", listOf("s", "m", "l"), "m"),
     WidgetKind("album", "Favourite album", "The record you'd take to an island", "music", listOf("s", "m", "l"), "l"),
     WidgetKind("onrepeat", "On repeat", "The song you can't stop playing", "restore", listOf("s", "m"), "m"),
@@ -217,11 +218,12 @@ fun WidgetBoard(
     var dragAt by remember { mutableStateOf(Offset.Zero) }
     var grab by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
+    val dashInk = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .4f)
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         val gap = 10.dp
         val cell = (maxWidth - gap) / 2
         val rowH = cell * .92f
-        val cells = list.map { it.size } + (if (arranging || (list.isEmpty() && editable)) listOf(if (list.isEmpty()) "m" else "s") else emptyList())
+        val cells = list.map { it.size } + (if (editable) listOf(if (list.isEmpty()) "m" else "s") else emptyList())
         val slots = pack(cells)
         val rows = slots.maxOfOrNull { it.row + it.h } ?: 0
         fun rect(s: Slot) = with(density) {
@@ -292,15 +294,28 @@ fun WidgetBoard(
                 val r = rects.last()
                 Column(
                     Modifier.offset { IntOffset(r.left.toInt(), r.top.toInt()) }.size(with(density) { r.width.toDp() }, with(density) { r.height.toDp() })
-                        .clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
-                        .clickable { if (!arranging) onArranging(true); adding = true },
+                        .clip(RoundedCornerShape(28.dp))
+                        .then(if (list.isEmpty()) Modifier.background(MaterialTheme.colorScheme.surfaceContainer) else Modifier.drawBehind {
+                            /* A dashed [ + ]: room for one more. */
+                            drawRoundRect(dashInk, cornerRadius = androidx.compose.ui.geometry.CornerRadius(28.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))))
+                        })
+                        .clickable { if (!arranging) onArranging(true); adding = true }.semantics { contentDescription = "Add a widget" },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                 ) {
-                    Icon(kimonoIcon("plus"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
-                    Text(if (list.isEmpty()) "Make this yours: add widgets" else "Add widget", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(kimonoIcon("plus"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(if (list.isEmpty()) 28.dp else 34.dp))
+                    if (list.isEmpty()) Text("Make this yours: add widgets", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
+    }
+    /* Arranging: Done, under the board. */
+    if (arranging) Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 14.dp).clip(RoundedCornerShape(topStart = 18.dp, bottomEnd = 18.dp, topEnd = 6.dp, bottomStart = 6.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(start = 18.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Hold and drag to move", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        app.kimono.ui.Seal("Done", compact = true, icon = "check", onClick = { onArranging(false) })
     }
     if (adding) Gallery(d, friends, onClose = { adding = false }) { w ->
         draft = (draft + w).take(16)

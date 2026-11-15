@@ -19,6 +19,8 @@ interface Platform {
     suspend fun openSignIn(url: String, redirect: String): String?
     /** Asks the person for a photo; returns it squared up as a 512×512 PNG, or null. */
     suspend fun pickPicture(): ByteArray?
+    /** Asks the person for a photo for their profile banner; returns it cut 3:1 from the middle as a 2400×800 JPEG, or null. */
+    suspend fun pickBanner(): ByteArray? = null
 
     /** "android" or "ios": which store a phone app lives in. */
     val os: String

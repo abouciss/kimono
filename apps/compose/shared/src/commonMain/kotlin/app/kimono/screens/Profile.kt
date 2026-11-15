@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -143,6 +144,8 @@ class OwnProfile(
     val portrait: @Composable () -> Unit,
     val rename: suspend (String) -> Unit,
     val settings: () -> Unit,
+    /** A photo for the banner, cut 3:1 (Platform.pickBanner); null when the person backs out. */
+    val pickBanner: suspend () -> ByteArray? = { null },
 )
 
 @Composable
@@ -165,6 +168,16 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
     var toast by remember { mutableStateOf<String?>(null) }
     suspend fun load() { try { profile = friends.profile(username); problem = null } catch (p: KimonoProblem) { problem = p.message } }
     LaunchedEffect(username) { load() }
+    /* Live: what they're playing and watching changes under you, so the profile reads itself again while it's in front. */
+    WhileShown(username) { while (true) { delay(12_000); runCatching { profile = friends.profile(username) } } }
+    var bannerMenu by remember { mutableStateOf(false) }
+    fun newBanner() = scope.launch {
+        try {
+            val jpeg = own?.pickBanner?.invoke() ?: return@launch
+            val banner = friends.saveBanner(jpeg)
+            profile = profile?.copy(banner = banner); toast = "Banner up"
+        } catch (e: KimonoProblem) { problem = e.message } catch (_: Exception) { problem = "Your banner could not be saved." }
+    }
     val mine = profile?.you == true
     LaunchedEffect(mine) { if (mine) runCatching { asked = friends.list().asked.size } }
     LaunchedEffect(toast) { if (toast != null) { delay(2600); toast = null } }
@@ -186,6 +199,10 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
             Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
                 KimonoTopBar("", onBack = back) {
                     if (p?.you == true) {
+                        if (!asFriend) Box(
+                            Modifier.size(40.dp).clip(CircleShape).clickable { privacyOpen = true }.semantics { contentDescription = "Who sees what" },
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(kimonoIcon("eye"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(end = 4.dp)) {
                             Text("As a friend", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Switch(asFriend, { asFriend = it; if (it) arranging = false })
@@ -209,12 +226,18 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
                         val friendsKept = p.you && (invisible || privacy?.friends == false)
                         val sections = if (preview) p.sections.filter { s -> s.app !in p.hidden && "${s.app}:${s.kind}" !in p.kept } else p.sections
                         val friendList = if (preview && friendsKept) emptyList() else p.friendList.orEmpty()
-                        Hero(p, color, own.takeIf { p.you && !preview }, preview, closedToFriends) {
-                            if (p.you && !preview) {
-                                Seal("Edit profile", compact = true, icon = "brush", onClick = { editing = true })
-                                Seal("Who sees what", compact = true, tone = SealTone.Quiet, icon = "eye", onClick = { privacyOpen = true })
-                                if (p.open) Seal(if (arranging) "Done" else "Arrange", compact = true, tone = SealTone.Quiet, icon = if (arranging) "check" else "grid", onClick = { arranging = !arranging })
-                            } else if (!p.you) when (p.link) {
+                        val mineNow = p.you && !preview && p.open
+                        Hero(
+                            p, color, own.takeIf { p.you && !preview }, preview, closedToFriends,
+                            banner = p.banner?.let { (server ?: "") + it },
+                            yours = if (mineNow) Yours(
+                                banner = { if (p.banner != null) bannerMenu = true else newBanner() },
+                                look = { editing = true },
+                                links = { editingLinks = true },
+                                bio = { text -> try { val saved = friends.saveBio(text); profile = profile?.copy(bio = saved); toast = "Saved" } catch (e: KimonoProblem) { problem = e.message } },
+                            ) else null,
+                        ) {
+                            if (!p.you) when (p.link) {
                                 "friends" -> Seal("Friends", compact = true, tone = SealTone.Quiet, icon = "check", onClick = { removing = true })
                                 "asked" -> { Seal("Not now", compact = true, tone = SealTone.Quiet, onClick = { change("no") }); Seal("Accept", compact = true, onClick = { change("yes") }) }
                                 "asking" -> Seal("Asked", compact = true, tone = SealTone.Quiet, onClick = { change("remove") })
@@ -257,6 +280,12 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
             if (privacyOpen && p != null && privacy != null) WhoSeesWhat(friends, privacy, p.username, p.off.size, onDismiss = { privacyOpen = false }, onOff = { privacyOpen = false; offOpen = true }) { now ->
                 profile = profile?.copy(privacy = now.privacy, hidden = now.hidden, kept = now.privacy.kept)
             }
+            if (bannerMenu) app.kimono.ui.InkDialog(title = "Banner", onDismiss = { bannerMenu = false }, icon = "camera", actions = {
+                Seal("Remove", compact = true, tone = SealTone.Quiet, onClick = { bannerMenu = false; scope.launch { try { friends.dropBanner(); profile = profile?.copy(banner = null); toast = "Banner off" } catch (e: KimonoProblem) { problem = e.message } } })
+                Seal("New photo", compact = true, icon = "camera", onClick = { bannerMenu = false; newBanner() })
+            }) {
+                p?.banner?.let { b -> coil3.compose.AsyncImage((server ?: "") + b, null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(16.dp))) }
+            }
             if (editing && p != null) EditProfileSheet(friends, p, own, onDismiss = { editing = false }, onLinks = { editing = false; editingLinks = true }) { next -> profile = next; toast = "Saved" }
             if (editingLinks && p != null) LinksEditor(p.links, onDismiss = { editingLinks = false }) { links ->
                 try { val saved = friends.saveLinks(links); profile = profile?.copy(links = saved); true } catch (e: KimonoProblem) { problem = e.message; false }
@@ -287,8 +316,11 @@ internal fun visibilityOf(p: Privacy) = p.visibility ?: if (p.invisible) "privat
 
 /* ── The hero ─────────────────────────────────────────────────────────── */
 
+/** What you can change on your own profile, where it stands. */
+private class Yours(val banner: () -> Unit, val look: () -> Unit, val links: () -> Unit, val bio: suspend (String) -> Unit)
+
 @Composable
-private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Boolean, closed: Boolean, actions: @Composable () -> Unit) {
+private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Boolean, closed: Boolean, banner: String?, yours: Yours?, actions: @Composable () -> Unit) {
     val still = app.kimono.screens.LocalStill.current
     val pop = remember { Animatable(if (still) 1f else 0f) }
     LaunchedEffect(Unit) { if (!still) pop.animateTo(1f, spring(.5f, 260f)) }
@@ -297,7 +329,20 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
     val socials = if (p.open && !closed) p.links.filter(::underName) else emptyList()
     val uri = LocalUriHandler.current
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Band(color, still)
+        Box {
+            Band(color, still, banner)
+            yours?.let { y ->
+                Row(
+                    Modifier.align(Alignment.TopEnd).padding(end = 24.dp, top = 14.dp).clip(RoundedCornerShape(topStart = 10.dp, bottomEnd = 10.dp, topEnd = 4.dp, bottomStart = 4.dp))
+                        .background(Color.Black.copy(alpha = .38f)).clickable(onClick = y.banner).padding(horizontal = 10.dp, vertical = 7.dp)
+                        .semantics { contentDescription = if (banner != null) "Change banner" else "Add a banner" },
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(kimonoIcon("camera"), null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Text(if (banner != null) "Banner" else "Add a banner", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
+                }
+            }
+        }
         Box(Modifier.pullUp(66.dp).graphicsLayer { scaleX = .7f + .3f * pop.value; scaleY = .7f + .3f * pop.value; alpha = pop.value }) {
             val ring = MaterialTheme.colorScheme.surface
             /* A ring of paper round the portrait, cut into the band; the camera on your own may hang over it. */
@@ -310,12 +355,19 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(p.name.ifBlank { p.username }, style = MaterialTheme.typography.headlineMedium, color = plumInk, textAlign = TextAlign.Center)
+                Row(
+                    (if (yours != null) Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = yours.look).semantics { contentDescription = "Edit name, pronouns and colour" } else Modifier),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(p.name.ifBlank { p.username }, style = MaterialTheme.typography.headlineMedium, color = plumInk, textAlign = TextAlign.Center)
+                    /* The pen stays: your name is something to change. */
+                    if (yours != null) Icon(kimonoIcon("brush"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f), modifier = Modifier.size(18.dp))
+                }
                 if (p.open && !closed && p.pronouns.isNotBlank()) Text(p.pronouns, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 6.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = .12f)).padding(horizontal = 8.dp, vertical = 2.dp))
             }
             Text("@${p.username}" + if (p.open && !closed) " · ${if (p.friends == 1) "1 friend" else "${p.friends} friends"}" else "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (socials.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 2.dp)) {
+            if (socials.isNotEmpty() || yours != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 2.dp)) {
                 socials.forEachIndexed { i, l ->
                     val arrive = remember { Animatable(if (still) 1f else 0f) }
                     LaunchedEffect(Unit) { if (!still) { delay(250L + i * 60L); arrive.animateTo(1f, spring(.45f, 300f)) } }
@@ -325,14 +377,51 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
                         contentAlignment = Alignment.Center,
                     ) { LinkMark(l.url, l.icon, 20.dp, color) }
                 }
+                /* A dashed (+) where the next link goes. */
+                if (yours != null) {
+                    val dash = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f)
+                    Box(
+                        Modifier.size(42.dp).clip(CircleShape).drawBehind {
+                            drawCircle(dash, size.minDimension / 2 - 1.dp.toPx(), style = Stroke(2.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))))
+                        }.clickable(onClick = yours.links).semantics { contentDescription = "Add a link" },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(kimonoIcon("plus"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp)) }
+                }
             }
-            if (p.open && !closed && p.bio.isNotBlank()) Text(p.bio, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
+            if (yours != null) BioInPlace(p.bio, yours.bio)
+            else if (p.open && !closed && p.bio.isNotBlank()) Text(p.bio, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
             p.kimonoRead?.takeIf { p.open && !closed }?.let { SilkscreenBadge(it.since, p.you, p.name.ifBlank { p.username }, still, null) }
             if (p.you && !preview && p.privacy?.let(::visibilityOf) == "private") Text("Only you see your profile", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             if (closed) Text("Only you see your profile, so this is all friends see.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) { actions() }
         }
     }
+}
+
+/** Your bio, changed where it sits: tap it, type, Done saves. */
+@Composable
+private fun BioInPlace(bio: String, save: suspend (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var draft by remember { mutableStateOf<String?>(null) }
+    val d = draft
+    if (d == null) {
+        Text(
+            bio.ifBlank { "Add a few words about you" },
+            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = if (bio.isBlank()) androidx.compose.ui.text.font.FontStyle.Italic else null),
+            color = if (bio.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(10.dp)).clickable { draft = bio }.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+        return
+    }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    val done = { val text = d.trim(); draft = null; if (text != bio) scope.launch { save(text) } }
+    OutlinedTextField(
+        d, { if (it.length <= 280) draft = it.replace("\n", " ") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp).focusRequester(focus),
+        placeholder = { Text("A few words about you") }, textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center), shape = RoundedCornerShape(14.dp),
+        keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done), keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { done() }),
+        trailingIcon = { Box(Modifier.size(40.dp).clip(CircleShape).clickable { done() }, contentAlignment = Alignment.Center) { Icon(kimonoIcon("check"), "Save", tint = MaterialTheme.colorScheme.primary) } },
+    )
 }
 
 /** Draws something [by] higher than it sits, and takes that much less room: the portrait on the band's edge. */
@@ -347,7 +436,15 @@ private fun Modifier.pullUp(by: androidx.compose.ui.unit.Dp) = layout { m, c ->
  * house's pattern) drifting across it slowly.
  */
 @Composable
-private fun Band(color: Color, still: Boolean) {
+private fun Band(color: Color, still: Boolean, banner: String? = null) {
+    if (banner != null) {
+        /* Their own photo across the top, a soft shade at its head under the bar's buttons. */
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 4.dp).height(136.dp).clip(RoundedCornerShape(28.dp)).background(color)) {
+            coil3.compose.AsyncImage(banner, null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Box(Modifier.fillMaxWidth().height(56.dp).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Black.copy(alpha = .25f), Color.Transparent))))
+        }
+        return
+    }
     val drift = if (still) null else rememberInfiniteTransition(label = "band").animateFloat(0f, 1f, infiniteRepeatable(tween(60_000, easing = LinearEasing)), label = "drift")
     Canvas(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 4.dp).height(136.dp).clip(RoundedCornerShape(28.dp)).background(color)) {
         val r = 22.dp.toPx()
