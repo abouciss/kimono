@@ -26,13 +26,13 @@
   background: color-mix(in srgb, var(--k-surface) 92%, transparent);
   backdrop-filter: blur(12px);
 }
-.km-top-start { display: flex; align-items: center; gap: 4px; min-width: 0; margin-right: auto; }
+.km-top-start { display: flex; align-items: center; gap: 4px; flex: none; margin-right: auto; }
 .km-back .km-icon { width: 22px; height: 22px; }
 .km-brand { display: inline-flex; align-items: center; padding: 6px 10px 6px 4px; border-radius: var(--k-r-l); transition: background var(--k-t-state); }
 .km-brand:hover { background: var(--k-container); text-decoration: none !important; }
 /* Home and You beside the name; search on the right. */
 .km-search {
-  flex: 0 1 440px; min-width: 0; display: flex; align-items: center; gap: 10px;
+  flex: 0 1 440px; min-width: 200px; display: flex; align-items: center; gap: 10px;
   height: 48px; padding: 0 16px; border-radius: var(--k-r-full);
   background: var(--k-container-high); color: var(--k-on-surface-variant);
   transition: background var(--k-t-state) var(--k-ease-settle);
@@ -424,6 +424,12 @@
 .km-toast.km-on { opacity: 1; transform: translate(-50%, 0); }
 
 /* ── Narrower screens ─────────────────────────────────────────────────── */
+
+/* Not room for the name, the tabs and search on one line: search takes its own. */
+@media (max-width: 980px) {
+  .km-top { flex-wrap: wrap; row-gap: var(--k-space-2); }
+  .km-search { flex: 1 1 100%; max-width: none; }
+}
 
 @media (max-width: 1100px) {
   .km-bar { grid-template-columns: minmax(0, 1fr) auto auto; }
