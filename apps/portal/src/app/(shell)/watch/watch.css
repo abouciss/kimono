@@ -142,7 +142,7 @@
 .kw .kw-card .kw-top10 b{font-size:11px}
 @media (max-width:899px){.kw .kw-card{width:clamp(108px,30vw,150px);aspect-ratio:2/3}.kw .kw-card .kw-t{font-size:16px}}
 
-.kw .kw-cw{width:clamp(200px,22vw,320px);display:grid;gap:0;border-radius:8px;overflow:hidden;background:var(--surface)}
+.kw .kw-cw{width:clamp(200px,22vw,320px);display:grid;grid-template-columns:minmax(0,1fr);gap:0;border-radius:8px;overflow:hidden;background:var(--surface)}
 .kw .kw-cw .kw-shot{position:relative;aspect-ratio:16/9;overflow:hidden}
 .kw .kw-cw .kw-shot img{width:100%;height:100%;object-fit:cover}
 .kw .kw-bar{height:10px;position:relative;color:var(--suo)}
@@ -974,7 +974,7 @@
 
 /* Progress is the ink wave (InkWave), as on the phone; over a picture it's light, with a shadow to read on any frame. */
 .kw .kw-th .kw-bar,.kw .kw-fr-poster .kw-bar,.kw .kw-frpop-what .kw-bar{color:#f3e7e2;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
-.kw .kw-cw .kw-bar{margin:6px 12px 0}
+.kw .kw-cw .kw-bar{width:auto;margin:6px 12px 0}
 
 /* The player's bar is the ink wave (InkWave): no flat rail under it, the knob an upright stroke, intro and credits as small ticks. */
 .kw .kw-scrub .kw-track{height:18px;background:none;border-radius:0}

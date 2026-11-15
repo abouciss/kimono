@@ -6,7 +6,7 @@ import { alike, cx, Img, Spinner, TitleMark, useTabTitle, useWatch } from "./bit
 import { subtitleClass } from "./settings";
 import { expectedOf, loadStarts, noteStep, ringValue } from "./start";
 import { FriendsAt } from "./friends";
-import { InkWave, InkRing } from "@kimono/ui";
+import { InkWave, InkRing, InkMeter } from "@kimono/ui";
 import { Icon, SeekIcon } from "./icons";
 import { attach, attachThumb, type Attached } from "./source";
 import { correction, PartyLink, positionAt, reactionSet, screenId, together, type ChatLine, type PartyView, type Person, type Reaction } from "./party";
@@ -1045,7 +1045,7 @@ function EpisodeList({ friends, episodes, ep, bySeason, season, continuous, prog
       const now = at === ep.season && e.number === ep.episode;
       const f = now ? progress : e.fraction;
       return <button key={`${at}:${e.number}`} className={cx("kw-pep", now && "kw-now")} onClick={() => { if (!now) onPick({ season: at, episode: e.number }); }}>
-        <div className="kw-th"><Img src={e.still} />{f > 0 ? <InkWave className="kw-bar" value={f} label="Watched" /> : null}</div>
+        <div className="kw-th"><Img src={e.still} />{f > 0 ? <InkMeter className="kw-bar" value={f} label="Watched" /> : null}</div>
         <div><b>{continuous ? e.absolute ?? e.number : e.number}. {e.name}</b><span>{e.runtime ? `${e.runtime}m` : ""}{e.filler ? " · Filler" : e.recap ? " · Recap" : ""}</span>
           <FriendsAt friends={friends.filter((x) => x.season === at && x.episode === e.number)} /></div>
       </button>;
