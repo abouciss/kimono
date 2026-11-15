@@ -46,6 +46,8 @@ interface Platform {
     val uploads: Uploads?
     /** This app's build number (Android's versionCode, iOS's CFBundleVersion), for knowing when to update. */
     val build: Long get() = 0
+    /** This app's version as people read it (Android's versionName, iOS's CFBundleShortVersionString): "0.31.3". */
+    val version: String get() = ""
     /**
      * Updates the app from [url]: Android downloads the package and installs
      * it over itself; an iPhone is sent where its updates come from. Returns a

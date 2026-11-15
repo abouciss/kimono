@@ -449,7 +449,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         /* Asked once, the first time Music is opened with a friend. */
         var askedSharing by remember { mutableStateOf(false) }
         if (inMusic) askedSharing = true
-        if (askedSharing) app.kimono.screens.MusicSharingAsk(player)
+        if (askedSharing) app.kimono.screens.SharingAsk(friends, "music")
         if (inMusic && !player.nowPlayingOpen) player.toast?.let { app.kimono.screens.Toast(it, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (chrome) 150.dp else 24.dp)) }
     }
     }

@@ -192,6 +192,10 @@ fun SettingsScreen(session: Session, platform: Platform, me: AccountProfile?, op
             }
             Spacer(Modifier.height(32.dp))
             KimonoGroup(listOf(GroupItem("Sign out", icon = "door", danger = true) { scope.launch { session.signOut() } }))
+            /* Which Kimono this is, quietly at the foot: what to say when something's wrong. */
+            val version = listOfNotNull(platform.version.takeIf { it.isNotBlank() }, platform.build.takeIf { it > 0 }?.let { "build $it" }).joinToString(" · ")
+            if (version.isNotEmpty()) Text("Kimono $version", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             Spacer(Modifier.height(32.dp))
         }
     }

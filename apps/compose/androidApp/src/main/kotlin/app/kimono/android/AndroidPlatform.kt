@@ -221,6 +221,7 @@ class AndroidPlatform(private val context: Context) : Platform {
     }
 
     override val build: Long get() = SelfUpdate.build(context)
+    override val version: String get() = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
 
     override suspend fun installUpdate(url: String, sha256: String?, progress: (Float) -> Unit): String? = SelfUpdate.install(context, url, sha256, progress)
 
