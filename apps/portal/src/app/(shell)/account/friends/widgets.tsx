@@ -45,7 +45,7 @@ export type BoardData = {
 };
 
 const kinds: { kind: WidgetKind; name: string; says: string; icon: LineIconName; sizes: WidgetSize[]; size: WidgetSize }[] = [
-  { kind: "listening", name: "Now playing", says: "Your record on the turntable, spinning while you listen", icon: "music", sizes: ["s", "m", "l", "xl"], size: "l" },
+  { kind: "listening", name: "Now playing", says: "What you're playing, the record sliding out of its sleeve while you listen", icon: "music", sizes: ["s", "m", "l", "xl"], size: "l" },
   { kind: "song", name: "Favourite song", says: "One song to sum you up", icon: "music", sizes: ["s", "m", "l"], size: "m" },
   { kind: "album", name: "Favourite album", says: "The record you'd take to an island", icon: "archive", sizes: ["s", "m", "l"], size: "l" },
   { kind: "onrepeat", name: "On repeat", says: "The song you can't stop playing this month", icon: "restore", sizes: ["s", "m"], size: "m" },
@@ -147,11 +147,12 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
           <span className="wg-sizes" role="group" aria-label="Size">
             {kindOf(w.kind).sizes.map((s) => <button key={s} type="button" aria-pressed={w.size === s} title={sizeName[s]} onClick={() => resize(w.id, s)}><i className={`wg-size-glyph wg-glyph-${s}`} /></button>)}
           </span>
-        </div> : null}
+        </div> : editable ? <button type="button" className="wg-arrange" onClick={start} title="Arrange" aria-label="Arrange your widgets"><LineIcon name="pin" /></button> : null}
       </div>)}
-      {arranging ? <button type="button" className="wg-cell wg-s wg-add" onClick={() => setAdding(true)}><LineIcon name="plus" /><span>Add widget</span></button> : null}
+      {arranging || (editable && list.length) ? <button type="button" className="wg-cell wg-s wg-add wg-add-dashed" onClick={() => { if (!arranging) start(); setAdding(true); }} aria-label="Add a widget"><LineIcon name="plus" /></button> : null}
       {!list.length && editable && !arranging ? <button type="button" className="wg-cell wg-m wg-add" onClick={() => { start(); setAdding(true); }}><LineIcon name="plus" /><span>Make this yours: add widgets</span></button> : null}
     </div>
+    {arranging ? <div className="wg-done"><span>Drag to move · pick a size · × to take off</span><Seal compact onClick={() => setArranging(false)}><LineIcon name="check" />Done</Seal></div> : null}
     {adding ? <Gallery data={data} hidden={list.some((x) => x.kind === "friends") ? ["friends"] : []} onClose={() => setAdding(false)} onPick={(w) => { setDraft((ws) => [...ws.filter((x) => !(w.kind === "friends" && x.kind === "friends")), w].slice(0, 16)); setAdding(false); if (!arranging) setArranging(true); }} /> : null}
   </section>;
 }
@@ -202,31 +203,25 @@ function WidgetView({ w, d, onEditLinks }: { w: Widget; d: BoardData; onEditLink
   }
 }
 
-/** The record: a vinyl with the album for its label, spinning under the arm while they listen. */
+/** What's playing: the album's sleeve on a wash of its own colours; while they listen the record slides out of it and turns. */
 function Turntable({ w, d }: { w: Widget; d: BoardData }) {
   const l = d.music?.listening;
-  if (!l) return <div className="wg-card wg-turntable"><Deck cover={null} live={false} /><Empty icon="music" text="Nothing played yet" /></div>;
+  if (!l) return <div className="wg-card wg-np is-empty"><Empty icon="music" text="Nothing played yet" /></div>;
   const by = l.track.artists.map((a) => a.name).join(", ");
-  return <Crossing kind="kakejiku" href={songHref(l.track.key)} className={`wg-card wg-turntable${l.live ? " is-live" : ""}`}>
-    <Deck cover={l.track.album?.cover ?? null} live={l.live} />
-    {w.size !== "s" ? <span className="wg-words">
-      <small className="wg-kicker">{l.live ? <><i className="wg-live" />Listening now</> : `Last listened · ${ago(l.at)}`}</small>
+  const cover = l.track.album?.cover ? l.track.album.cover.replace(/\/(\d{2,4})x\1-/, "/500x500-") : null;
+  return <Crossing kind="kakejiku" href={songHref(l.track.key)} className={`wg-card wg-np${l.live ? " is-live" : ""}`} title={`${l.track.title} · ${by}`}>
+    {cover ? <span className="wg-np-wash" style={{ backgroundImage: `url(${cover})` }} aria-hidden="true" /> : null}
+    <span className="wg-np-sleeve" aria-hidden="true">
+      <span className="wg-np-record"><span className="wg-np-label" style={cover ? { backgroundImage: `url(${cover})` } : undefined} /></span>
+      {/* eslint-disable-next-line @next/next/no-img-element -- the album's own cover */}
+      <span className="wg-np-cover">{cover ? <img src={cover} alt="" /> : <LineIcon name="music" />}</span>
+    </span>
+    {w.size !== "s" ? <span className="wg-np-words">
+      <small className="wg-np-state">{l.live ? <><span className="wg-np-bars" aria-hidden="true"><i /><i /><i /><i /></span>Now</> : ago(l.at)}</small>
       <b>{l.track.title}</b><em>{by}</em>
       {w.size === "xl" && l.track.album ? <em className="wg-album">{l.track.album.title}</em> : null}
     </span> : null}
   </Crossing>;
-}
-
-/** The record: the album for its label, turning while they listen and still when they've stopped. */
-function Deck({ cover, live }: { cover: string | null; live: boolean }) {
-  return <span className={`wg-deck${live ? " is-live" : ""}`} aria-hidden="true">
-    <span className="wg-disc">
-      {/* eslint-disable-next-line @next/next/no-img-element -- the album's own cover, as the record's label */}
-      <span className="wg-label">{cover ? <img src={cover.replace(/\/(\d{2,4})x\1-/, "/250x250-")} alt="" /> : null}</span>
-    </span>
-    <span className="wg-grooves" />
-    <span className="wg-spindle" />
-  </span>;
 }
 
 function Favourite({ w, d }: { w: Widget; d: BoardData }) {
@@ -255,31 +250,20 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
-/** What's on: a little television, switched on, the show on its screen. */
+/** What's on: a strip of film with the poster as its frame, the episode stamped beside it and how far they are inked along the foot. */
 function Watching({ w, d }: { w: Widget; d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
-  if (!t) return <div className="wg-card wg-tv-card"><Television cover={null} label={null} progress={null} /><Empty icon="film" text="Nothing on right now" /></div>;
-  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-tv-card">
-    <Television cover={t.cover} label={t.subtitle} progress={t.progress ?? null} />
-    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker"><i className="wg-live" />Watching</small><b>{t.title}</b>{t.subtitle ? <em>{t.subtitle}</em> : null}</span> : null}
+  if (!t) return <div className="wg-card wg-fs is-empty"><Empty icon="film" text="Nothing on right now" /></div>;
+  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-fs" title={t.title}>
+    {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
+    <span className="wg-fs-strip" aria-hidden="true"><span className="wg-fs-frame">{t.cover ? <img src={t.cover} alt="" /> : <LineIcon name="film" />}</span></span>
+    {w.size !== "s" ? <span className="wg-fs-words">
+      <small className="wg-kicker"><LineIcon name="film" />Watching</small>
+      <b>{t.title}</b>
+      {t.subtitle ? <span className="wg-fs-ep">{t.subtitle}</span> : null}
+    </span> : null}
+    {t.progress ? <span className="wg-fs-line" aria-label={`${Math.round(t.progress * 100)}% watched`}><i style={{ width: `${t.progress * 100}%` }} /></span> : null}
   </Crossing>;
-}
-
-function Television({ cover, label, progress }: { cover: string | null; label: string | null; progress: number | null }) {
-  return <span className={`wg-tv${cover ? " is-on" : ""}`} aria-hidden="true">
-    <span className="wg-tv-ears"><i /><i /></span>
-    <span className="wg-tv-body">
-      <span className="wg-tv-screen">
-        {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
-        {cover ? <img src={cover} alt="" /> : null}
-        <span className="wg-tv-scan" />
-        <span className="wg-tv-glass" />
-        {label ? <span className="wg-tv-osd">▶ {label}</span> : null}
-        {progress ? <span className="wg-tv-bar"><i style={{ width: `${progress * 100}%` }} /></span> : null}
-      </span>
-      <span className="wg-tv-side"><i /><i /><b /></span>
-    </span>
-  </span>;
 }
 
 function Artists({ w, d }: { w: Widget; d: BoardData }) {
