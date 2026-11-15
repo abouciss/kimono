@@ -125,6 +125,14 @@ class Books(private val session: Session) {
         contentType(ContentType.Application.Json); setBody(buildJsonObject { put("key", key); put("fraction", fraction) }.toString())
     })
 
+    /** Saves your place: offline, it's held and sent once the connection's back. The place as it stands, or null if it couldn't be kept. */
+    suspend fun savePlace(key: String, fraction: Double): Double? = try {
+        progress(key, fraction).fraction.also { keep?.placed(key, it) }
+    } catch (p: KimonoProblem) {
+        val k = keep
+        if (p.message == OFFLINE && k != null) { k.later(key, fraction); fraction } else null
+    }
+
     /**
      * Fetches a book's file into [directory], reporting bytes as they arrive.
      * A copy already fetched is used as it is; a fetch cut short carries on
@@ -168,21 +176,34 @@ class Books(private val session: Session) {
      * small requests. Parts are kept on the phone: a book read once opens at
      * once, and works offline for what's been read.
      */
-    suspend fun epubPart(address: String, path: String, cacheDir: String): ByteArray {
+    suspend fun epubPart(address: String, path: String, cacheDir: String, keep: Boolean = false): ByteArray {
         val id = kotlin.io.encoding.Base64.UrlSafe.encode(address.encodeToByteArray()).trimEnd('=')
         val clean = path.trimStart('/').split('/').joinToString("/") { it.encodeURLPathPart() }
-        val keep = Path(cacheDir, "books", "parts", id.take(80), clean.replace('/', '_').take(180))
-        runCatching { if (SystemFileSystem.exists(keep)) return SystemFileSystem.source(keep).buffered().use { it.readByteArray() } }
-        val bytes = session.respond("$BASE/epub/$id/$clean") { response ->
-            if (!response.status.isSuccess()) throw session.problemOf(response, "That book didn't open.")
-            response.bodyAsBytes()
-        }
+        val name = clean.replace('/', '_').take(180)
+        /* A downloaded book's parts first: they're there with no connection, and the OS never clears them. */
+        val kept = keptDir?.let { Path(it, "parts", id.take(80), name) }
+        runCatching { if (kept != null && SystemFileSystem.exists(kept)) return SystemFileSystem.source(kept).buffered().use { it.readByteArray() } }
+        val cached = Path(cacheDir, "books", "parts", id.take(80), name)
+        val bytes = runCatching { if (SystemFileSystem.exists(cached)) SystemFileSystem.source(cached).buffered().use { it.readByteArray() } else null }.getOrNull()
+            ?: session.respond("$BASE/epub/$id/$clean") { response ->
+                if (!response.status.isSuccess()) throw session.problemOf(response, "That book didn't open.")
+                response.bodyAsBytes()
+            }
+        val into = if (keep && kept != null) kept else cached
         runCatching {
-            keep.parent?.let { SystemFileSystem.createDirectories(it) }
-            SystemFileSystem.sink(keep).buffered().use { it.write(bytes) }
+            into.parent?.let { SystemFileSystem.createDirectories(it) }
+            if (!SystemFileSystem.exists(into)) SystemFileSystem.sink(into).buffered().use { it.write(bytes) }
         }
         return bytes
     }
+
+    /** Where a downloaded book's parts are kept (set once the phone's keeping place is known). */
+    var keptDir: String? = null
+    /** Books downloaded to read with no connection. */
+    var keep: BookKeep? = null
+
+    /** The folder a downloaded EPUB's parts are in. */
+    fun keptParts(address: String): String? = keptDir?.let { Path(it, "parts", kotlin.io.encoding.Base64.UrlSafe.encode(address.encodeToByteArray()).trimEnd('=').take(80)).toString() }
 
     /** A file's address on this Kimono, for the reader or to save a copy. */
     fun fileUrl(file: BookFile, download: Boolean = false): String =

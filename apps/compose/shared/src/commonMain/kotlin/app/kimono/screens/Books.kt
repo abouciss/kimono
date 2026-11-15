@@ -3,6 +3,7 @@
 package app.kimono.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.runtime.collectAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -302,34 +303,57 @@ private val LocalMyShelf = androidx.compose.runtime.staticCompositionLocalOf { M
 /* ── Home ───────────────────────────────────────────────────────────────── */
 
 @Composable
-fun BooksHomeScreen(books: Books, platform: app.kimono.data.Platform, firstName: String?, openSearch: () -> Unit, openShelf: () -> Unit) {
+fun BooksHomeScreen(books: Books, platform: app.kimono.data.Platform, firstName: String?, openSearch: () -> Unit, openShelf: () -> Unit, openDownloads: () -> Unit = {}) {
     var home by remember { mutableStateOf<BooksHome?>(books.knownHome()) }
     var problem by remember { mutableStateOf<String?>(null) }
+    var offline by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf<String?>(null) }
     /* A book's link opened in the app: its sheet. */
     LaunchedEffect(Unit) { app.kimono.BookAsk.key.collect { key -> if (key != null) { open = key; app.kimono.BookAsk.key.value = null } } }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    suspend fun load() { runCatching { books.home() }.onSuccess { home = it; problem = null }.onFailure { if (home == null) problem = it.message ?: "Books couldn't load." } }
+    suspend fun load() {
+        runCatching { books.home() }
+            .onSuccess { home = it; problem = null; if (offline) books.keep?.connected(); offline = false }
+            .onFailure { offline = it.message == app.kimono.data.OFFLINE; if (home == null && !offline) problem = it.message ?: "Books couldn't load." }
+    }
+    /* Offline: look again now and then. */
+    if (offline) WhileShown(Unit) { while (offline) { kotlinx.coroutines.delay(15_000); load() } }
     LaunchedEffect(Unit) { load() }
     WhileShown(Unit) { load() }
 
     val shelfLookup = remember(home?.shelf) { MyShelf(home?.shelf.orEmpty()) }
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }, containerColor = MaterialTheme.colorScheme.surface) { pad ->
-        androidx.compose.runtime.CompositionLocalProvider(LocalMyShelf provides shelfLookup) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalMyShelf provides shelfLookup, LocalKeptBooks provides books.keep) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding() + 8.dp, bottom = 120.dp)) {
             item {
                 Column(Modifier.padding(horizontal = 20.dp)) {
-                    Text("Books", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Books", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(top = 12.dp, bottom = 16.dp))
+                        /* What's on this phone: the mark says when something's on its way. */
+                        val keep = books.keep
+                        if (keep != null) {
+                            val busy = keep.waiting.collectAsState().value.isNotEmpty()
+                            val lost = keep.failed.collectAsState().value.isNotEmpty()
+                            app.kimono.ui.IconButton(onClick = openDownloads) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    MusicGlyph("downloaded", MaterialTheme.colorScheme.onSurface, 24.dp)
+                                    if (busy || lost) Box(Modifier.align(Alignment.TopEnd).size(9.dp).clip(CircleShape).background(if (lost && !busy) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary))
+                                }
+                            }
+                        }
+                    }
                     SearchPill("Title, author or ISBN", onClick = openSearch)
                 }
             }
+            if (offline) item(key = "offline") { OfflineBooks(books, platform, retry = { scope.launch { load() } }, openDownloads = openDownloads) }
             val reading = home?.shelf?.filter { it.state == "reading" }.orEmpty()
             reading.firstOrNull()?.let { lead -> item { ReadingNow(lead, more = reading.size - 1, open = { open = lead.key }, openShelf = openShelf) } }
             if (home != null && reading.isEmpty()) item {
                 Text("What are you reading${firstName?.let { ", $it" } ?: ""}?", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp))
                 Text("Find a book, put it on your shelf, and keep your place.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             }
+            if (!offline) item(key = "kept") { KeptShelf(books, platform, openDownloads) }
             home?.friends?.takeIf { it.isNotEmpty() }?.let { friends -> item {
                 ShelfRow("Friends are reading") {
                     items(friends, key = { "${it.username}:${it.book?.key}" }) { f ->
@@ -415,7 +439,11 @@ private fun BookTile(book: Book, caption: String, progress: Double? = null, badg
         }
         Text(book.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = if (mine != null) 8.dp else 12.dp))
         if (mine != null) Text("Continue reading", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        else Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            /* Downloaded, or on its way: the same small mark as a song's. */
+            LocalKeptBooks.current?.let { keep -> BookKeepMark(rememberBookState(keep, book.key), 12.dp) }
+            Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -448,7 +476,7 @@ fun BooksSearchScreen(books: Books, platform: app.kimono.data.Platform, back: ()
     }
     val shelfLookup = remember { MyShelf(books.knownHome()?.shelf.orEmpty()) }
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { pad ->
-        androidx.compose.runtime.CompositionLocalProvider(LocalMyShelf provides shelfLookup) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalMyShelf provides shelfLookup, LocalKeptBooks provides books.keep) {
         Column(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding())) {
             Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().padding(16.dp).height(56.dp)) {
                 Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -548,13 +576,19 @@ fun BookSheet(books: Books, platform: app.kimono.data.Platform, key: String, onD
     var making by remember(key) { mutableStateOf(false) }
     var gettingJob by remember(key) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val scope = rememberCoroutineScope()
+    val keep = books.keep
+    val keptHere = keep?.kept?.collectAsState()?.value?.get(key)
     LaunchedEffect(key) {
-        runCatching { books.book(key) }.onSuccess { page = it }.onFailure { if (page == null) say(it.message ?: "This book didn't open.") }
+        runCatching { books.book(key) }.onSuccess { page = it }.onFailure {
+            /* No connection, but the book's on this phone: its sheet from what was kept. */
+            val k = keep?.kept?.value?.get(key)
+            if (page == null && k != null) page = BookPage(k.book) else if (page == null) say(it.message ?: "This book didn't open.")
+        }
         runCatching { books.filesAndPreference(key) }.onSuccess { files = it.files; prefers = it.prefers }.onFailure { files = emptyList() }
     }
     readingFile?.let { f ->
         val current = page
-        BookReader(books, platform, key, current?.book?.title ?: "", f, startAt = current?.shelf?.takeIf { it.state == "reading" }?.fraction ?: 0.0,
+        BookReader(books, platform, key, current?.book?.title ?: "", f, startAt = keep?.placeOf(key) ?: current?.shelf?.takeIf { it.state == "reading" }?.fraction ?: 0.0,
             onClose = { readingFile = null }) { fraction ->
             page = page?.let { pg -> pg.copy(shelf = (pg.shelf ?: app.kimono.data.Mine("reading")).copy(state = if (fraction >= .98) "read" else "reading", fraction = fraction)) }
             changed()
@@ -630,7 +664,13 @@ fun BookSheet(books: Books, platform: app.kimono.data.Platform, key: String, onD
             /* Read it here: the ink loader while Books looks for a copy, a plain word when there isn't one. */
             /* Read, then your shelf as three small icons beside it: the chosen one opens out to say what it is. */
             Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                PillButton(if (copies.best?.sample == true) "Preview" else "Read", filled = true, modifier = Modifier.weight(1f).height(48.dp), busy = files == null || fetching != null, loaderColor = Color.Black) {
+                PillButton(if (copies.best?.sample == true && keptHere == null) "Preview" else "Read", filled = true, modifier = Modifier.weight(1f).height(48.dp), busy = (files == null && keptHere == null) || fetching != null, loaderColor = Color.Black) {
+                    /* On this phone: straight in, connection or not. */
+                    if (keptHere != null) {
+                        val pdf = keptHere.pdf
+                        if (pdf != null) platform.openFile(pdf, "application/pdf") else readingFile = keptHere.file
+                        return@PillButton
+                    }
                     val best = copies.best
                     if (best == null) { missing = true; return@PillButton }
                     /* Both ways and never asked: ask first. */
@@ -677,6 +717,9 @@ fun BookSheet(books: Books, platform: app.kimono.data.Platform, key: String, onD
                     }
                 }
             }
+            /* Download it: the whole book, to read with no connection (or the PDF). */
+            val formats = files.orEmpty().filter { (it.readable || it.preparing) && !it.sample }.map { it.format }.toSet()
+            if (keep != null && (formats.isNotEmpty() || keptHere != null)) BookKeepRibbon(keep, b, formats, Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp))
             AnimatedVisibility(missing) {
                 Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp).fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
