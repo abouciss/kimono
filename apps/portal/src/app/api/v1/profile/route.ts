@@ -1,5 +1,5 @@
 import { apiJson, apiUser, crossSite, readJson, unauthorized } from "@/lib/api-v1";
-import { changePrivacy, friendly, profileOf, putBackOnRow, removeFromRow, saveBio } from "@/lib/friends";
+import { changePrivacy, friendly, profileOf, putBackOnRow, removeFromRow, saveBio, saveLook } from "@/lib/friends";
 import { portalOrigin } from "@/lib/watch";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,11 @@ export async function PATCH(request: Request) {
     if (body.remove && typeof body.remove === "object") return apiJson(await removeFromRow(user.username, body.remove as Record<string, unknown>));
     if (body.restore && typeof body.restore === "object") return apiJson(await putBackOnRow(user.username, body.restore as Record<string, unknown>));
     if ("invisible" in body || "keep" in body || typeof body.app === "string") return apiJson(changePrivacy(user.username, body));
+    /* `{ pronouns?, color?, links?, bio? }`: how your profile looks. */
+    if ("pronouns" in body || "color" in body || "links" in body) {
+      const look = saveLook(user.username, body);
+      return apiJson("bio" in body ? { ...look, bio: saveBio(user.username, body.bio) } : look);
+    }
     return apiJson({ bio: saveBio(user.username, body.bio) });
   });
 }

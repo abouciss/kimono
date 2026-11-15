@@ -287,3 +287,22 @@ test('profiles: a title taken off a row stays off until put back, and only that 
   friends.putBackOnProfile(db, 'sami', 'books:reading', 'b1');
   assert.equal(friends.isOffProfile(friends.offProfileOf(db, 'sami'), 'books:reading', 'b1'), false);
 });
+
+test('profile links: addresses checked and made whole, titles from the site, at most eight', () => {
+  const links = friends.linksFrom([{ url: 'github.com/akram' }, { title: 'Mail me', url: 'me@example.com' }, { url: 'https://www.instagram.com/x' }]);
+  assert.deepEqual(links.map((l) => [l.title, l.url]), [
+    ['github.com', 'https://github.com/akram'], ['Mail me', 'mailto:me@example.com'], ['instagram.com', 'https://www.instagram.com/x'],
+  ]);
+  assert.throws(() => friends.linksFrom([{ url: 'javascript:alert(1)' }]), /web address/);
+  assert.throws(() => friends.linksFrom([{ url: 'localhost' }]), /web address/);
+  assert.throws(() => friends.linksFrom(Array.from({ length: 9 }, () => ({ url: 'a.com' }))), /Up to 8/);
+});
+
+test('profile look: pronouns, a house colour, links; anything else refused', () => {
+  const db = new DatabaseSync(':memory:');
+  friends.migrateSocial(db);
+  const look = friends.setLook(db, 'Ana', { pronouns: 'she/her', color: 'moss', links: [{ url: 'ana.dev' }] });
+  assert.deepEqual(look, { pronouns: 'she/her', color: 'moss', links: [{ title: 'ana.dev', url: 'https://ana.dev/' }] });
+  assert.throws(() => friends.setLook(db, 'ana', { color: 'neon' }), /colours/);
+  assert.equal(friends.lookOf(db, 'ana').color, 'moss');
+});

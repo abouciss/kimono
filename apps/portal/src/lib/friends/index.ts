@@ -10,7 +10,7 @@ import { listAccounts } from "../directory";
 import { picturePaths } from "../pictures";
 import { stateDir } from "../state";
 import {
-  answerFriend, apps, askFriend, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
+  answerFriend, apps, askFriend, setLook, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
   isInvisible, isOffProfile, offProfileList, offProfileOf, privacyOf, profileFor, putBackOnProfile, takeOffProfile, receivedBy, recommend, recommendedTo, removeFriend, seesProfile, sentBy, setAppHidden, setBio, setInvisible, setKept, unseenCount,
   type LinkState, type Recommendation, type Section,
 } from "./model";
@@ -202,6 +202,8 @@ export async function profileOf(viewer: string, username: string, origin: string
 }
 
 export const saveBio = (username: string, bio: unknown) => setBio(friendsDb(), username, bio);
+/** Your pronouns, colour and links: `{ pronouns?, color?, links? }`. */
+export const saveLook = (username: string, raw: Record<string, unknown>) => setLook(friendsDb(), username, raw);
 export const showApp = (username: string, app: string, shown: boolean) => setAppHidden(friendsDb(), username, app, !shown);
 
 /**
@@ -218,7 +220,7 @@ export function changePrivacy(username: string, body: Record<string, unknown>) {
   return { privacy: privacyOf(db, username), hidden: hiddenAppsOf(db, username) };
 }
 
-const profileRows: Record<string, string[]> = { watch: ["watching", "watched", "listed"], books: ["reading", "want", "read"] };
+const profileRows: Record<string, string[]> = { watch: ["watching", "watched", "listed"], books: ["reading", "want", "read"], music: ["playing", "loved", "playlists"] };
 const rowOf = (raw: Record<string, unknown>) => {
   const app = String(raw.app ?? ""), kind = String(raw.kind ?? ""), id = String(raw.itemId ?? "");
   if (!id) throw new FriendsProblem("Pick a title.");
@@ -294,7 +296,8 @@ export function dropRecommendationOf(username: string, id: string) {
 export type ActivityView = Omit<Activity, "from"> & { from: Person; appName: string };
 
 const recommendationHref = (r: Recommendation) =>
-  r.app === "watch" ? `/watch?t=${encodeURIComponent(r.itemId)}` : r.app === "books" ? `/books?b=${encodeURIComponent(r.itemId)}` : null;
+  r.app === "watch" ? `/watch?t=${encodeURIComponent(r.itemId)}` : r.app === "books" ? `/books?b=${encodeURIComponent(r.itemId)}`
+    : r.app === "music" && /^dz:\d+$/.test(r.itemId) ? `/music/song/${r.itemId.slice(3)}` : null;
 
 /**
  * What friends are up to, for Home (./activity.ts keeps it to what each lets friends see): watching now and
