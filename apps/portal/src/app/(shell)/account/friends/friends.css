@@ -461,3 +461,63 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 /* The words start below the band, whatever the portrait does. */
 .fr-profile-v2 .fr-hero-words { margin-top: 84px; }
 @media (max-width: 720px) { .fr-profile-v2 .fr-hero-words { margin-top: 0; } }
+
+/* ── Your links, edited as they'll look ── */
+.le { display: grid; gap: 12px; min-width: min(520px, 80vw); }
+.le-paste { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 6px 0 8px; border-radius: var(--k-r-l); background: var(--k-container-lowest); box-shadow: inset 0 0 0 1px var(--k-outline-variant); transition: box-shadow var(--k-t-state); }
+.le-paste:focus-within { box-shadow: inset 0 0 0 2px var(--k-accent, var(--k-suo)); }
+.le-paste.is-wrong:focus-within { box-shadow: inset 0 0 0 2px var(--k-suo); }
+.le-paste-mark, .le-mark { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--k-r-m); background: var(--k-container-high); color: var(--k-on-surface-variant); overflow: hidden; }
+.le-paste-mark:has(.wg-favicon), .le-mark:has(.wg-favicon) { background: #fbf6ef; }
+.le-paste-mark .wg-favicon, .le-mark .wg-favicon { width: 22px; height: 22px; animation: fr-pop .4s var(--k-spring) both; }
+.le-paste-mark .line-icon, .le-mark .line-icon { width: 20px; height: 20px; }
+.le-paste input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; outline: 0; font: 400 16px/24px var(--k-sans); color: var(--k-on-surface); }
+.le-add { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px 0 10px; border: 0; border-radius: var(--k-r-m); background: var(--k-accent, var(--k-suo)); color: #fff; font: 700 14px/20px var(--k-sans); cursor: pointer; transition: transform var(--k-t-tap), opacity var(--k-t-state); }
+.le-add:disabled { opacity: .35; cursor: default; }
+.le-add:not(:disabled):active { transform: translateY(2px); }
+.le-add .line-icon { width: 18px; height: 18px; }
+.le-hint { margin: -4px 4px 0; font-size: 13.5px; color: var(--k-on-surface-variant); }
+.le-paste.is-wrong + .le-hint { color: var(--k-suo-deep); }
+.le-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.le-link { border-radius: var(--k-r-l); background: var(--k-container-low); transition: background var(--k-t-state), opacity var(--k-t-state), transform var(--k-t-fold) var(--k-spring); animation: fr-rise .4s var(--k-spring) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.le-link:hover { background: var(--k-container); }
+.le-link.is-open { background: var(--k-container); }
+.le-link.is-dragging { opacity: .45; transform: scale(.98); }
+.le-link.is-wrong { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--k-suo) 60%, transparent); }
+.le-row { display: flex; align-items: center; gap: 8px; min-height: 60px; padding: 8px 8px 8px 4px; }
+.le-grip { display: grid; gap: 3px; width: 18px; padding: 6px 4px; cursor: grab; opacity: .5; }
+.le-grip i { display: block; height: 2px; border-radius: 1px; background: var(--k-on-surface-variant); }
+.le-words { display: grid; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.le-words b { font: 700 15px/20px var(--k-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.le-words small { font-size: 12.5px; color: var(--k-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.le-star, .le-drop, .le-order button { display: grid; place-items: center; border: 0; background: none; color: var(--k-on-surface-variant); cursor: pointer; border-radius: var(--k-r-s); }
+.le-star { width: 36px; height: 36px; }
+.le-star svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; transition: transform var(--k-t-fold) var(--k-spring); }
+.le-star:hover svg { transform: scale(1.15) rotate(-10deg); }
+.le-star.is-on { color: #d6a24a; }
+.le-star.is-on svg { fill: currentColor; }
+.le-order { display: grid; }
+.le-order button { width: 28px; height: 18px; }
+.le-order button:disabled { opacity: .25; cursor: default; }
+.le-order .line-icon { width: 16px; height: 16px; }
+.le-drop { width: 36px; height: 36px; }
+.le-drop:hover, .le-star:hover, .le-order button:not(:disabled):hover { background: var(--k-container-highest); color: var(--k-on-surface); }
+.le-drop .line-icon { width: 18px; height: 18px; }
+.le-fields { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; padding: 0 12px 12px 34px; animation: fr-rise .3s var(--k-spring) both; }
+.le-empty { display: grid; justify-items: center; gap: 8px; padding: 26px 12px; border-radius: var(--k-r-l); background: var(--k-container-low); color: var(--k-on-surface-variant); text-align: center; }
+.le-empty .line-icon { width: 28px; height: 28px; }
+.le-empty p { margin: 0; max-width: 280px; }
+.le-saved { margin-right: auto; font-size: 13px; color: var(--k-on-surface-variant); }
+.fr-edit-linksrow { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border: 0; border-radius: var(--k-r-l); background: var(--k-container-highest); color: var(--k-on-surface); text-align: left; cursor: pointer; }
+.fr-edit-linksrow > span:nth-child(2) { display: grid; flex: 1; }
+.fr-edit-linksrow b { font: 700 15px/20px var(--k-sans); }
+.fr-edit-linksrow small { font-size: 13px; color: var(--k-on-surface-variant); }
+.fr-edit-linksrow .fr-link-mark { --fr-color: var(--k-accent, var(--k-suo)); }
+@media (max-width: 720px) { .le { min-width: 0; } .le-fields { grid-template-columns: 1fr; padding-left: 12px; } .le-grip { display: none; } }
+
+/* A sheet never runs off the screen: it stops short of the window, and its body scrolls under the title and actions. */
+.ink-sheet { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); }
+.ink-sheet > .ink-sheet-head, .ink-sheet > .ink-sheet-actions, .ink-sheet > .handle { flex: none; }
+.ink-sheet > .ink-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -10px; padding-right: 10px; scrollbar-width: thin; }
+.ink-sheet:has(.wg-gallery), .ink-sheet:has(.le) { width: min(720px, 100%); }
+@media (max-width: 720px) { .ink-sheet { max-height: calc(100dvh - 12px); } }

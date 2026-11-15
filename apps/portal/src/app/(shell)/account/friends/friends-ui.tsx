@@ -10,7 +10,8 @@ import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
 import { Book3D } from "../../books/book3d";
-import { Favicon, isSocial, WidgetBoard, type MusicExtras, type Widget } from "./widgets";
+import { Favicon, isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
+import { LinksEditor } from "./links-editor";
 
 /*
  * 友 Friends, profiles and recommendations on the web (lib/friends has the
@@ -31,7 +32,7 @@ export type Section = { app: string; appName: string; kind: string; title: strin
 /** Private until you're friends: then only `open: false` and who they are comes back (lib/friends/model.ts profileFor). */
 export type Profile = Person & { you: boolean; link: "friends" | "asked" | "asking" | null } & (
   | { open: false }
-  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string }[]; widgets?: Widget[] | null; music?: MusicExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
+  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
 );
 /** What you let friends see (your own profile only): lib/friends/model.ts privacyOf. */
 export type Privacy = { invisible: boolean; friends: boolean; apps: { app: string; name: string; shown: boolean; rows: { kind: string; title: string; shown: boolean }[] }[] };
@@ -255,6 +256,7 @@ export function ProfileView({ username, home = false }: { username: string; home
   const [toast, setToast] = useState<string | null>(null);
   const [privacyOpen, setPrivacyOpen] = useState(() => typeof window !== "undefined" && new URLSearchParams(location.search).get("sheet") === "privacy");
   const [editing, setEditing] = useState(false);
+  const [editingLinks, setEditingLinks] = useState(false);
   /* Your own profile as a friend sees it. */
   const [asFriend, setAsFriend] = useState(false);
   /* Arranging the home screen's widgets (the board saves when it's done). */
@@ -338,8 +340,8 @@ export function ProfileView({ username, home = false }: { username: string; home
       </div>
     </header>
     {p.open && !closedToFriends ? <WidgetBoard
-      data={{ person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, color: color.hex }}
-      widgets={p.widgets ?? null} editable={p.you && !preview} arranging={arranging && p.you && !preview} onArranging={setArranging}
+      data={{ person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex }}
+      widgets={p.widgets ?? null} editable={p.you && !preview} arranging={arranging && p.you && !preview} onArranging={setArranging} onEditLinks={p.you && !preview ? () => setEditingLinks(true) : undefined}
       onSave={(widgets) => call<{ widgets?: Widget[] }>("/api/v1/profile", "PATCH", { widgets }).then(() => { setProfile({ ...p, widgets }); setToast("Saved"); }, (e) => setProblem(message(e)))} /> : null}
     {problem ? <p className="fr-problem" role="alert">{problem}</p> : null}
 
@@ -398,7 +400,9 @@ export function ProfileView({ username, home = false }: { username: string; home
 
     {privacyOpen && privacy ? <WhoSeesWhat privacy={privacy} offCount={off.length} onClose={() => setPrivacyOpen(false)} onOff={() => { setPrivacyOpen(false); setOffOpen(true); }}
       onChanged={(r) => { if (p.open) setProfile({ ...p, privacy: r.privacy, hidden: r.hidden, kept: keptFrom(r.privacy) }); }} /> : null}
-    {editing && p.open ? <EditProfileSheet profile={p} onClose={() => setEditing(false)} onSaved={(next) => { setProfile(next); setToast("Saved"); }} /> : null}
+    {editing && p.open ? <EditProfileSheet profile={p} onClose={() => setEditing(false)} onSaved={(next) => { setProfile(next); setToast("Saved"); }} onLinks={() => setEditingLinks(true)} /> : null}
+    {editingLinks && p.open ? <LinksEditor links={p.links} onClose={() => setEditingLinks(false)}
+      onSave={(links) => call<{ links: { title: string; url: string }[] }>("/api/v1/profile", "PATCH", { links }).then((r) => { setProfile((was) => was && was.open ? { ...was, links: r.links } : was); return true; }, (e) => { setProblem(message(e)); return false; })} /> : null}
     {removing ? <InkSheet title={`Remove ${first(p)}?`} icon="people" onClose={() => setRemoving(false)} actions={<>
       <Seal tone="quiet" compact onClick={() => setRemoving(false)}>Keep</Seal>
       <Seal tone="danger" compact onClick={() => { setRemoving(false); void change("remove"); }}>Remove</Seal>
@@ -478,26 +482,24 @@ function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy
 type Look = { pronouns: string; color: ProfileColor | null; links: { title: string; url: string }[] };
 
 /** Your name, pronouns, words, colour and links, in one place, saved together. */
-function EditProfileSheet({ profile, onClose, onSaved }: { profile: Profile & { open: true }; onClose: () => void; onSaved: (p: Profile) => void }) {
+function EditProfileSheet({ profile, onClose, onSaved, onLinks }: { profile: Profile & { open: true }; onClose: () => void; onSaved: (p: Profile) => void; onLinks: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(profile.name);
   const [pronouns, setPronouns] = useState(profile.pronouns);
   const [bio, setBio] = useState(profile.bio);
   const [color, setColor] = useState<ProfileColor | null>(profile.color);
-  const [links, setLinks] = useState(profile.links.length ? profile.links : [{ title: "", url: "" }]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const save = async () => {
     setBusy(true); setProblem(null);
     try {
       if (name.trim() && name.trim() !== profile.name) { await call("/api/v1/me", "PATCH", { name: name.trim() }); router.refresh(); }
-      const look = await call<Look & { bio: string }>("/api/v1/profile", "PATCH", { pronouns, color, bio, links: links.filter((l) => l.url.trim()) });
+      const look = await call<Look & { bio: string }>("/api/v1/profile", "PATCH", { pronouns, color, bio });
       onSaved({ ...profile, name: name.trim() || profile.name, ...look });
       onClose();
     } catch (error) { setProblem(message(error)); }
     setBusy(false);
   };
-  const setLink = (i: number, part: Partial<{ title: string; url: string }>) => setLinks((ls) => ls.map((l, j) => (j === i ? { ...l, ...part } : l)));
   return <InkSheet title="Edit profile" icon="brush" onClose={onClose} actions={<>
     <Seal tone="quiet" compact onClick={onClose}>Cancel</Seal>
     <Seal compact busy={busy} onClick={() => void save()}>Save</Seal>
@@ -513,20 +515,11 @@ function EditProfileSheet({ profile, onClose, onSaved }: { profile: Profile & { 
         <div>{profileColors.map((c) => <button key={c.id} type="button" role="radio" aria-checked={(color ?? "suo") === c.id} aria-label={c.name} title={c.name}
           style={{ "--swatch": c.hex } as React.CSSProperties} className={(color ?? "suo") === c.id ? "is-on" : undefined} onClick={() => setColor(c.id)} />)}</div>
       </div>
-      <div className="fr-edit-links">
-        <small className="fr-edit-label">Links</small>
-        {links.map((l, i) => <div key={i} className="fr-edit-link">
-          <span className="fr-link-mark"><LineIcon name={l.url ? linkMark(/^[a-z]+:/i.test(l.url) ? l.url : `https://${l.url}`) : "link"} /></span>
-          <input aria-label="Link address" placeholder="instagram.com/you" value={l.url} onChange={(e) => setLink(i, { url: e.target.value })} inputMode="url" />
-          <input aria-label="Link title" placeholder="Title" value={l.title} maxLength={40} onChange={(e) => setLink(i, { title: e.target.value })} />
-          <span className="fr-edit-move">
-            <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => setLinks((ls) => { const o = [...ls]; [o[i - 1], o[i]] = [o[i], o[i - 1]]; return o; })}><LineIcon name="up" /></button>
-            <button type="button" aria-label="Move down" disabled={i === links.length - 1} onClick={() => setLinks((ls) => { const o = [...ls]; [o[i + 1], o[i]] = [o[i], o[i + 1]]; return o; })}><LineIcon name="down" /></button>
-          </span>
-          <button type="button" className="fr-edit-drop" aria-label="Remove this link" onClick={() => setLinks((ls) => ls.length > 1 ? ls.filter((_, j) => j !== i) : [{ title: "", url: "" }])}><LineIcon name="close" /></button>
-        </div>)}
-        {links.length < 8 ? <button type="button" className="fr-edit-add" onClick={() => setLinks((ls) => [...ls, { title: "", url: "" }])}><LineIcon name="plus" />Add a link</button> : null}
-      </div>
+      <button type="button" className="fr-edit-linksrow" onClick={() => { onClose(); onLinks(); }}>
+        <span className="fr-link-mark"><LineIcon name="link" /></span>
+        <span><b>Links</b><small>{profile.links.length ? `${profile.links.length} on your profile` : "Your Instagram, your site, your playlist"}</small></span>
+        <LineIcon name="out" />
+      </button>
       {problem ? <p className="fr-problem" role="alert">{problem}</p> : null}
     </div>
   </InkSheet>;

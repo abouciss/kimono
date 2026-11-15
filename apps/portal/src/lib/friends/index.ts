@@ -201,8 +201,11 @@ export async function profileOf(viewer: string, username: string, origin: string
   const you = viewer.toLowerCase() === person.username.toLowerCase();
   const musicShown = you || (!hiddenAppsOf(db, person.username).includes("music") && !keptOf(db, person.username).includes("music:playing"));
   const music = musicShown ? await import("../music/social").then((m) => m.musicExtras(person.username)).catch(() => null) : null;
+  /* Books' widgets (reviews, the shelf): only when friends see what they've read. */
+  const booksShown = you || (!hiddenAppsOf(db, person.username).includes("books") && !keptOf(db, person.username).includes("books:read"));
+  const books = booksShown ? await import("./books-section").then((m) => m.booksExtras(person.username)).catch(() => null) : null;
   const friendList = profile.friendList?.map((f) => personIn(everyone, f)).sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)) ?? null;
-  return { ...profile, friendList, recommendations: profile.recommendations.map((r) => viewOf(r, everyone)), kimonoRead, music };
+  return { ...profile, friendList, recommendations: profile.recommendations.map((r) => viewOf(r, everyone)), kimonoRead, music, books };
 }
 
 export const saveBio = (username: string, bio: unknown) => setBio(friendsDb(), username, bio);

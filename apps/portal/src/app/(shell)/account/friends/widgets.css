@@ -36,42 +36,26 @@ a.wg-card:hover { background: var(--k-container); transform: translateY(-2px); }
 .wg-bar i { display: block; height: 100%; border-radius: inherit; background: var(--fr-color, var(--k-suo)); }
 .wg-progress small { font-size: 12px; color: var(--k-on-surface-variant); }
 
-/* ── The record on its turntable ──────────────────────────────────────── */
+/* ── The record: just the disc, turning while they listen ─────────────── */
 
-.wg-deck { position: relative; flex: none; width: 150px; aspect-ratio: 1.15; perspective: 900px; }
-.wg-l .wg-deck { width: min(88%, 300px); }
-.wg-xl .wg-deck { width: 340px; }
-.wg-s .wg-deck { width: 118px; }
-/* The shadow it casts on the card. */
-.wg-deck::after { content: ""; position: absolute; left: 8%; right: 4%; bottom: -4%; height: 26%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, .34), transparent); filter: blur(4px); z-index: -1; }
-.wg-plinth {
-  position: absolute; inset: 0; border-radius: 12% / 13%;
-  background: #7b5538; box-shadow: inset 0 0 0 2px #8c6444, inset 0 -3px 0 #6a4730, 0 9px 0 #4b3122;
-  transform: rotateX(40deg) rotateZ(-9deg); transform-style: preserve-3d; transition: transform .7s var(--k-spring);
-}
-a.wg-card:hover .wg-plinth { transform: rotateX(30deg) rotateZ(-5deg) translateY(-4px); }
-.wg-platter { position: absolute; left: 6%; top: 7%; width: 72%; aspect-ratio: 1; border-radius: 50%; background: #1c1916; box-shadow: inset 0 0 0 3px #3b342e, 0 3px 0 #0e0c0a; }
-.wg-disc { position: absolute; inset: 3.5%; border-radius: 50%; background: radial-gradient(circle, #16130f 0 30%, transparent 30.5%), repeating-radial-gradient(circle, #1d1915 0 1.2px, #0d0b09 1.2px 2.6px); }
-.wg-grooves { position: absolute; inset: 3.5%; border-radius: 50%; background: conic-gradient(from 30deg, transparent 0 10%, rgba(255, 255, 255, .16) 16%, transparent 24% 60%, rgba(255, 255, 255, .1) 66%, transparent 74%); pointer-events: none; }
+.wg-deck { position: relative; flex: none; width: 140px; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 18px 34px -16px rgba(0, 0, 0, .6); transition: transform .8s var(--k-spring); }
+.wg-l .wg-deck { width: min(78%, 250px); }
+.wg-xl .wg-deck { width: 290px; }
+.wg-s .wg-deck { width: 112px; }
+a.wg-card:hover .wg-deck { transform: scale(1.04) rotate(-8deg); }
+.wg-disc { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, #16130f 0 30%, transparent 30.5%), repeating-radial-gradient(circle, #1d1915 0 1.2px, #0d0b09 1.2px 2.6px); box-shadow: inset 0 0 0 2px #2b251f; }
+/* The light on the grooves stays where it is while the record turns under it. */
+.wg-grooves { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 30deg, transparent 0 10%, rgba(255, 255, 255, .16) 16%, transparent 24% 60%, rgba(255, 255, 255, .1) 66%, transparent 74%); pointer-events: none; }
 .wg-label { position: absolute; inset: 32%; border-radius: 50%; overflow: hidden; background: var(--fr-color, var(--k-suo)); box-shadow: 0 0 0 2px rgba(0, 0, 0, .45); }
 .wg-label img { width: 100%; height: 100%; object-fit: cover; }
 .wg-spindle { position: absolute; left: 50%; top: 50%; width: 5%; height: 5%; margin: -2.5% 0 0 -2.5%; border-radius: 50%; background: #ddd6ca; box-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
-.wg-arm-base { position: absolute; right: 6%; top: 8%; width: 15%; aspect-ratio: 1; border-radius: 50%; background: #e2dbcf; box-shadow: inset 0 0 0 4px #bdb4a7, 0 3px 0 #8f877b; }
-.wg-arm { position: absolute; right: 12.4%; top: 15%; width: 3%; height: 60%; border-radius: 3px; background: #ece6dc; box-shadow: 1px 4px 6px rgba(0, 0, 0, .35); transform-origin: 50% 3%; transform: rotate(6deg); }
-.wg-arm-head { position: absolute; left: -70%; bottom: -4%; width: 240%; height: 9%; border-radius: 2px; background: #2c2622; transform: rotate(-18deg); }
-.wg-knob { position: absolute; left: 6%; bottom: 7%; width: 9%; aspect-ratio: 1; border-radius: 50%; background: #e2dbcf; box-shadow: 0 2px 0 #8f877b; }
-.wg-led { position: absolute; right: 8%; bottom: 9%; width: 3.6%; aspect-ratio: 1; border-radius: 50%; background: #4a3122; }
-/* Playing: the arm swings onto the record, the light comes on, then the record turns. */
-.wg-deck.is-live .wg-arm { transform: rotate(27deg); animation: wg-arm-on 1.4s var(--k-spring) both; }
-.wg-deck.is-live .wg-led { background: #8fd16a; box-shadow: 0 0 8px #8fd16a; animation: wg-led 1s .9s both; }
-.wg-deck.is-live .wg-disc, .wg-deck.is-live .wg-label { animation: wg-spin 1.8s 1s linear infinite; }
-/* Last listened: the arm lifts off and goes home. */
-.wg-deck:not(.is-live) .wg-arm { animation: wg-arm-off 1.6s .3s var(--k-spring) both; }
+/* Playing: it spins up and keeps turning. Stopped: it slows and rests. */
+.wg-deck.is-live .wg-disc { animation: wg-spinup 1.2s cubic-bezier(.5, 0, .9, .6) both, wg-spin 1.8s 1.2s linear infinite; }
+.wg-deck:not(.is-live) .wg-disc { animation: wg-spindown 2.4s cubic-bezier(.15, .6, .3, 1) both; }
 @keyframes wg-spin { to { transform: rotate(360deg); } }
-@keyframes wg-arm-on { from { transform: rotate(6deg); } 55% { transform: rotate(29deg); } to { transform: rotate(27deg); } }
-@keyframes wg-arm-off { from { transform: rotate(27deg); } to { transform: rotate(6deg); } }
-@keyframes wg-led { from { background: #4a3122; box-shadow: none; } }
-@media (prefers-reduced-motion: reduce) { .wg-deck .wg-arm, .wg-deck .wg-disc, .wg-deck .wg-label, .wg-deck .wg-led { animation: none !important; } }
+@keyframes wg-spinup { to { transform: rotate(360deg); } }
+@keyframes wg-spindown { from { transform: rotate(-540deg); } }
+@media (prefers-reduced-motion: reduce) { .wg-deck .wg-disc { animation: none !important; } }
 
 /* ── Favourites: a song's cover; an album's sleeve with its record peeking out ── */
 
@@ -260,3 +244,105 @@ a.wg-card:hover, .wg-card:hover { transform: translateY(-3px); box-shadow: 0 14p
 .wg-preview .wg-cell { width: 150px; height: 150px; transform: scale(.72); animation: none; pointer-events: none; }
 /* Sites draw their icons for a light page: their marks stay light by night too. */
 .wg-link-mark:has(.wg-favicon), .fr-socials a:has(.wg-favicon) { background: #fbf6ef; }
+.wg-links-edit { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 32px; margin-top: 2px; padding: 0 10px; border: 0; border-radius: var(--k-r-s); background: none; color: var(--k-on-surface-variant); font: 700 13px/16px var(--k-sans); cursor: pointer; }
+.wg-links-edit:hover { background: var(--k-container); color: var(--k-on-surface); }
+.wg-links-edit .line-icon { width: 15px; height: 15px; }
+.wg-links-empty { border: 0; cursor: pointer; }
+
+/* ── Previews at their own shape ── */
+.wg-shelf-row { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.wg-preview { height: 132px; }
+.wg-preview .wg-cell.wg-s { width: 160px; height: 160px; transform: scale(.74); }
+.wg-preview .wg-cell.wg-m { width: 330px; height: 160px; transform: scale(.58); }
+
+/* ── A rating, as Books marks it ── */
+.wg-rated { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 6px; border-radius: var(--k-r-full); background: var(--k-container-high); font: 700 12px/16px var(--k-sans); color: var(--k-on-surface-variant); justify-self: start; }
+.wg-rated svg { width: 14px; height: 14px; fill: currentColor; }
+.wg-rated-love { color: #c2405e; background: color-mix(in srgb, #c2405e 14%, var(--k-container-high)); }
+.wg-rated-up { color: #5c7150; background: color-mix(in srgb, #5c7150 14%, var(--k-container-high)); }
+
+/* ── A review ── */
+.wg-review { align-items: flex-start; }
+.wg-l .wg-review { flex-direction: column; align-items: center; text-align: left; }
+.wg-l .wg-review .wg-words { width: 100%; }
+.wg-review-words { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; font: 500 15px/1.5 var(--k-display); color: var(--k-on-surface); quotes: "“" "”"; }
+.wg-review-words::before { content: open-quote; color: var(--fr-color, var(--k-suo)); font-size: 1.4em; line-height: 0; margin-right: 2px; }
+.wg-review-words::after { content: close-quote; color: var(--fr-color, var(--k-suo)); }
+
+/* ── A bookshelf: spines on a plank ── */
+.wg-shelfcard { flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 0; padding-bottom: 0; }
+.wg-shelfcard .wg-kicker { position: absolute; left: 16px; top: 14px; }
+.wg-shelf-books { display: flex; align-items: flex-end; gap: 3px; height: 74%; padding: 0 10px; }
+.wg-spine {
+  position: relative; flex: 1 1 0; max-width: 44px; min-width: 18px; height: var(--h); display: flex; align-items: center; justify-content: center;
+  border-radius: 3px 3px 1px 1px; overflow: hidden; text-decoration: none !important;
+  background: hsl(var(--hue) 32% 38%); background-image: var(--cover, none); background-size: auto 100%; background-position: 15% center;
+  box-shadow: inset -3px 0 0 rgba(0, 0, 0, .25), inset 2px 0 0 rgba(255, 255, 255, .12);
+  transform-origin: bottom center; transition: transform var(--k-t-fold) var(--k-spring);
+  animation: wg-spine-in .6s var(--k-spring) both; animation-delay: calc(var(--i) * 35ms);
+}
+.wg-spine::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, .35), rgba(0, 0, 0, .1) 40%, rgba(0, 0, 0, .3)); }
+.wg-spine span { position: relative; writing-mode: vertical-rl; transform: rotate(180deg); max-height: 92%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 11px/1 var(--k-display); color: #fbf6ef; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
+.wg-spine i { position: absolute; top: 5px; font-style: normal; font-size: 10px; color: #ff8fa8; }
+.wg-spine:hover { transform: translateY(-8px) rotate(-4deg); z-index: 1; }
+@keyframes wg-spine-in { from { opacity: 0; transform: translateY(16px) rotate(-6deg); } }
+.wg-plank { display: block; height: 14px; margin: 0 -16px; background: #8c6444; box-shadow: inset 0 3px 0 #a37a56, 0 -1px 0 rgba(0, 0, 0, .2); }
+
+/* ── Year in books: a ring ── */
+.wg-year { position: relative; }
+.wg-ring { flex: none; width: 104px; height: 104px; transform: rotate(-90deg); }
+.wg-s .wg-ring { position: absolute; inset: 50% auto auto 50%; margin: -52px 0 0 -52px; }
+.wg-ring-track { fill: none; stroke: var(--k-container-high); stroke-width: 9; }
+.wg-ring-fill { fill: none; stroke: #5c7150; stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray 1.2s var(--k-ease-settle); animation: wg-ring 1.4s var(--k-ease-settle) both; }
+@keyframes wg-ring { from { stroke-dasharray: 0 251.3; } }
+.wg-year-n { display: grid; justify-items: center; }
+.wg-s .wg-year-n { position: relative; }
+.wg-m .wg-year-n { position: absolute; left: 16px; width: 104px; }
+.wg-year-n b { font: 600 30px/1 var(--k-display); color: #5c7150; }
+.wg-year-n small { font-size: 12px; color: var(--k-on-surface-variant); }
+
+/* ── Watched lately: posters fanned like a hand of cards ── */
+.wg-fan { flex-direction: column; align-items: flex-start; }
+.wg-fan-cards { position: relative; flex: 1; width: 100%; }
+.wg-fan-card {
+  position: absolute; left: 50%; bottom: 0; width: 34%; max-width: 92px; aspect-ratio: 2 / 3; margin-left: -17%; border-radius: 6px; overflow: hidden;
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, .55); transform-origin: 50% 120%;
+  transform: rotate(calc((var(--i) - (var(--n) - 1) / 2) * 9deg)) translateX(calc((var(--i) - (var(--n) - 1) / 2) * 18%));
+  transition: transform .5s var(--k-spring);
+}
+.wg-fan-card img { width: 100%; height: 100%; object-fit: cover; }
+.wg-fan:hover .wg-fan-card { transform: rotate(calc((var(--i) - (var(--n) - 1) / 2) * 14deg)) translateX(calc((var(--i) - (var(--n) - 1) / 2) * 34%)); }
+.wg-fan-card:hover { z-index: 2; }
+.wg-l .wg-fan-card, .wg-xl .wg-fan-card { max-width: 130px; }
+
+/* ── A playlist, loved songs, on repeat ── */
+.wg-playlist-art { position: relative; }
+.wg-play-mark { position: absolute; right: 6px; bottom: 6px; z-index: 2; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--fr-color, var(--k-suo)); color: #fff; box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .6); transform: scale(.9); transition: transform var(--k-t-fold) var(--k-spring); }
+.wg-play-mark svg { width: 18px; height: 18px; fill: currentColor; margin-left: 2px; }
+a.wg-card:hover .wg-play-mark { transform: scale(1.08); }
+.wg-loved { align-items: center; }
+.wg-loved-stack { position: relative; flex: none; width: 104px; height: 104px; }
+.wg-loved-sleeve { position: absolute; inset: 0; border-radius: var(--k-r-s); overflow: hidden; background: var(--k-container-high); box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .5); transform: rotate(calc(var(--i) * -7deg)) translate(calc(var(--i) * -6px), calc(var(--i) * 3px)); z-index: calc(3 - var(--i)); transition: transform .5s var(--k-spring); }
+.wg-loved:hover .wg-loved-sleeve { transform: rotate(calc(var(--i) * -14deg)) translate(calc(var(--i) * -14px), calc(var(--i) * 4px)); }
+.wg-loved-sleeve img { width: 100%; height: 100%; object-fit: cover; }
+.wg-loved-line { display: block; color: inherit; text-decoration: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+.wg-loved-line b { font: 600 14px/20px var(--k-sans); display: inline; -webkit-line-clamp: unset; }
+.wg-loved-line:hover b { color: var(--fr-color, var(--k-suo)); }
+.wg-repeat-badge { position: absolute; right: -6px; top: -6px; z-index: 2; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--fr-color, var(--k-suo)); color: #fff; box-shadow: 0 0 0 3px var(--k-container-low); animation: wg-turn 4s linear infinite; }
+.wg-repeat-badge .line-icon { width: 16px; height: 16px; }
+@keyframes wg-turn { to { transform: rotate(-360deg); } }
+
+/* ── A countdown, a quote ── */
+.wg-count { display: grid; justify-items: center; flex: none; min-width: 86px; }
+.wg-count b { font: 600 46px/1 var(--k-display); color: var(--fr-color, var(--k-suo)); }
+.wg-count small { font-size: 12px; color: var(--k-on-surface-variant); }
+.wg-quote { position: relative; margin: 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px; padding: 18px 22px; background: color-mix(in srgb, var(--fr-color, var(--k-suo)) 10%, var(--k-container-low)); }
+.wg-quote-mark { position: absolute; left: 10px; top: -18px; font: 600 110px/1 var(--k-display); color: var(--fr-color, var(--k-suo)); opacity: .22; }
+.wg-quote blockquote { position: relative; margin: 0; font: 600 18px/1.4 var(--k-display); color: var(--k-on-surface); }
+.wg-l .wg-quote blockquote, .wg-xl .wg-quote blockquote { font-size: 26px; }
+.wg-quote figcaption { font-size: 13px; color: var(--k-on-surface-variant); }
+.wg-quote figcaption::before { content: "— "; }
+@media (prefers-reduced-motion: reduce) { .wg-spine, .wg-ring-fill, .wg-repeat-badge { animation: none; } }
+/* The preview is drawn at full size and shrunk round the middle of its box. */
+.wg-preview { position: relative; display: block; }
+.wg-preview .wg-cell.wg-s, .wg-preview .wg-cell.wg-m { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
