@@ -409,8 +409,9 @@ async function lastAired(cfg: WatchConfig, t: Pick<Title, "id" | "tmdbId">): Pro
   const out = known.next && known.next.airDate <= freshDay(0) ? known.next : known.last;
   return out && out.airDate >= freshSince() ? out : null;
 }
-/** Shows that lead Just out and the hero whenever they have a new episode, whoever is watching: JoJo's Bizarre Adventure (Steel Ball Run). */
+/** Shows that lead Just out and the hero on Fridays, whoever is watching: JoJo's Bizarre Adventure (Steel Ball Run). Other days they rank like anything else. */
 const alwaysFirst = ["tv-45790"];
+const pinDay = () => new Date().getDay() === 5;
 const airLooks = new Map<string, Promise<{ last: Fresh | null; next: Fresh | null }>>();
 
 /**
@@ -503,7 +504,7 @@ export async function home(cfg: WatchConfig, username: string, origin: string, s
    * Just out, as a guess at what this person wants: shows they're watching
    * (looked up even when they aren't popular), then My list, then how well the
    * show fits what they watch (anime, series or films, and genres), newer
-   * episodes and popularity breaking ties. JoJo is always first (alwaysFirst). Shows they rated down are left out.
+   * episodes and popularity breaking ties. JoJo is first on Fridays (alwaysFirst). Shows they rated down are left out.
    */
   const pinned = (await Promise.all(alwaysFirst.map((id) => ensureTitle(cfg, id).catch(() => null)))).filter((t): t is Title => Boolean(t));
   const followed = [...pinned, ...recentShows, ...mine].filter((t, i, all) => t.kind === "series" && t.id.startsWith("tv-") && all.findIndex((x) => x.id === t.id) === i && !fresh.titles.some((x) => x.id === t.id)).slice(0, 16);
@@ -518,7 +519,7 @@ export async function home(cfg: WatchConfig, username: string, origin: string, s
   const fit = (t: Title, f: Fresh, i: number) => {
     const kind = t.shelf === "Anime" ? "anime" : "series";
     const genres = f.genres.filter((g) => g !== "Animation").reduce((sum, g) => sum + (taste.genres.get(g) ?? 0), 0) / genreTop;
-    return (alwaysFirst.includes(t.id) ? 10_000 : 0) + (watching.has(t.id) ? 100 : 0) + (listed.has(t.id) ? 40 : 0) + 6 * ((taste.kinds.get(kind) ?? 0) / kindsTotal) + 4 * Math.min(1, genres / 2) + 3 * (1 - i / candidates.length) + (f.airDate >= freshDay(0) ? 3 : f.airDate >= freshDay(-1) ? 1.5 : 0);
+    return (pinDay() && alwaysFirst.includes(t.id) ? 10_000 : 0) + (watching.has(t.id) ? 100 : 0) + (listed.has(t.id) ? 40 : 0) + 6 * ((taste.kinds.get(kind) ?? 0) / kindsTotal) + 4 * Math.min(1, genres / 2) + 3 * (1 - i / candidates.length) + (f.airDate >= freshDay(0) ? 3 : f.airDate >= freshDay(-1) ? 1.5 : 0);
   };
   const freshCards = candidates.flatMap((f, i) => {
     const t = freshTitles.find((x) => x.id === f.titleId);
