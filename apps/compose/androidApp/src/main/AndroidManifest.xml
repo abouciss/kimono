@@ -14,6 +14,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Music plays on with the app closed, its controls in the notification and on the lock screen. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- New versions published on the Portal install over this one. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
@@ -52,6 +55,8 @@
                 <data android:path="/notes" />
                 <data android:path="/drive" />
                 <data android:path="/books" />
+                <data android:path="/music" />
+                <data android:pathPrefix="/music/" />
                 <data android:pathPrefix="/ai/c/" />
                 <data android:pathPrefix="/ai/a/" />
                 <data android:path="/account" />
@@ -66,6 +71,10 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".MusicService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
