@@ -128,6 +128,15 @@ private fun resolve(from: String, href: String): String {
 private fun resolveWithAnchor(from: String, href: String): String =
     resolve(from, href) + (href.substringAfter('#', "").takeIf { it.isNotEmpty() }?.let { "#$it" } ?: "")
 
+/** Every part of an EPUB by the paths the reader asks for: its container, its package, and all the package lists. */
+internal suspend fun epubAllParts(fetch: suspend (String) -> ByteArray): List<String> {
+    val container = fetch("META-INF/container.xml").decodeToString()
+    val opfPath = Regex("""full-path\s*=\s*"([^"]+)"""").find(container)?.groupValues?.get(1) ?: error("This book has no package.")
+    val opf = fetch(opfPath).decodeToString()
+    val items = Regex("""<item\b[^>]*>""", RegexOption.IGNORE_CASE).findAll(opf).mapNotNull { m -> attr(m.value, "href")?.let { resolve(opfPath, decode(it)) } }.toList()
+    return (listOf("META-INF/container.xml", opfPath) + items).distinct()
+}
+
 private suspend fun loadEpub(books: Books, file: BookFile, cache: String, fallbackTitle: String): Epub {
     val container = books.epubPart(file.address, "META-INF/container.xml", cache).decodeToString()
     val opfPath = Regex("""full-path\s*=\s*"([^"]+)"""").find(container)?.groupValues?.get(1) ?: error("This book has no package.")
@@ -312,7 +321,7 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
                 if (!moved || total == 0) return@collect
                 val within = if (!more) 1.0 else if (total > 1) first.toDouble() / (total - 1) else 0.0
                 val fraction = ((at + within) / epub.chapters.size).coerceIn(0.0, 1.0)
-                runCatching { books.progress(bookKey, fraction) }.onSuccess { onProgress(it.fraction) }
+                books.savePlace(bookKey, fraction)?.let(onProgress)
             }
     }
 
@@ -339,7 +348,7 @@ fun BookReader(books: Books, platform: app.kimono.data.Platform, bookKey: String
             when {
                 forward && atEnd && book != null && at + 1 >= book!!.chapters.size -> {
                     /* Past the last page: the book is read. */
-                    runCatching { books.progress(bookKey, 1.0) }.onSuccess { onProgress(it.fraction); finished = true }
+                    books.savePlace(bookKey, 1.0)?.let { onProgress(it); finished = true }
                 }
                 forward && atEnd -> go(at + 1)
                 !forward && atStart -> go(at - 1)

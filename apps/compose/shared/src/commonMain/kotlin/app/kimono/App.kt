@@ -169,6 +169,9 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         app.kimono.screens.phoneAppHere(target, platform, target.phoneApp?.let { phone -> flights?.let { it.appFor(phone, target.fullName)?.latest } })
     val notes = remember(session) { app.kimono.screens.NotesModel(app.kimono.data.Notes(session, platform), model.drive, platform) }
     val books = remember(session) { app.kimono.data.Books(session) }
+    /* Books downloaded to read offline: kept as long as you're signed in, carrying on in the background of the app. */
+    val booksScope = rememberCoroutineScope()
+    remember(books) { app.kimono.data.BookKeep(books, platform, booksScope) }
     /* Music's player lives as long as you're signed in, so a song plays on wherever you go in the app. */
     val musicScope = rememberCoroutineScope()
     val player = remember(session) {
@@ -234,7 +237,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     LaunchedEffect(driveOn) {
         val on = driveOn ?: return@LaunchedEffect
         platform.driveAvailable(on)
-        if (!on && route != null && route !in setOf("home", "you", "details", "devices", "password", "code", "code/{id}", "code/{id}/app", "ai/new", "ai/new/{in}", "ai/connections", "ai/connections/{app}", "ai/memory", "ai/archived", "ai/a/{token}", "ai/c/{token}", "manage", "manage/{id}", "friends", "people/{username}", "vpn", "vpn/people", "vpn/connect", "app/{id}", "notes", "notes/{notebook}", "note/{id}", "books", "books/shelf", "books/search") && !route.startsWith("music")) goTab("home")
+        if (!on && route != null && route !in setOf("home", "you", "details", "devices", "password", "code", "code/{id}", "code/{id}/app", "ai/new", "ai/new/{in}", "ai/connections", "ai/connections/{app}", "ai/memory", "ai/archived", "ai/a/{token}", "ai/c/{token}", "manage", "manage/{id}", "friends", "people/{username}", "vpn", "vpn/people", "vpn/connect", "app/{id}", "notes", "notes/{notebook}", "note/{id}", "books", "books/shelf", "books/search", "books/downloads") && !route.startsWith("music")) goTab("home")
     }
     val chrome = tab || musicBar
     Box(Modifier.fillMaxSize()) {
@@ -362,7 +365,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             fun booksAccent() = model.drive.launcher.value?.firstOrNull { it.id == app.kimono.data.Books.APP_ID }?.accent ?: "#5b6b3f"
             composable("books") {
                 AppAccentTheme(booksAccent()) {
-                    app.kimono.screens.BooksHomeScreen(books, platform, me?.name?.substringBefore(' ')?.takeIf { it.isNotBlank() }, openSearch = { goTab("books/search") }, openShelf = { goTab("books/shelf") })
+                    app.kimono.screens.BooksHomeScreen(books, platform, me?.name?.substringBefore(' ')?.takeIf { it.isNotBlank() }, openSearch = { goTab("books/search") }, openShelf = { goTab("books/shelf") }, openDownloads = { nav.navigate("books/downloads") })
                     /* The first time, with friends: does Books show on your profile? */
                     app.kimono.screens.SharingAsk(friends, "books")
                 }
@@ -370,6 +373,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             composable("books/shelf") {
                 AppAccentTheme(booksAccent()) { app.kimono.screens.BooksShelfScreen(books, platform, openSearch = { goTab("books/search") }) }
             }
+            composable("books/downloads") { AppAccentTheme(booksAccent()) { app.kimono.screens.BooksDownloadsScreen(books, platform) { nav.popBackStack() } } }
             composable("books/search") {
                 AppAccentTheme(booksAccent()) { app.kimono.screens.BooksSearchScreen(books, platform, back = { goTab("books") }) }
             }
