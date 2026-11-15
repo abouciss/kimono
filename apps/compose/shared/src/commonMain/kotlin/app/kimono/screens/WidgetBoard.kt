@@ -370,7 +370,7 @@ private fun Gallery(real: BoardData, friends: Friends, onClose: () -> Unit, onPi
         }
         if (k == null) Column(Modifier.heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             shelves.forEach { shelf ->
-                Text(shelf.title, style = MaterialTheme.typography.titleLarge.copy(fontFamily = MaterialTheme.typography.headlineSmall.fontFamily), color = shelf.tint, modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 8.dp))
+                Text(shelf.title, style = MaterialTheme.typography.titleLarge.copy(fontFamily = MaterialTheme.typography.headlineSmall.fontFamily), color = inkOf(shelf.tint), modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 8.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     shelf.kinds.forEach { kd ->
                         val x = kindOf(kd)
@@ -386,10 +386,12 @@ private fun Gallery(real: BoardData, friends: Friends, onClose: () -> Unit, onPi
                                 val (pw, ph) = if (preview == "s") 165.dp to 152.dp else 340.dp to 152.dp
                                 val scale = if (preview == "s") .74f else .62f
                                 Box(Modifier.requiredSize(pw, ph).graphicsLayer { scaleX = scale; scaleY = scale }) {
-                                    androidx.compose.runtime.CompositionLocalProvider(LocalStill provides true) {
+                                    androidx.compose.runtime.CompositionLocalProvider(LocalStill provides true, LocalArranging provides true) {
                                         WidgetView(Widget("p", kd, preview, samples[kd]?.let { s -> if (kd == "countdown") s + ("date" to sampleDate()) else s }), data, BoardActions())
                                     }
                                 }
+                                /* A preview is to look at: a tap picks it. */
+                                Box(Modifier.matchParentSize().pointerInput(Unit) {})
                             }
                             Text(x.name, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), modifier = Modifier.padding(start = 4.dp, top = 4.dp))
                             Text(x.says, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, modifier = Modifier.padding(start = 4.dp))

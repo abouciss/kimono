@@ -163,7 +163,7 @@ internal fun Card(modifier: Modifier = Modifier, color: Color = MaterialTheme.co
 }
 
 @Composable
-internal fun Kicker(text: String, color: Color = LocalBoardColor.current, live: Boolean = false) {
+internal fun Kicker(text: String, color: Color = inkOf(LocalBoardColor.current), live: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (live) LiveDot()
         Text(text, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -220,6 +220,10 @@ internal fun CountUp(to: Double, decimals: Int = 0, style: androidx.compose.ui.t
 
 /** Whether the board is being arranged: then a widget is something to move, not to open. */
 val LocalArranging = staticCompositionLocalOf { false }
+
+/** A pigment as words wear it: itself by day; by night lifted toward cream, so it reads on the dark. */
+@Composable
+internal fun inkOf(pigment: Color): Color = if (app.kimono.theme.LocalNight.current) androidx.compose.ui.graphics.lerp(pigment, Color(0xFFF2E1CA), .5f) else pigment
 
 /** Each widget's colour: the profile's own. */
 val LocalBoardColor = staticCompositionLocalOf { Kata.suo }
@@ -330,7 +334,7 @@ private fun Favourite(w: Widget, d: BoardData, act: BoardActions) {
                 Title(c["title"].orEmpty(), big = w.size != "m", align = if (w.size == "m") null else TextAlign.Center)
                 c["subtitle"]?.takeIf { it.isNotBlank() }?.let { Sub(it, align = if (w.size == "m") null else TextAlign.Center) }
                 if (times > 0) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    CountUp(times.toDouble(), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = Mincho), color = LocalBoardColor.current)
+                    CountUp(times.toDouble(), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = Mincho), color = inkOf(LocalBoardColor.current))
                     Text(if (times == 1) "play" else "plays", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
                 }
             }
@@ -571,7 +575,7 @@ private fun Stats(w: Widget, d: BoardData) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 facts.take(if (w.size == "s") 2 else 3).forEach { (n, dec, unit) ->
                     Column {
-                        CountUp(n, dec, MaterialTheme.typography.displaySmall.copy(fontFamily = Mincho, fontSize = if (w.size == "s") 28.sp else 34.sp), LocalBoardColor.current)
+                        CountUp(n, dec, MaterialTheme.typography.displaySmall.copy(fontFamily = Mincho, fontSize = if (w.size == "s") 28.sp else 34.sp), inkOf(LocalBoardColor.current))
                         Text(unit, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -698,6 +702,44 @@ fun Favicon(url: String, size: Dp, tint: Color = LocalBoardColor.current) {
     SubcomposeAsyncImage("https://$host/favicon.ico", null, modifier = Modifier.size(size), contentScale = ContentScale.Fit, loading = { mark() }, error = { mark() })
 }
 
+/** The drawn marks a link can wear instead of its site's icon (link-marks.tsx on the web), each inked as Kimono's icons are. */
+val linkGlyphs = linkedMapOf(
+    "globe" to "Website",
+    "heart" to "Heart",
+    "star" to "Star",
+    "sparkle" to "Sparkle",
+    "mail" to "Email",
+    "music" to "Music",
+    "mic" to "Podcast",
+    "book" to "Writing",
+    "pen" to "Blog",
+    "camera" to "Photos",
+    "film" to "Videos",
+    "palette" to "Art",
+    "code" to "Code",
+    "game" to "Games",
+    "bag" to "Shop",
+    "coffee" to "Support me",
+    "gift" to "Wishlist",
+    "calendar" to "Book a time",
+    "pin" to "Place",
+    "home" to "Home",
+    "phone" to "Call",
+    "chat" to "Chat",
+    "rocket" to "Project",
+    "leaf" to "Garden",
+)
+
+/** A link's mark: its chosen one (a drawn mark, or "emoji:🍵"), else the site's own icon. */
+@Composable
+fun LinkMark(url: String, icon: String?, size: Dp, tint: Color = LocalBoardColor.current) {
+    when {
+        icon != null && icon.startsWith("emoji:") -> Text(icon.removePrefix("emoji:"), fontSize = (size.value * .95f).sp, lineHeight = (size.value * 1.1f).sp)
+        icon != null && icon in linkGlyphs -> Icon(kimonoIcon("lk-$icon"), null, tint = tint, modifier = Modifier.size(size))
+        else -> Favicon(url, size, tint)
+    }
+}
+
 @Composable
 private fun Links(w: Widget, d: BoardData, act: BoardActions) {
     val own = d.links.filter { !isSocial(it.url) }
@@ -718,7 +760,7 @@ private fun Links(w: Widget, d: BoardData, act: BoardActions) {
                         .clickable { act.openUrl(l.url) }.padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Box(Modifier.size(if (featured) 42.dp else 34.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFBF6EF)), contentAlignment = Alignment.Center) { Favicon(l.url, 20.dp) }
+                    Box(Modifier.size(if (featured) 42.dp else 34.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFBF6EF)), contentAlignment = Alignment.Center) { LinkMark(l.url, l.icon, 20.dp) }
                     Column(Modifier.weight(1f)) {
                         Text(l.title, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = if (featured) Color.White else MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(hostOf(l.url).ifEmpty { l.url.removePrefix("mailto:") }, style = MaterialTheme.typography.labelSmall, color = (if (featured) Color.White else MaterialTheme.colorScheme.onSurface).copy(alpha = .7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -765,7 +807,7 @@ private fun FriendsWidget(w: Widget, d: BoardData, act: BoardActions) {
                         }
                     }
                     if (count > n) Box(Modifier.size(face).clip(CircleShape).border(1.5.dp, LocalBoardColor.current.copy(alpha = .55f), CircleShape).clickable(onClick = act.openFriends), contentAlignment = Alignment.Center) {
-                        Text("+${count - n}", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = LocalBoardColor.current)
+                        Text("+${count - n}", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = inkOf(LocalBoardColor.current))
                     }
                 }
                 if (own != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -787,7 +829,7 @@ internal fun Chip(text: String, icon: String? = null, dot: Boolean = false, onCl
     ) {
         if (dot) Box(Modifier.size(7.dp).clip(CircleShape).background(Kata.moss))
         if (icon != null) Icon(kimonoIcon(icon), null, tint = accent, modifier = Modifier.size(14.dp))
-        Text(text, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = accent)
+        Text(text, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = inkOf(accent))
     }
 }
 
@@ -1051,7 +1093,7 @@ private fun Countdown(w: Widget) {
     Card {
         Laid(if (w.size == "s") "s" else "m", {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = 80.dp)) {
-                CountUp(maxOf(0, days).toDouble(), style = MaterialTheme.typography.displayMedium.copy(fontFamily = Mincho, fontSize = 44.sp), color = LocalBoardColor.current)
+                CountUp(maxOf(0, days).toDouble(), style = MaterialTheme.typography.displayMedium.copy(fontFamily = Mincho, fontSize = 44.sp), color = inkOf(LocalBoardColor.current))
                 Text(if (days == 1) "day" else "days", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (w.size == "s") Column(horizontalAlignment = Alignment.CenterHorizontally) {
