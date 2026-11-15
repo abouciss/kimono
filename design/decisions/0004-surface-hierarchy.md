@@ -2,7 +2,9 @@
 
 - Status: Superseded — rejected on review, 2026-10-04. The established Kata
   contract in `docs/design-system.md` stands; only the narrowed Tools
-  refinement and the app-colour rule below were kept.
+  refinement and the app-colour rule below were kept. Its surface tiers
+  returned as Material's tonal containers in ADR 0006; the semantic palette
+  is still ruled out.
 - Date: 2026-10-04 (proposed and rejected the same day)
 
 ## Context

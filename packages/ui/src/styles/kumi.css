@@ -1,18 +1,16 @@
 /* ─────────────────────────────────────────────────────────────
-   組 Kumi — composition. A sheet is a step up in paper, not a drawn box:
-   a hair edge, a plum-tinted shadow, grain at three percent. Compartments
-   share one sheet and meet on hairlines. Nothing here is outlined in ink.
+   組 Kumi — composition. A tray is a tonal container with Material's
+   extra-large corner: one step up from the page in tone, no outline, no
+   shadow. Compartments share one tray and meet on a divider.
    ───────────────────────────────────────────────────────────── */
 
-.k-tray, .k-sheet {
-  border: var(--k-hairline) solid var(--k-hair);
-  border-radius: var(--k-r-3);
-  background-color: var(--k-sheet);
-  background-image: var(--k-grain);
-  box-shadow: var(--k-shadow-sheet);
+.k-tray, .k-sheet, .k-compartment:not(.k-tray > *) {
+  border: 0;
+  border-radius: var(--k-r-xl);
+  background: var(--k-container-low);
 }
 .k-tray { overflow: clip; }
-.k-tray > * + * { border-top: var(--k-hairline) solid var(--k-hair); }
+.k-tray > * + * { border-top: var(--k-hairline) solid var(--k-container-highest); }
 
 /* A compartment: its label down the left, its body on the right. */
 .k-compartment {
@@ -28,40 +26,21 @@
   display: flex;
   align-items: center;
   gap: var(--k-space-2);
-  font: 600 12px/1.4 var(--k-sans);
-  letter-spacing: .01em;
+  font: 700 13px/16px var(--k-sans);
+  letter-spacing: .03em;
   text-transform: none;
-  color: var(--k-ink-soft);
+  color: var(--k-on-surface-variant);
 }
 /* A compartment that wants something from you says so in the house colour,
-   with a mark beside the word. Nothing else earns the accent. */
+   with a mark beside the word. */
 .k-compartment.k-wants > .k-tab > * { color: color-mix(in srgb, var(--k-suo-deep) var(--k-tint), var(--k-night-ink)); }
 .k-compartment.k-wants > .k-tab > *::before { content: ""; width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--k-suo); }
 .k-compartment > .k-body { min-width: 0; }
 
-/* On its own, a compartment is its own sheet. */
-.k-compartment:not(.k-tray > *) {
-  border: var(--k-hairline) solid var(--k-hair);
-  border-radius: var(--k-r-3);
-  background-color: var(--k-sheet);
-  background-image: var(--k-grain);
-  box-shadow: var(--k-shadow-sheet);
-}
 .k-compartment:not(.k-tray > *) + .k-compartment:not(.k-tray > *) { margin-top: var(--k-space-4); }
 
-.k-divide + .k-divide { border-top: var(--k-hairline) solid var(--k-hair); }
+.k-divide + .k-divide { border-top: var(--k-hairline) solid var(--k-container-highest); }
 
 @media (max-width: 900px) {
   .k-compartment { grid-template-columns: 1fr; gap: var(--k-space-3); padding: var(--k-space-4); }
 }
-
-/* M3 (ADR 0006): a tray is a soft tonal panel with rounded corners, like the rest
-   of Kimono, not a hair-edged sheet of paper. */
-.k-tray, .k-sheet, .k-compartment:not(.k-tray > *) {
-  border: 0;
-  border-radius: var(--k-r-xl);
-  background-color: var(--k-container-low);
-  background-image: none;
-  box-shadow: none;
-}
-.k-tray > * + * { border-top-color: var(--k-container-highest); }

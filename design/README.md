@@ -8,24 +8,24 @@ onto every bolt so the whole garment carries one pattern). Run it with
 
 ## Shipped
 
-型 Kata is now a real package: `packages/ui/src/kata.css` holds the tokens and
-the three primitives, `packages/ui/src/index.tsx` exports `Door`, `Joint`,
-`Seal`, `StatedSeal`, `Tray`, `Compartment` and `BloomMark`, and the contract is
-written up in `docs/design-system.md`. The portal imports `@kimono/ui/kata.css`
-before its own stylesheet.
+型 Kata is a real package. `packages/ui/src/kata.css` holds the tokens and the
+primitives, `packages/ui/src/index.tsx` exports them, and the contract is
+`docs/design-system.md`. The Portal imports `@kimono/ui/kata.css` before its
+own stylesheet, and the phone app reads the same tokens through
+`apps/compose/scripts/tokens.mjs`.
 
 ## Where we are
 
-**Buttons:** 03 Shoji, 04 Tsugite and 12 Hold are kept. Joint profile for 04
-still open; specimens 01, 02, 05–11, 13, 14 still unruled.
-See `specimens/01-buttons.html`.
+**Foundations: Material 3, with Kata's personality** (ADR 0006, accepted
+2026-11-04). The web runs on the phone's tonal roles, type scale, corner scale
+and spring. The seal, joint, door, blooms, petals and the ink-and-wash hand
+stay Kimono's. The paper system (edge weight, square corners, hairline boxes,
+grain) is retired.
 
-**Palette:** five directions out for verdict in `specimens/02-palette.html`,
-each shown on the three kept specimens rather than as bare swatches.
+**Cut:** buttons (the hanko seal, hold-to-confirm), the switch (the joint),
+the door, type (ADR 0005), petals (ink and wash, `specimens/12-petals.html`).
 
-**Transitions:** six in `specimens/03-transitions.html`, each triggered by Open
-so the press *is* the page change. Pulled forward from element class 7 because
-the kept buttons are slow enough to carry the transition themselves.
+**Next:** containers (`specimens/14-containers.html`), then a proof page.
 
 ## How it runs
 
@@ -54,12 +54,8 @@ wallpaper.
 
 ## Surface and hierarchy revision — 2026-10-04 (rejected)
 
-A review of the Tools proof page proposed replacing Kata's materials with
-surface tiers, adding a semantic chip palette (indigo selection, gold caution,
-vermilion danger), thinning every edge to a toned pixel, and letting each app's
-colour wash its headings. It was rejected: it did not read as Kimono. The
-shared package stays on paper, ink and wood with depth as edge weight. What
-survived is narrower — Tools keeps its compact endpoint layout and is composed
-from the existing vocabulary with its hairlines inset, and the four places an
-app's colour may appear are now written into `docs/design-system.md`. The
-record, including why each part lost, is `decisions/0004-surface-hierarchy.md`.
+A review proposed surface tiers, a semantic chip palette and an app's colour
+across its headings. It lost because it did not read as Kimono. Its surface
+tiers came back a month later as Material's tonal containers (ADR 0006). The
+semantic palette and the tinted room are still ruled out. The record is
+`decisions/0004-surface-hierarchy.md`.

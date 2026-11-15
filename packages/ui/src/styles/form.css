@@ -42,5 +42,5 @@
 
 /* A form inside a compartment, separated from the list it follows. */
 .k-form { display: grid; gap: var(--k-space-4); }
-.k-form.k-after-rows { margin-top: var(--k-space-5); padding-top: var(--k-space-5); border-top: var(--k-hairline) solid var(--k-hair); }
+.k-form.k-after-rows { margin-top: var(--k-space-6); }
 /* .k-form-actions is a seal group; its measure lives in seal.css. */

@@ -10,6 +10,7 @@ object Kata {
     val inkSoft = Color(0xFF5B524D)
     val faint = Color(0xFF6B605A)
     val plum = Color(0xFF4E2B37)
+    val onWash = Color(0xFF4E2B37)
     val suo = Color(0xFFA84D63)
     val suoDeep = Color(0xFF7E3448)
     val suoPad = Color(0xFF5F2535)
@@ -21,12 +22,6 @@ object Kata {
     val mossDeep = Color(0xFF3E5236)
     val mossWash = Color(0xFFEEF1EA)
     val paperLift = Color(0xFFFFFDF8)
-    val paper0 = Color(0xFFFBF7EF)
-    val paper1 = Color(0xFFF7F1E8)
-    val paper2 = Color(0xFFEBE2D3)
-    val hair = Color(0xFFDDD0BF)
-    val hairDeep = Color(0xFFCDBDA7)
-    val woodFlat = Color(0xFFDCC090)
     val wood = Color(0xFFDCC090)
     val woodSeated = Color(0xFFC0A673)
     val woodEdge = Color(0xFF9C7544)
@@ -35,24 +30,48 @@ object Kata {
     val urushiText = Color(0xFFF3E9E0)
     val urushiComment = Color(0xFFA8969C)
     val urushiString = Color(0xFFE9C8A8)
-    val sheet = Color(0xFFFBF7EF)
-    val ground = Color(0xFFF7F1E8)
-    val fold = Color(0xFFEBE2D3)
-    val lift = Color(0xFFFFFDF8)
+    val surface = Color(0xFFFFFBF7)
+    val containerLowest = Color(0xFFFFFFFF)
+    val containerLow = Color(0xFFFCF4EF)
+    val container = Color(0xFFF7EEE8)
+    val containerHigh = Color(0xFFF1E8E2)
+    val containerHighest = Color(0xFFEBE2DC)
+    val onSurface = Color(0xFF221A17)
+    val onSurfaceVariant = Color(0xFF54443F)
+    val outlineVariant = Color(0xFFD9C2BC)
+    val primaryContainer = Color(0xFFFFD9DF)
+    val onPrimaryContainer = Color(0xFF7E3448)
+    val secondaryContainer = Color(0xFFF6E0E2)
+    val onSecondaryContainer = Color(0xFF4E2B37)
+    val tertiaryContainer = Color(0xFFDCE8CF)
+    val onTertiaryContainer = Color(0xFF3E5236)
     val hover = Color(0xFFF7EFE1)
     val selected = Color(0xFFF7E4E4)
+    val ground = Color(0xFFFFFBF7)
+    val sheet = Color(0xFFFCF4EF)
+    val fold = Color(0xFFEBE2DC)
+    val lift = Color(0xFFFFFFFF)
+    val hair = Color(0xFFD9C2BC)
     val accent = Color(0xFFA84D63)
     val accentDeep = Color(0xFF7E3448)
     val accentPale = Color(0xFFF2CBD2)
     val appAccent = Color(0xFFA84D63)
+    val nightInk = Color(0xFFF2E1CA)
+    val onAccent = Color(0xFFFFFDF8)
 
     object Size {
         val hairline = 1.dp
         val rule = 2.dp
-        val r3 = 2.dp
-        val r2 = 1.dp
-        val r1 = 0.dp
-        val rSeal = 2.dp
+        val rXs = 4.dp
+        val rS = 8.dp
+        val rM = 12.dp
+        val rL = 16.dp
+        val rXl = 28.dp
+        val rFull = 999.dp
+        val rSeal = 12.dp
+        val r1 = 8.dp
+        val r2 = 12.dp
+        val r3 = 28.dp
         val rRound = 999.dp
         val space1 = 4.dp
         val space2 = 8.dp
@@ -62,7 +81,7 @@ object Kata {
         val space6 = 32.dp
         val space7 = 48.dp
         val space8 = 64.dp
-        val control = 44.dp
-        val controlCompact = 36.dp
+        val control = 48.dp
+        val controlCompact = 40.dp
     }
 }

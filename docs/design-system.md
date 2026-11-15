@@ -1,224 +1,223 @@
 # 型 Kata — the Kimono design system
 
-Kimono's interface is built from three materials, four depths, and three
-interaction primitives. This document is the contract; `packages/ui/src/kata.css`
-is the enforcement. If something on screen is not described here, it is a bug or
-it is decoration — and decoration is not in the system.
+Kata is **Material 3 foundations with Kimono's personality** (ADR
+`design/decisions/0006-m3-foundations.md`). The colour roles, type scale,
+corner scale and spring are the phone app's (`apps/compose`, `Kata.kt`), so
+the website and the app are one product. The hues, the hanko seal, the joint,
+the door, blooms, petals and the ink-and-wash hand are Kimono's own.
 
-The specimen sheets these rules were cut from live in `design/specimens/`, and
-the workflow that produced them is `.claude/skills/katagami/SKILL.md`.
+This document is the contract. `packages/ui/src/kata.css` enforces it, and
+`packages/ui/src/styles/tokens.css` is the only file that names a hex. The
+phone reads the same file through `apps/compose/scripts/tokens.mjs`, which
+writes `KataTokens.kt`. Run it after every token change.
 
-## The three materials
+## Colour
 
-Every surface is **paper**, every mark is **ink**, every physical object is
-**wood**. Signal colours are applied to those materials; they are never
-materials themselves.
+### Pigments
 
-| Role | Token | Value |
-| --- | --- | --- |
-| ink | `--k-ink` | `#24221f` |
-| ink, softened | `--k-ink-soft` | `#5b524d` |
-| ink, faint | `--k-faint` | `#8b6d67` |
-| paper, the ground | `--k-ground` | `#faf7f1` |
-| paper, a sheet | `--k-sheet` | `#fffdf8` |
-| paper, a hairline | `--k-hair` | `#ded0be` |
-| wood | `--k-wood` | `#d8b77f` |
-| wood, pale | `--k-wood-pale` | `#ead2aa` |
-| accent (蘇芳) | `--k-accent` | `#a84d63` |
-| accent, pale (桜色) | `--k-accent-pale` | `#f2cbd2` |
-| moss | `--k-moss` | `#5c7150` |
+| Pigment | Token | Value | For |
+| --- | --- | --- | --- |
+| 蘇芳 suō | `--k-suo` | `#a84d63` | primary: the action colour, focus, error text |
+| suō, deep | `--k-suo-deep` | `#7e3448` | coloured text, hover |
+| plum | `--k-plum` | `#4e2b37` | secondary: Mincho headings and the wordmark |
+| moss | `--k-moss` | `#5c7150` | tertiary: running, and nothing else |
+| ink | `--k-ink` | `#24221f` | the ink pigment for drawn marks |
+| wood | `--k-wood` | `#dcc090` | the joint only |
+| 漆 urushi | `--k-urushi` | `#2a1d22` | a reply from a server, the key reveal |
 
-Two rules that are not negotiable:
+There is **no second palette.** Selection, information, caution and failure
+are not hues. They are a container tone, a word, or a form that changes.
+Decision 0004 rejected a semantic chip family (indigo, gold, vermilion), and
+ADR 0006 kept that ruling.
 
-- **Accent is never decoration.** It marks a thing that wants you, or an action
-  you can take. If a surface is accented and nothing is being asked of the
-  reader, the accent is wrong.
-- **Moss means running**, and nothing else.
+### Roles
 
-There is no second palette. Selection, information, caution and failure are
-not colours here; they are ink of a different weight, a word, or a form that
-changes. A "semantic" set of chips — one tint for selected, one for warning,
-one for danger — was proposed and rejected (see
-`design/decisions/0004-surface-hierarchy.md`): it reads as a generic admin
-console, not as Kimono.
+Pages read roles, never pigments. These are Material 3's tonal roles seeded
+from suō. The same names flip by night (`data-theme="dark"`, or the system
+when no one picked) and step apart under `prefers-contrast: more`.
+
+| Role | Token | Day | For |
+| --- | --- | --- | --- |
+| surface | `--k-surface` | `#fffbf7` | the page |
+| container, lowest | `--k-container-lowest` | `#ffffff` | a field, a plate on a door |
+| container, low | `--k-container-low` | `#fcf4ef` | trays, cards, rows' ground |
+| container | `--k-container` | `#f7eee8` | a navigation rail, a pane |
+| container, high | `--k-container-high` | `#f1e8e2` | dialogs, menus, a door |
+| container, highest | `--k-container-highest` | `#ebe2dc` | quiet seals, chips, code |
+| on surface | `--k-on-surface` | `#221a17` | text |
+| on surface, variant | `--k-on-surface-variant` | `#54443f` | secondary text, labels |
+| outline, variant | `--k-outline-variant` | `#d9c2bc` | a divider between rows |
+| primary container | `--k-primary-container` | `#ffd9df` | the selected thing, the room you are in |
+| secondary container | `--k-secondary-container` | `#f6e0e2` | a plum-tinted pick |
+| tertiary container | `--k-tertiary-container` | `#dce8cf` | running |
+
+Each container has an `--k-on-…` partner for its text. Text on a suō fill is
+`--k-on-accent`.
+
+The old paper names (`--k-ground`, `--k-sheet`, `--k-fold`, `--k-lift`,
+`--k-hair`) still resolve, and now point at the roles above so older pages
+follow. New code uses the roles.
 
 ### An app's colour
 
-Inside an app, `--k-accent` and `--k-accent-pale` are set to that app's own
-colour, and the colour is permitted in exactly five places:
+Inside an app, the shell sets `--k-accent`, `--k-accent-deep` and
+`--k-accent-pale` to that app's colour. The colour may appear in five places:
 
-- the **bloom** — the app's mark, and the petals of the crossing that opens it;
+- the **bloom**, which is the app's mark, and the petals of the crossing that
+  opens it;
 - the app's **name** in the lockup;
-- the **primary action** — a seal, the tab of a compartment that wants you,
-  a focus ring;
-- one **small selected marker** — a `3px` bar beside the thing that is chosen;
-- the **cord** under the header — the 2px line, over a 1px line of the pale.
+- the **primary action**: a seal, the tab of a compartment that wants you, a
+  focus ring;
+- one **selected marker** beside the chosen thing;
+- the **cord** under the header.
 
-The sakura crossing blends from the current surface’s accent to the destination’s
-accent. Entering an app blends house pink into its colour; returning to Kimono
-blends back to pink. Primary seals use the app’s darker accent ramp for legible
-lettering; quiet, disabled, and danger controls retain their semantic treatments.
+The sakura crossing blends from the current accent to the destination's.
+Entering an app blends house pink into its colour, and returning blends back.
+Everything else keeps the house roles. An app is recognised by its mark and
+by what it asks of you, never by a tinted room.
 
-Nothing else is recoloured. The paper stays paper, the ink stays ink, the wood
-stays wood, and Kimono's own chrome keeps its house colour. An app is
-recognised by its mark and by what it asks of you, never by a tinted room. An
-app with its own palette is a different product, and Kimono hosts apps rather
-than becoming them.
+## Depth is tone
 
-## Depth is edge weight
+Hierarchy is a step in container tone. **Nothing is enclosed in a line.**
+A tray is `--k-container-low` on the surface with no border and no shadow.
+Inside a tray, compartments and rows meet on one 1px divider. A divider
+separates siblings and never draws a box.
 
-Paper stacks; it does not glow. There are no blurred shadows anywhere in Kimono
-chrome. Depth is carried by edges, and the rule that assigns them is **can I
-touch this**.
-
-| Weight | Token | Meaning |
-| --- | --- | --- |
-| `3px` frame | `--k-frame` | The outer boundary of a workspace. **One per region.** |
-| `2px` rule | `--k-rule` | Anything you can touch, and the seams between compartments. |
-| `1px` hairline | `--k-hairline` | Passive division inside a compartment. Separates, never encloses. |
-
-A tray may carry one hard offset shadow (`6px 6px 0`). Never a blur.
-
-A compartment's body is a **sheet**: it carries `--k-sheet` behind it, so a card
-reads as paper laid on the ground rather than a region drawn only with lines.
-Anything inside it may therefore be plain — an address, a note — and only a
-thing you act on, like a command, marks itself further.
+Only a surface that floats above the page casts a shadow:
+`--k-shadow-raised`, which is plum-tinted and used for menus, dialogs and
+popovers. Paper grain, hairline enclosures and the 3px frame are retired.
 
 ### 組 Kumi — composition
 
-- **Frames never nest.** A region inside a region is a compartment, not a frame.
-- **Edges are shared, never doubled.** Adjacent compartments meet on one seam.
-- **A hairline never touches a frame.** If they would meet, drop the hairline.
-- **A grid of free-standing items is sheets with hairlines.** Six frames is a
-  fence: each claims to be the outermost boundary, so none of them is.
+- **A tray is one container.** Compartments inside it share it; they are not
+  containers of their own.
+- **Containers don't nest in the same tone.** If one sits inside another, it
+  steps up a tone, or it is a row.
+- **A grid of free-standing items is containers, not outlines.** Use tonal
+  cards with gaps between them, never boxes drawn in hair.
 
-### Proof: the Tools reference
+## Shape
 
-A dense page is where this is tested, and the API reference in Tools is the
-densest. It is one tray: a frame around two compartments — the collections on
-the ground, the reference on a sheet — meeting on a single rule. The API's
-heading and the key drawer are compartments too, so they meet their neighbours
-on rules; the drawer is a thing pulled out of the tray, so it is wood. Every
-operation is one row separated by a hairline, and the list is inset from the
-frame so no hairline touches it. Method, access, version and status are stated
-seals: hair and faint ink, a word, no fill. Inputs are drawn in hair until a
-request can be tried, then in ink. The app's colour appears on the chosen
-collection's marker and on the seals, and nowhere else.
+Material's corner scale, with nothing between the steps.
+
+| Token | Size | For |
+| --- | --- | --- |
+| `--k-r-xs` | 4px | inline code |
+| `--k-r-s` | 8px | chips, the door's plate, small fields |
+| `--k-r-m` | 12px | fields, code panes, menus, the seal |
+| `--k-r-l` | 16px | the door, cards |
+| `--k-r-xl` | 28px | trays, dialogs, sheets |
+| `--k-r-full` | 999px | portraits, blossom hearts, real circles |
+
+Shapes morph on interaction. A door tightens from `l` to `m` on reach, and a
+busy seal morphs a shape on its face. **Buttons never become pills.** The seal
+is a carved block (see below). Round containers are M3's; round buttons are
+not Kimono's.
+
+A portrait is the person's picture. Someone without one gets the first letter
+of their name in plum Mincho, drawn by Kimono (`Portrait` in the Portal).
 
 ## Type
 
-Three roles, seven sizes, nothing between them.
+Shippori Mincho names things; Zen Maru Gothic does the work (ADR 0005). The
+scale is the phone's.
 
-- **Mincho (`--k-display`) names things** — pages, apps, and the one sentence
-  that matters. Never body copy.
-- **Sans (`--k-sans`) does the work** — labels, controls, running text.
-- **Mono (`--k-mono`) is only ever an address or a number.**
+| Role | Face | Size / line |
+| --- | --- | --- |
+| display | Mincho 600 | 52 / 56 · 42 / 46 · 34 / 38 |
+| headline | Mincho 600 | 30 / 34 · 26 / 31 · 22 / 27 |
+| title, large | Mincho 600 | 21 / 26 |
+| title | Gothic 700 | 16 / 22 · 14 / 20 |
+| body | Gothic | **16 / 24** · 14 / 20 · 12.5 / 18 |
+| label | Gothic 700 | 13 / 16 · 12 / 16 · 11 / 14 |
+| mono | `--k-mono` | 13, never smaller |
 
-`36 · 27 · 21` display, `16 · 14 · 12.5` sans, `11` mono.
+- **Mincho names**: pages, apps, and the one sentence that matters. It is
+  never body copy and never a row title.
+- **Body is 16px.** 14px is for secondary copy, and nothing is set at 12px.
+- **Mono is only ever an address, a number or code.**
+- Only Mincho 600 is loaded, and `font-synthesis: none` stops faux bold.
 
-## Ma and motion
+`.k-title`, `.k-heading`, `.k-label` and `.k-caption` carry the common roles.
 
-Spacing is `--k-ma-1`…`--k-ma-6`: **4 · 8 · 14 · 22 · 34 · 56**. Nothing between.
+## Space and size
+
+Spacing is `--k-space-1` to `--k-space-8`: **4 · 8 · 12 · 16 · 24 · 32 · 48 ·
+64**. Nothing between.
+
+Controls are `--k-control` (48px, Material's touch target) and
+`--k-control-compact` (40px, padded out to a 48px hit area). The shell has one
+measure for the header and every page: `--k-shell-width`, inset by
+`--k-shell-gutter`.
+
+## Motion
 
 | Duration | Token | For |
 | --- | --- | --- |
-| 180ms | `--k-t-state` | hover, focus, press |
-| 420ms | `--k-t-element` | a panel opening, a joint seating |
-| 900ms+ | `--k-t-place` | a page change |
+| 120ms | `--k-t-tap` | a press going down |
+| 180ms | `--k-t-state` | hover, focus, colour |
+| 240ms | `--k-t-fold` | a disclosure, a door's leaves, a shape morph |
+| 400ms | `--k-t-seat` | a joint seating |
+| 900ms | `--k-t-cross` | a crossing between apps |
 
-Easings are `--k-ease-in` for arriving and `--k-ease-out` for leaving.
+Spatial movement uses `--k-spring`, Material's expressive spring. Colour and
+opacity use `--k-ease-settle`. Departures use `--k-ease-leave` and never take
+more than 180ms. Wood seats on `--k-ease-seat`.
 
-**A place change must cover completely before it swaps.** Half-covered swaps are
-visible, and a visible swap is the thing transitions exist to hide.
-
-**The press starts the load; the cover decides when it is seen.** Reaching for a
-door warms its destination and pressing it begins the fetch, so the crossing is
-spent on a page already on its way rather than on a wait that has not started.
-The page changes hands at full cover. If it is not there yet the crossing holds
-exactly there — covered, motionless — and plays out its second half only once
-the page is standing. A duration is how long a crossing takes when the page is
-ready, never a promise that it will be. The screen waits for the page; the page
-never arrives behind an open screen.
-
-> Three CSS traps this system has already hit, all worth knowing. A timing
-> function on the `animation` shorthand is re-applied *between every pair of
-> keyframes*, so multi-stop animations need per-keyframe
-> `animation-timing-function` or they lurch. A keyframe that sets only
-> `opacity` still splits the `transform` timeline — animate the two as separate
-> animations. And the `animation` shorthand carries `animation-play-state`, so
-> it resets a longhand `paused` set elsewhere: the rule that holds a crossing
-> at full cover has to be marked `!important` to survive it.
-
-## 動 Dō — what may move, and why
-
-Kimono is made of paper, ink, wood and cloth. **None of those things fade in or
-float up.** Motion in this system is always a material behaving like itself:
-paper slides and folds, wood swings and seats, ink stamps and dries, cloth
-sways. Nothing scales, nothing blurs, nothing fades.
-
-Three rules decide whether an animation may exist.
+### 動 Dō — what may move, and why
 
 **1. Motion must be caused.** Something moves only because of your pointer or
-keyboard on a control, a crossing, or the system changing state — an app
-starting, a backup finishing. There is no ambient motion. Anything that loops
-forever without a cause is decoration, and decoration is not in the system.
+keyboard on a control, a crossing, or the system changing state, such as an
+app starting or a backup finishing. Nothing loops without a cause.
 
-**2. One event, one motion.** If a crossing covered a page change, the arriving
-page does **not** animate. The crossing *is* the arrival. A page that fades up
-after being uncovered is the same event animated twice, and it reads as lag.
+**2. One event, one motion.** If a crossing delivered a page, the page does
+not animate in as well. The crossing is the arrival.
 
-**3. Motion is in the material's own plane.** A screen slides sideways because
-that is how a screen moves. A joint seats along its axis. A blind unrolls
-downward. Nothing travels along an axis its material could not.
+**3. Motion is in the material's own plane.** A screen slides sideways, a
+joint seats along its axis, and a shape morphs in place.
 
-Durations remain the three above: `--k-t-state`, `--k-t-element`, `--k-t-place`.
-There is no fourth.
+Someone who asked for less motion gets the state without the movement. One
+block in `tokens.css` handles that for every primitive.
 
-### What this ruled out
+### Crossings
 
-| Removed | Why |
-| --- | --- |
-| page-enter fade-up on admin pages | the crossing already delivered the page; rule 2 |
-| ambient petal drift on the home hero | uncaused; and it spent the crossing's material on wallpaper |
-| the account yoke's perpetual sway | uncaused loop |
-| the launcher plaques' arrival swing | fires on load, which is not one of the three causes |
+Moving between apps is a left-to-right swipe with petals travelling alongside.
+Petals mean you are crossing between apps, and they appear nowhere else.
 
-Petals are now reserved for 花吹雪. When you see blossom, you are crossing
-between apps — it means something, because it does not happen otherwise.
+**A crossing covers completely before it swaps.** A swap that is half covered
+is visible, and hiding it is the reason a transition exists.
 
-## The three primitives
+**The press starts the load, and the cover decides when it is seen.** Reaching
+for a door warms its destination, and pressing it begins the fetch. The page
+changes hands at full cover. If the page is not ready, the crossing holds,
+covered and still. It plays out once the page is standing, with Material's
+loading indicator if the wait runs long.
 
-Every interactive thing in Kimono is one of these. **If a need does not fit, it
-is text and a seal — not a new object.** That rule is what keeps the vocabulary
-from becoming a menagerie again.
+> Three CSS traps this system has already hit:
+>
+> - A timing function on the `animation` shorthand is re-applied between every
+>   pair of keyframes, so multi-stop animations need a per-keyframe
+>   `animation-timing-function`.
+> - A keyframe that sets only `opacity` still splits the `transform` timeline,
+>   so animate the two separately.
+> - The `animation` shorthand resets `animation-play-state`, so the rule that
+>   holds a crossing at full cover needs `!important`.
 
-### 障子 Door — goes somewhere
+### Waiting
 
-```tsx
-import { Door } from "@kimono/ui";
+- **`MorphLoader`** is for a wait with no measure. It is Material 3
+  Expressive's loading indicator, painted: one shape morphs through Material's
+  shapes as it turns, washed in suō with a broken brush edge.
+- **`BusyFace`** is for a seal that is waiting. It keeps its size and its
+  word, and a shape morphs on its face.
+- **`InkWave`** and **`InkRing`** are for a wait you can measure, such as an
+  upload. They are wavy progress, brushed.
 
-<Door href="/admin/apps" label="Back to all apps" />
-```
+## The primitives
 
-Navigation only, and only in chrome. A door never appears inside content. Its
-leaves part on hover and slide fully open on activation.
-
-### 継手 Joint — turns something on or off
-
-```tsx
-import { Joint } from "@kimono/ui";
-
-<Joint checked={on} onChange={setOn} label="Run this application" profile="aikaki" />
-```
-
-The only switch in the system. Apart is off, seated is on. The **profile is a
-promise about the setting**, not decoration:
-
-| Profile | Joint | Says |
-| --- | --- | --- |
-| `ari` | dovetail | cannot be drawn back out — for something meant to stay on |
-| `hozo` | tenon | a plain, neutral connection |
-| `aikaki` | half-lap | the pieces merely overlap — for something you expect to flip |
+Every interactive thing is one of these, or a Material component dressed in
+the roles above (fields, menus, chips, dialogs). **If a need doesn't fit, it is
+text and a seal, not a new object.**
 
 ### 判 Seal — commits an action, or states a fact
 
@@ -229,24 +228,77 @@ import { Seal, StatedSeal } from "@kimono/ui";
 <StatedSeal state="running">Running</StatedSeal>
 ```
 
-One object, two uses. Pressed, it commits. Stamped, it labels a state:
-`running` · `private` · `wants` · `quiet`.
+The button is a hanko, not a pill. Material supplies its colours, its 48px
+height and its 15px bold label. Kata supplies the object: a carved block with
+12px corners, a 3px base it stands on, and the carved inner ring a real hanko
+carries. Pressing it sinks the block onto its base and tightens the ring.
+Releasing leaves an impression that spreads and fades. Surfaces are flat, with
+no gradients.
 
-The pressed seal is a carved block, not a pill: 2px corners, a 2px base it
-stands on, and on the inked face the carved inner ring a real hanko carries.
-Pressing collapses the base and tightens the ring; releasing leaves an
-impression that spreads and fades. Quiet is the same block uninked — fold
-paper on a hair base, no ring. Danger is the consequence on a rose wash, inked
-only on hover. Seals in a row sit in one group (`k-seal-group`, also
-`k-form-actions` and the page header's actions) with 12px between them, the
-primary first. No gradients anywhere in chrome: wood is a flat plank, the
-masthead a flat band, and blossom gradients live only inside the drawn mark.
+- **Primary** is suō with near-white lettering.
+- **Quiet** is the same block uninked, on the highest container with no ring.
+- **Danger** states the consequence on a rose wash, and inks only on reach.
+- **Disabled** lifts the seal off its base with a reason beside it. Opacity is
+  never the only signal.
+- **Hold to confirm** is for things that can't be undone. Petals pile up over
+  1.4s while you hold, and scatter if you let go early.
+
+Seals in a row sit in one group (`k-seal-group`, `k-form-actions`, the page
+header's actions), 12px apart, with the primary first. Stamped, a seal states
+a fact: `running` · `private` · `wants` · `quiet`.
+
+### 継手 Joint — turns something on or off
+
+```tsx
+import { Joint } from "@kimono/ui";
+
+<Joint checked={on} onChange={setOn} label="Run this application" profile="aikaki" />
+```
+
+The only switch. Apart is off, seated is on, and it carries `role="switch"`.
+The profile is a promise about the setting:
+
+| Profile | Joint | Says |
+| --- | --- | --- |
+| `ari` | dovetail | meant to stay on |
+| `hozo` | tenon | a plain, neutral connection |
+| `aikaki` | half-lap | something you expect to flip |
+
+### 障子 Door — goes somewhere
+
+```tsx
+import { Door } from "@kimono/ui";
+
+<Door href="/admin/apps" label="Back to all apps" />
+```
+
+Navigation, in chrome only. It is two lattice leaves on a high container, with
+the nameplate mounted on it. Reaching for it parts the leaves. The room you are
+in stands open on the primary container.
+
+### 札 Chip — a stated fact
+
+A word on the highest container, 8px corners, a 13px label. Colour appears only
+where it carries a consequence, and a word always sits beside it: running is
+the tertiary container, wants is suō, a 4xx is the primary container, and a 5xx
+is urushi.
+
+## Ink and wash
+
+Kimono's marks are drawn by hand (`ink.ts`, `ink-marks.tsx`): a wobbly plum
+brush outline over a watercolour wash, different every time but seeded so the
+server and the browser agree. It draws blots behind row icons, portrait frames,
+petals, the outline of a card that matters, and every small circle (status
+dots, radio rings, checklist rings). **Controls, containers and text are never
+brushed.** The brush is the personality, and the M3 roles stay underneath it.
+The bar for a dialog, sheet or menu is the phone's appearance dialog (commit
+`2043f86`).
 
 ## Identity
 
-Every app's mark is **generated, not drawn**. `BloomMark` builds a sakura from
-the app's own three colours and places the app's glyph at its centre, so a new
-app gets an identity for free and no two blooms are alike.
+Every app's mark is generated, not drawn. `BloomMark` builds a sakura from the
+app's own three colours and places the app's glyph at its centre, so a new app
+gets an identity for free and no two blooms are alike.
 
 ```tsx
 import { BloomMark } from "@kimono/ui";
@@ -254,38 +306,37 @@ import { BloomMark } from "@kimono/ui";
 <BloomMark identity={{ id: app.id, colors: app.colors }}>{glyph}</BloomMark>
 ```
 
-## Hosting an app you did not write
+The sign-in page keeps its sakura sun disc, seigaiha and colour folds.
 
-Kimono cannot restyle Outline and should not try. At the moment an app opens,
-the system owns **the frame and the crossing**, then gets out of the way. Kimono
-draws a 52px rail — the door back, the app's bloom, its name, its reach, its
-address — and contributes nothing below it. No fonts, no colours, no chrome.
+## Hosting an app you didn't write
+
+Kimono can't restyle Outline and doesn't try. When an app opens, Kimono owns
+the frame and the crossing, then gets out of the way. It draws a 52px rail with
+the door back, the app's bloom, its name, its reach and its address, and adds
+nothing below it: no fonts, no colours, no chrome.
 
 ## Quality floor
 
-Responsive to mobile, visible `:focus-visible`, `prefers-reduced-motion`
-respected, text contrast at least 4.5:1 (3:1 for large or bold ≥24px), hit
-targets ≥44px, and **no state encoded by colour alone** — every stateful thing
-also changes form.
+Responsive down to a phone, a visible `:focus-visible`, `prefers-reduced-motion`
+respected, `prefers-contrast` honoured, text contrast of at least 4.5:1 (3:1
+for large or bold text of 24px and up), hit targets of at least 48px, and **no
+state encoded by colour alone**: every stateful thing also changes form or
+says a word.
 
 ## What was cut
 
-A system is mostly a record of what you said no to. These were proposed,
-prototyped, and rejected: 提灯 chōchin, 木札 kifuda, 短冊 tanzaku, 重箱 jūbako,
-番付 banzuke, 絵巻 emaki, 屏風 byōbu, 枯山水 karesansui, 床の間 tokonoma — nine
-objects doing work that panels, rules and seals already do. 暖簾 noren survives
-only as a transition skin, never as a card.
+A system is mostly a record of what it said no to.
 
-Their *layouts* may return. The objects do not.
-
-So was a second palette: surface tiers in place of paper, a semantic family of
-chips (indigo selection, gold caution, vermilion danger), toned one-pixel edges
-in place of weight, and an app's colour spread across its room. See
-`design/decisions/0004-surface-hierarchy.md` for what was kept from that round
-and why the rest lost.
-
-## Home and corner geometry
-
-The home launcher uses the hanging ema plaques, cords, and tassels from the original design. Keep these authored objects; do not substitute a grid of product cards. App registration, availability, and blossom navigation still use the shared registry and Crossing.
-
-Shared surfaces have 2px corners, inputs and small controls 1px, and chips square corners. Hanko seals retain their intentional 2px cut. Circles remain for actual circular objects such as blossom hearts and portraits. A portrait is the person's picture, from Kimono's own store or the identity provider; someone without one gets the first letter of their name in plum Mincho on fold paper, drawn by Kimono so it matches everything else (`Portrait` in the Portal). Surface color washes remain solid; the launcher’s grain and braided cord are material details.
+- **The paper system** (ADR 0006): depth by edge weight, 0–2px corners,
+  hairline enclosures, the 3px frame, paper grain, beige surfaces too close to
+  tell apart, 12px labels, and accent rationed to specks.
+- **Ornament at clip-art size**: the ema plaques, cords and tassels on Home,
+  and the sun band on Home.
+- **Objects doing a panel's work**: 提灯 chōchin, 木札 kifuda, 短冊 tanzaku,
+  重箱 jūbako, 番付 banzuke, 絵巻 emaki, 屏風 byōbu, 枯山水 karesansui and
+  床の間 tokonoma. Their layouts may return, but the objects don't.
+- **A second palette** (Decision 0004): a semantic chip family, and an app's
+  colour spread across its room.
+- **Uncaused motion**: page fade-ups after a crossing, ambient petal drift,
+  perpetual sways, arrival swings on load, and full-screen crossings.
+- **The M3 round pill as a button.** The seal was preferred (2026-11-04).

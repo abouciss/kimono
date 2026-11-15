@@ -10,7 +10,7 @@
 .k-joint .k-pc { background: var(--k-wood); box-shadow: inset 0 1px 0 rgba(255, 250, 240, .45), inset 0 -1px 0 rgba(156, 117, 68, .35); transition: transform var(--k-t-fold) var(--k-ease-settle); }
 /* the fixed member — never transformed, so the label holds its place */
 .k-joint .k-pc-a { flex: 0 0 96px; display: flex; align-items: center; justify-content: flex-start;
-  padding-left: var(--k-space-4); color: var(--k-ink); font: 600 12px/1 var(--k-sans); letter-spacing: .08em; }
+  padding-left: var(--k-space-4); color: var(--k-ink); font: 700 13px/1 var(--k-sans); letter-spacing: .05em; }
 /* the loose piece — the only thing that moves */
 .k-joint .k-pc-b { flex: 0 0 48px; transform: translateX(16px); }
 .k-joint[aria-checked="true"] .k-pc-b { background: var(--k-wood-seated); }

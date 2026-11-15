@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    列 Retsu — rows inside a compartment.
 
-   A row separates from its sibling with a hairline and never encloses
+   A row separates from its sibling with a divider and never encloses
    itself. Its title is sans, not Mincho: Mincho names pages and APIs, rows
    do the work.
    ═══════════════════════════════════════════════════════════════ */
@@ -15,36 +15,35 @@
   flex-wrap: wrap;
   gap: var(--k-space-3) var(--k-space-5);
   padding: var(--k-space-4) 0;
-  border-bottom: var(--k-hairline) solid var(--k-hair);
+  border-bottom: var(--k-hairline) solid var(--k-outline-variant);
 }
 .k-row:first-child { padding-top: 0; }
 .k-row:last-child { padding-bottom: 0; border-bottom: 0; }
 
 .k-row-copy { min-width: 0; max-width: 62ch; }
-.k-row-copy > h3 { margin: 0 0 var(--k-space-1); font: 600 16px/1.4 var(--k-sans); letter-spacing: 0; color: var(--k-ink); }
-.k-row-copy > p { margin: 0; font: 14px/1.5 var(--k-sans); color: var(--k-ink-soft); }
+.k-row-copy > h3 { margin: 0 0 var(--k-space-1); font: 700 16px/22px var(--k-sans); letter-spacing: 0; color: var(--k-on-surface); }
+.k-row-copy > p { margin: 0; font: 14px/20px var(--k-sans); color: var(--k-on-surface-variant); }
 .k-row-lead { display: flex; align-items: center; flex-wrap: wrap; gap: var(--k-space-3); }
 .k-row-lead > h3 { margin: 0; }
 
 /* A muted aside. Never a row; it states, it does not list. */
-.k-note { margin: 0; max-width: 68ch; font: 14px/1.55 var(--k-sans); color: var(--k-ink-soft); }
+.k-note { margin: 0; max-width: 68ch; font: 14px/20px var(--k-sans); color: var(--k-on-surface-variant); }
 .k-note strong { color: var(--k-ink); font-weight: 600; }
-.k-note code, .k-inline-code { padding: 1px 5px; border-radius: var(--k-r-1); background: var(--k-fold); font: 500 13px/1.5 var(--k-mono); color: var(--k-ink); }
+.k-note code, .k-inline-code { padding: 1px 6px; border-radius: var(--k-r-xs); background: var(--k-container-highest); font: 500 13px/1.5 var(--k-mono); color: var(--k-ink); }
 
 /* An address or a number, unadorned. */
 .k-mono { display: flex; flex-wrap: wrap; gap: var(--k-space-1) var(--k-space-4); font: 500 13px/1.6 var(--k-mono); font-variant-numeric: tabular-nums; color: var(--k-ink-soft); }
 
 /* ─── code panes ───
-   Documentation sits on fold with a 2px ink rule. Something that came back
+   Documentation sits on the highest container. Something that came back
    from a request sits on urushi, so "this is a reply" is visibly different
    from "this is documentation". Mono never drops below 13px. */
 .k-code, .k-command {
   margin: 0;
   padding: var(--k-space-3) var(--k-space-4);
   overflow: auto;
-  border-left: var(--k-rule) solid var(--k-ink);
-  border-radius: var(--k-r-s) var(--k-r-2) var(--k-r-2) 0;
-  background: var(--k-fold);
+  border-radius: var(--k-r-m);
+  background: var(--k-container-highest);
   color: var(--k-ink);
   font: 500 13px/1.6 var(--k-mono);
   font-variant-numeric: tabular-nums;
@@ -57,7 +56,7 @@
 .k-code .k-str { color: var(--k-moss-deep); }
 .k-code .k-num { color: color-mix(in srgb, var(--k-suo-deep) var(--k-tint), var(--k-night-ink)); }
 .k-code .k-lit { color: var(--k-ink-soft); }
-.k-code.k-urushi { border-left: 0; border-radius: var(--k-r-2); background: var(--k-urushi); color: var(--k-urushi-text); }
+.k-code.k-urushi { border-radius: var(--k-r-m); background: var(--k-urushi); color: var(--k-urushi-text); }
 .k-code.k-urushi .k-key { color: var(--k-sakura); }
 .k-code.k-urushi .k-str { color: var(--k-urushi-string); }
 .k-code.k-urushi .k-num { color: var(--k-urushi-text); }
@@ -74,7 +73,7 @@
    The cue sits beside the title; the whole summary is the target. Opening
    folds the body out over 240ms where the browser can animate a disclosure;
    elsewhere it simply opens. */
-.k-reveal { border-bottom: var(--k-hairline) solid var(--k-hair); }
+.k-reveal { border-bottom: var(--k-hairline) solid var(--k-outline-variant); }
 .k-reveal:last-child { border-bottom: 0; }
 
 .k-reveal > summary {
@@ -94,7 +93,7 @@
 .k-reveal > summary:focus-visible { outline: var(--k-rule) solid var(--k-suo); outline-offset: 3px; }
 
 .k-reveal-copy { min-width: 0; max-width: 62ch; }
-.k-reveal-copy > h3 { margin: 0; font: 600 16px/1.4 var(--k-sans); letter-spacing: 0; color: var(--k-ink); }
+.k-reveal-copy > h3 { margin: 0; font: 700 16px/22px var(--k-sans); letter-spacing: 0; color: var(--k-on-surface); }
 .k-reveal-copy > p { margin: var(--k-space-1) 0 0; font: 14px/1.5 var(--k-sans); color: var(--k-ink-soft); }
 
 /* The cue: a chevron that turns from "right" to "down". */

@@ -1,14 +1,13 @@
 /*
  * 型 Kata — the Kimono design system. Tokens.
  *
- * Paper stacks by value, not by stroke. The house hue lives in edges and at
- * the top of the page, never as a tinted room. Pressable things are filled;
- * readable things are not. Blossom is scarce and therefore means something.
- * Motion is caused, bounded, and in the material's own plane.
+ * Material 3 foundations, Kata personality (ADR 0006). The colour roles, type
+ * scale, corner scale and spring are the phone app's (apps/compose, Kata.kt);
+ * the hues stay suō, plum and moss, and the seal, joint, door, blooms and
+ * petals stay Kimono's own. Hierarchy is tone, never an outline.
  *
- * Three layers: primitive (named pigments and papers), semantic (what a
- * surface or a stroke is for), component (the few values a primitive owns).
- * Pages read the semantic layer. Only this file names a hex.
+ * Two layers: pigments (named hues, ink, wood, urushi) and roles (what a
+ * surface or a stroke is for). Pages read the roles. Only this file names a hex.
  *
  * See docs/design-system.md for the contract these enforce.
  */
@@ -35,17 +34,11 @@
   --k-moss-deep: #3e5236;
   --k-moss-wash: #eef1ea;
 
-  /* warm paper surfaces, from lifted sheet to folded paper */
-  --k-paper-lift: #fffdf8;       /* popover, drawer inset, lockup paper */
-  --k-paper-0: #fbf7ef;          /* sheet: cards, rows, reference body */
-  --k-paper-1: #f7f1e8;          /* ground: page, rail */
-  --k-paper-2: #ebe2d3;          /* fold: inputs at rest, chips, light code */
-  --k-hair: #ddd0bf;             /* hairlines, disabled petals */
-  --k-hair-deep: #cdbda7;        /* a hairline you are about to touch */
+  /* the near-white a mark is drawn in on a dark or inked ground */
+  --k-paper-lift: #fffdf8;
 
   /* wood — the joint and the key drawer only. Flat planks, no sheen. */
-  --k-wood-flat: #dcc090;
-  --k-wood: var(--k-wood-flat);
+  --k-wood: #dcc090;
   --k-wood-seated: #c0a673;      /* the loose piece once it has gone home */
   --k-wood-edge: #9c7544;
   --k-wood-ink: #5a3f1f;         /* text on wood, 5:1 */
@@ -56,18 +49,11 @@
   --k-urushi-comment: #a8969c;
   --k-urushi-string: #e9c8a8;
 
-  /* ════════════ semantic ════════════ */
+  /* ════════════ roles ════════════ */
 
-  --k-sheet: var(--k-paper-0);
-  --k-ground: var(--k-paper-1);
-  --k-fold: var(--k-paper-2);
-  --k-lift: var(--k-paper-lift);
-  --k-hover: #f7efe1;                 /* always paired with a form change */
-  --k-selected: #f7e4e4;              /* sakura wash laid on sheet */
-
-  /* ── Material 3 roles, the same scheme as the phone app (Kata.kt) ──
-     ADR 0006: tonal surfaces carry hierarchy, suō may fill a container.
-     Every role stays in the suō, plum and moss family. */
+  /* Material 3 roles, the same scheme as the phone app (Kata.kt). Tonal
+     surfaces carry hierarchy and suō may fill a container. Every role stays
+     in the suō, plum and moss family: there is no second palette. */
   --k-surface: #fffbf7;
   --k-container-lowest: #ffffff;
   --k-container-low: #fcf4ef;
@@ -83,8 +69,20 @@
   --k-on-secondary-container: var(--k-plum);
   --k-tertiary-container: #dce8cf;
   --k-on-tertiary-container: var(--k-moss-deep);
-  /* a lifted sheet: menus, trays, dialogs */
+  --k-hover: #f7efe1;                 /* always paired with a form change */
+  --k-selected: #f7e4e4;              /* sakura wash laid on a container */
+  /* a lifted surface: menus, trays, dialogs */
   --k-shadow-raised: 0 1px 2px rgba(78, 43, 55, .12), 0 16px 40px -12px rgba(78, 43, 55, .32);
+
+  /* The old paper names, kept so nothing breaks, now pointing at the roles
+     above. New code reads the roles. */
+  --k-ground: var(--k-surface);
+  --k-sheet: var(--k-container-low);
+  --k-fold: var(--k-container-highest);
+  --k-lift: var(--k-container-lowest);
+  --k-hair: var(--k-outline-variant);
+  --k-hair-deep: color-mix(in srgb, var(--k-outline-variant) 65%, var(--k-on-surface-variant));
+  --k-grain: none;                    /* the paper grain is retired */
 
   /* Portal actions use suō; app shells supply their own accent ramp. */
   --k-accent: var(--k-suo);
@@ -102,26 +100,26 @@
   /* text on an accent fill (a seal, a chip): stays near-white by night too */
   --k-on-accent: #fffdf8;
 
-  /* edges */
+  /* edges: a divider inside a list, and the focus ring. Nothing is enclosed in a line. */
   --k-hairline: 1px;
-  --k-rule: 2px;                      /* survives only as a focus ring and a code rule */
-  --k-frame: 1px;                     /* the 3px frame is retired; kept as an alias */
+  --k-rule: 2px;
 
-  /* radius: sheets, controls, chips. Everything is rounded (ADR 0006): the old
-     square steps now follow Material's corner scale below. */
-  --k-r-3: 28px;
-  --k-r-2: 12px;
-  --k-r-1: 8px;
-  --k-r-seal: 12px;             /* M3: a carved block with rounded corners */
-  --k-r-round: 999px;
-  --k-r-full: 999px;             /* M3 name for the same */
-  /* Material's corner scale, for containers. Seals keep their own 2px cut. */
+  /* Material's corner scale. Containers, rows, chips and fields take these;
+     the seal keeps its own carved block. */
+  --k-r-xs: 4px;
   --k-r-s: 8px;
   --k-r-m: 12px;
   --k-r-l: 16px;
   --k-r-xl: 28px;
+  --k-r-full: 999px;
+  --k-r-seal: 12px;
+  /* older names for the same steps */
+  --k-r-1: var(--k-r-s);
+  --k-r-2: var(--k-r-m);
+  --k-r-3: var(--k-r-xl);
+  --k-r-round: var(--k-r-full);
 
-  /* depth: paper lifts by tone and a plum-tinted shadow, never by outline */
+  /* depth: a surface lifts by tone and a plum-tinted shadow, never by outline */
   --k-shadow-sheet:
     inset 0 1px 0 rgba(255, 255, 255, .55),
     0 1px 0 rgba(78, 43, 55, .06),
@@ -131,8 +129,6 @@
     0 2px 0 rgba(36, 34, 31, .05),
     0 28px 48px -24px rgba(78, 43, 55, .42);
   --k-shadow-hanko: inset 0 -2px 0 var(--k-suo-pad);   /* the base a seal stands on */
-  /* a 3% paper grain, laid on sheets and the drawer only */
-  --k-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
 
   /* space */
   --k-space-1: 4px;
@@ -143,17 +139,10 @@
   --k-space-6: 32px;
   --k-space-7: 48px;
   --k-space-8: 64px;
-  /* the old ma scale, aliased for anything not yet migrated */
-  --k-ma-1: var(--k-space-1);
-  --k-ma-2: var(--k-space-2);
-  --k-ma-3: var(--k-space-3);
-  --k-ma-4: var(--k-space-5);
-  --k-ma-5: var(--k-space-6);
-  --k-ma-6: var(--k-space-7);
 
-  /* controls */
-  --k-control: 44px;
-  --k-control-compact: 36px;
+  /* controls: 48px is Material's touch target */
+  --k-control: 48px;
+  --k-control-compact: 40px;
 
   /* the shell: one measure for the header and every page */
   --k-shell-gutter: clamp(16px, 4vw, 40px);
@@ -169,11 +158,7 @@
   --k-ease-seat: cubic-bezier(.3, 1.35, .5, 1);     /* wood only */
   --k-ease-leave: cubic-bezier(.7, 0, .9, .36);     /* departures, 180ms at most */
   --k-spring: cubic-bezier(.38, 1.21, .22, 1);      /* Material's expressive spatial spring */
-  /* older names */
-  --k-t-element: var(--k-t-seat);
-  --k-t-place: var(--k-t-cross);
-  --k-ease-in: var(--k-ease-settle);
-  --k-ease-out: var(--k-ease-leave);
+  --k-ease-out: var(--k-ease-leave);                /* older name */
 
   /* type */
   --k-display: "Shippori Mincho Kimono", "Hiragino Mincho ProN", "Yu Mincho", serif;
@@ -188,7 +173,7 @@
 }
 
 /*
- * 夜 Night: the same house after dark, as the phone app draws it (Kata.kt). Paper turns to a warm
+ * 夜 Night: the same house after dark, as the phone app draws it (Kata.kt). Surfaces turn to a warm
  * near-black lifted in soft brown steps; ink, plum and moss turn pale; suō brightens just enough
  * to read on the dark and still carry white on a seal. Wood and urushi stay what they are.
  * Follows the system unless the person picked one (data-theme on <html>).
@@ -207,13 +192,8 @@
   --k-moss: #9fb88f;
   --k-moss-deep: #c3d6b4;
   --k-moss-wash: #263021;
-  --k-paper-lift: #2a211e;
-  --k-paper-0: #221a17;
-  --k-paper-1: #19120f;
-  --k-paper-2: #3a302c;
-  --k-hair: #4a3d39;
-  --k-hair-deep: #5c4c47;
   --k-urushi: #120c0e;
+  --k-lift: var(--k-container-high);   /* a lifted surface sits above the page by night, not below it */
   --k-hover: #2d2420;
   --k-selected: #3d2930;
   --k-surface: #19120f;
@@ -254,13 +234,8 @@
     --k-moss: #9fb88f;
     --k-moss-deep: #c3d6b4;
     --k-moss-wash: #263021;
-    --k-paper-lift: #2a211e;
-    --k-paper-0: #221a17;
-    --k-paper-1: #19120f;
-    --k-paper-2: #3a302c;
-    --k-hair: #4a3d39;
-    --k-hair-deep: #5c4c47;
     --k-urushi: #120c0e;
+    --k-lift: var(--k-container-high);   /* a lifted surface sits above the page by night, not below it */
     --k-hover: #2d2420;
     --k-selected: #3d2930;
     --k-surface: #19120f;
@@ -283,7 +258,7 @@
     --k-shadow-sheet: 0 1px 0 rgba(0, 0, 0, .3), 0 14px 28px -20px rgba(0, 0, 0, .6);
     --k-shadow-lift: 0 2px 0 rgba(0, 0, 0, .3), 0 28px 48px -24px rgba(0, 0, 0, .7);
     --k-app-ink: 50%;
-  --k-tint: 55%;
+    --k-tint: 55%;
     --k-accent-deep: #b4566e;
   }
 }
@@ -295,8 +270,8 @@
 /* ── type roles ── */
 .k-title { margin: 0; font: 600 40px/1.1 var(--k-display); letter-spacing: -.015em; color: var(--k-plum); }
 .k-heading { margin: 0; font: 600 28px/1.2 var(--k-display); letter-spacing: -.01em; color: var(--k-plum); }
-.k-label { font: 600 12px/1.4 var(--k-sans); letter-spacing: .01em; color: var(--k-ink-soft); }
-.k-caption { font: 500 12px/1.4 var(--k-sans); color: var(--k-ink-soft); }
+.k-label { font: 700 13px/16px var(--k-sans); letter-spacing: .03em; color: var(--k-on-surface-variant); }
+.k-caption { font: 500 12.5px/18px var(--k-sans); color: var(--k-on-surface-variant); }
 
 /* One block. Someone who asked for less motion gets the state, not the
    ceremony — in every primitive and every page at once. */
