@@ -208,6 +208,7 @@ class AndroidPlatform(private val context: Context) : Platform {
 
     override fun cacheDir(): String = context.cacheDir.absolutePath
     override fun keepDir(): String = context.filesDir.absolutePath
+    override fun freeBytes(): Long? = runCatching { android.os.StatFs(context.filesDir.absolutePath).availableBytes }.getOrNull()
     override val musicAudio: app.kimono.music.MusicAudio by lazy { AndroidMusicAudio(context) }
 
     /** Hands the file to whichever app opens its type, through Kimono's FileProvider. */

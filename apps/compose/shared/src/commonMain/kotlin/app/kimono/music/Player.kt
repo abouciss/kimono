@@ -52,6 +52,18 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
     var party by mutableStateOf<MusicParty?>(null); internal set
     /** Who's listening (a username), to know whose party is whose. */
     var me: String? = null
+    /** No connection: only what's downloaded plays, and the rest is passed over. */
+    var offline by mutableStateOf(false)
+
+    /** Whether [track] can play now: always online, and offline only once it's downloaded. */
+    fun playable(track: Track) = !offline || downloads.has(track.key)
+
+    /** Says the connection's back (or isn't): what failed to download for want of one is tried again. */
+    fun connected(on: Boolean) {
+        val was = offline
+        offline = !on
+        if (on && was) downloads.retry(downloads.failed.value.filterValues { it.why == "No connection" }.keys)
+    }
 
     val queue: List<Track> get() = party?.view?.tracks ?: tracks
     val at: Int get() = party?.view?.index ?: index
@@ -175,9 +187,19 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         arriving = null
         if (party != null) { say("That song won't play here; the party carries on."); return }
         failures++
-        say(current?.let { "“${it.title}” won't play right now." } ?: "That won't play right now.")
-        /* One song failing moves on; several in a row is the server, and waits for you. */
-        if (failures < 3) scope.launch { delay(1200); advance(true) }
+        val song = current
+        scope.launch {
+            /* Not here and no answer: the phone's offline. Downloaded songs play on, the rest are passed over. */
+            if (song != null && !downloads.has(song.key) && runCatching { music.status(song.key) }.exceptionOrNull()?.message == app.kimono.data.OFFLINE) {
+                offline = true
+                if (tracks.drop(index + 1).any { downloads.has(it.key) }) { say("Offline · playing your downloads"); failures = 0; advance(true) }
+                else { audio?.pause(); say("Offline · only downloaded songs play") }
+                return@launch
+            }
+            say(song?.let { "“${it.title}” won't play right now." } ?: "That won't play right now.")
+            /* One song failing moves on; several in a row is the server, and waits for you. */
+            if (failures < 3) { delay(1200); advance(true) }
+        }
     }
 
     override fun remote(command: String, value: Double) {
@@ -201,6 +223,11 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         if (shuffled != null) shuffle = shuffled
         var order = list
         var i = start.coerceIn(0, list.lastIndex)
+        if (!playable(list[i])) {
+            val kept = (list.indices.drop(i) + list.indices.take(i)).firstOrNull { playable(list[it]) }
+            if (kept == null) { say("Offline · download songs to play them with no connection"); return }
+            i = kept
+        }
         if (shuffle) {
             unshuffled = list
             order = listOf(list[i]) + list.filterIndexed { n, _ -> n != i }.shuffled()
@@ -315,6 +342,13 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         val list = tracks
         val i = index
         if (repeat == "one" && !byUser) { list.getOrNull(i)?.let { load(it, true) }; return }
+        if (offline) {
+            /* Offline: on to the next song that's here, round again on repeat. */
+            val ahead = (i + 1 until list.size).firstOrNull { playable(list[it]) }
+                ?: if (repeat == "all") (0..i).firstOrNull { playable(list[it]) } else null
+            if (ahead == null) { audio?.pause(); say("That's all your downloads in this queue"); return }
+            index = ahead; load(list[ahead], true); save(); return
+        }
         if (i + 1 < list.size) { index = i + 1; load(list[i + 1], true); upcoming(); save(); return }
         if (repeat == "all" && list.isNotEmpty()) { index = 0; load(list[0], true); save(); return }
         /* The end of the queue: carry on with songs like the last one. */

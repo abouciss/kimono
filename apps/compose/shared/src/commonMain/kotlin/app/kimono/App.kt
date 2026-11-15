@@ -381,7 +381,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             composable("music/search") { AppAccentTheme(gold) { app.kimono.screens.MusicSearchScreen(player, ::musicGo) { goTab("music") } } }
             composable("music/liked") { AppAccentTheme(gold) { app.kimono.screens.MusicLikedScreen(player, ::musicGo) { nav.popBackStack() } } }
             composable("music/history") { AppAccentTheme(gold) { app.kimono.screens.MusicHistoryScreen(player, ::musicGo) { nav.popBackStack() } } }
-            composable("music/downloads") { AppAccentTheme(gold) { app.kimono.screens.MusicDownloadsScreen(player, ::musicGo) { nav.popBackStack() } } }
+            composable("music/downloads") { AppAccentTheme(gold) { app.kimono.screens.MusicDownloadsScreen(player, remember { platform.freeBytes() }, ::musicGo) { nav.popBackStack() } } }
             composable("music/artist/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicArtistScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
             composable("music/album/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicAlbumScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
             composable("music/song/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicSongScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
