@@ -221,13 +221,20 @@ fun MusicDownloadsScreen(player: MusicPlayer, free: Long?, go: MusicGo, back: ()
                         modifier = Modifier.padding(start = 12.dp, top = 20.dp).clip(RoundedCornerShape(12.dp)).clickable { clearing = true }.padding(horizontal = 8.dp, vertical = 10.dp))
                 }
             }
-            /* Songs kept from playing them, so they start at once next time. */
-            val played = d.played.collectAsState().value
-            if (played.isNotEmpty()) item(key = "played") {
-                Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Played songs · ${megabytes(played.values.sumOf { it.size })}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                    Text("Clear", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { d.clearPlayed() }.padding(horizontal = 8.dp, vertical = 10.dp))
+            /* Smart downloads: songs you play kept too, so they start at once next time. */
+            item(key = "smart") {
+                val smart = d.smart.collectAsState().value
+                val played = d.played.collectAsState().value
+                Row(Modifier.fillMaxWidth().clickable { d.setSmart(!smart) }.padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Smart downloads", style = MaterialTheme.typography.bodyLarge)
+                        Text(if (smart && played.isNotEmpty()) "Songs you play · ${megabytes(played.values.sumOf { it.size })} of 10 GB" else "Keeps songs you play, up to 10 GB",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = smart, onCheckedChange = { d.setSmart(it) },
+                        colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.surfaceContainerLow, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh, uncheckedThumbColor = MaterialTheme.colorScheme.outline, uncheckedBorderColor = MaterialTheme.colorScheme.outline),
+                    )
                 }
             }
             if (tracks.isEmpty() && coming.isEmpty() && failed.isEmpty()) item(key = "empty") {

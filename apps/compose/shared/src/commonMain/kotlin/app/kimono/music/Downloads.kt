@@ -71,10 +71,17 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
     private var loaded = false
 
     /*
-     * 聴 Every song played is kept too, apart from the downloads: the same file,
-     * fetched once it starts, so the next time it starts at once from the phone.
-     * Up to 100 GB, the longest unplayed going first, and always leaving room on the phone.
+     * 聴 Smart downloads, when you switch them on: every song played is kept too,
+     * apart from the downloads, so the next time it starts at once from the phone.
+     * Up to 10 GB, the longest unplayed going first, and always leaving room on the phone.
      */
+    private val _smart = MutableStateFlow(false)
+    val smart: StateFlow<Boolean> = _smart
+    fun setSmart(on: Boolean) {
+        _smart.value = on
+        scope.launch { platform.keep(SMART, if (on) "on" else null) }
+        if (!on) clearPlayed()
+    }
     @Serializable private data class Played(val songs: List<Kept> = emptyList())
     private val playedFolder by lazy { Path(folder, "played") }
     private val playedFile by lazy { Path(folder, "played.json") }
@@ -95,6 +102,7 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
                     _waiting.value = (still + _waiting.value).distinctBy { it.key }
                 }
             }
+            _smart.value = runCatching { platform.readKept(SMART) == "on" }.getOrDefault(false)
             runCatching {
                 if (SystemFileSystem.exists(playedFile)) {
                     val index = json.decodeFromString<Played>(SystemFileSystem.source(playedFile).buffered().use { it.readString() })
@@ -169,6 +177,7 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
 
     /** A song's just been played: kept, if it isn't yet, or marked as heard now. */
     fun keepPlayed(track: Track) {
+        if (!_smart.value) return
         val key = track.key
         _played.value[key]?.let { p ->
             _played.value = _played.value + (key to p.copy(at = nowMillis()))
@@ -197,7 +206,7 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
         if (keeper?.isActive == true || !loaded) return
         keeper = scope.launch {
             while (true) {
-                val next = toKeep.value.firstOrNull() ?: break
+                val next = toKeep.value.firstOrNull()?.takeIf { _smart.value } ?: break
                 /* A moment first, so the song's own start comes before the copy. */
                 delay(4_000)
                 val free = platform.freeBytes()
@@ -206,13 +215,14 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
                     else try { withContext(Dispatchers.Default) { fetch(next, playedFolder, shown = false) } } catch (c: CancellationException) { throw c } catch (_: Throwable) { null }
                 lock.withLock {
                     toKeep.value = toKeep.value.filter { it.key != next.key }
-                    if (got != null) { _played.value = _played.value + (next.key to got); roomForPlayed(); savePlayed() }
+                    if (got != null && !_smart.value) runCatching { SystemFileSystem.delete(Path(got.file)) }
+                    else if (got != null) { _played.value = _played.value + (next.key to got); roomForPlayed(); savePlayed() }
                 }
             }
         }
     }
 
-    /** Over 100 GB, or the phone running short: the songs played longest ago go. */
+    /** Over 10 GB, or the phone running short: the songs played longest ago go. */
     private fun roomForPlayed() {
         var total = playedBytes
         var free = platform.freeBytes()
@@ -329,7 +339,8 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
     }
 }
 
-private const val PLAYED_CAP = 100_000_000_000L
+private const val PLAYED_CAP = 10_000_000_000L
+private const val SMART = "music-smart-downloads"
 /** What's always left free on the phone for everything else. */
 private const val LEAVE_FREE = 2_000_000_000L
 private fun nowMillis() = kotlin.time.Clock.System.now().toEpochMilliseconds()
