@@ -27,7 +27,7 @@ type Person = { username: string; name: string; picture: string | null };
 type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; at?: number | null };
 type Section = { app: string; kind: string; title: string; items: Item[] };
 type Track = { key: string; title: string; artists: { key: string; name: string }[]; album: { key: string; title: string; cover: string | null } | null };
-export type MusicExtras = { listening: { track: Track; at: string; live: boolean } | null; plays: number; minutes: number; artists: { key: string; name: string; picture: string | null }[]; onRepeat?: { track: Track; plays: number } | null } | null;
+export type MusicExtras = { listening: { track: Track; at: string; live: boolean } | null; plays: number; minutes: number; artists: { key: string; name: string; picture: string | null; plays?: number }[]; counts?: Record<string, number>; onRepeat?: { track: Track; plays: number } | null } | null;
 type ReadBook = { key: string; title: string; author: string; cover: string | null; rating: "down" | "up" | "love" | null; at: number };
 export type BooksExtras = { reviews: (ReadBook & { review: string })[]; read: ReadBook[] } | null;
 
@@ -169,7 +169,7 @@ function Empty({ icon, text }: { icon: LineIconName; text: string }) {
 function WidgetView({ w, d, onEditLinks }: { w: Widget; d: BoardData; onEditLinks?: () => void }) {
   switch (w.kind) {
     case "listening": return <Turntable w={w} d={d} />;
-    case "song": case "album": return <Favourite w={w} />;
+    case "song": case "album": return <Favourite w={w} d={d} />;
     case "reading": return <Reading w={w} d={d} />;
     case "watching": return <Watching w={w} d={d} />;
     case "artists": return <Artists w={w} d={d} />;
@@ -220,16 +220,18 @@ function Deck({ cover, live }: { cover: string | null; live: boolean }) {
   </span>;
 }
 
-function Favourite({ w }: { w: Widget }) {
+function Favourite({ w, d }: { w: Widget; d: BoardData }) {
   const c = w.config ?? {};
   const album = w.kind === "album";
+  const times = !album && c.key ? d.music?.counts?.[c.key] ?? 0 : 0;
   return <Crossing kind="kakejiku" href={album ? albumHref(c.key) : songHref(c.key)} className={`wg-card wg-fav${album ? " wg-sleeve" : ""}`}>
     <span className="wg-fav-art">
       {album ? <span className="wg-fav-disc" aria-hidden="true" /> : null}
       {/* eslint-disable-next-line @next/next/no-img-element -- the cover from Music */}
       {c.cover ? <img src={c.cover} alt="" /> : <LineIcon name="music" />}
     </span>
-    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{album ? "Favourite album" : "Favourite song"}</small><b>{c.title}</b><em>{c.subtitle}</em></span> : null}
+    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{album ? "Favourite album" : "Favourite song"}</small><b>{c.title}</b><em>{c.subtitle}</em>
+      {times ? <span className="wg-times"><b>{times}</b> {times === 1 ? "play" : "plays"}</span> : null}</span> : null}
   </Crossing>;
 }
 
@@ -244,16 +246,31 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
+/** What's on: a little television, switched on, the show on its screen. */
 function Watching({ w, d }: { w: Widget; d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
-  if (!t) return <div className="wg-card"><Empty icon="film" text="Not watching anything right now" /></div>;
-  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-watching">
-    {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
-    {t.cover ? <img className="wg-poster" src={t.cover} alt="" /> : null}
-    <span className="wg-watch-shade" />
-    <span className="wg-words wg-on-image"><small className="wg-kicker">Watching</small><b>{t.title}</b>{t.subtitle && w.size !== "s" ? <em>{t.subtitle}</em> : null}
-      {t.progress ? <span className="wg-progress"><span className="wg-bar"><i style={{ width: `${t.progress * 100}%` }} /></span></span> : null}</span>
+  if (!t) return <div className="wg-card wg-tv-card"><Television cover={null} label={null} progress={null} /><Empty icon="film" text="Nothing on right now" /></div>;
+  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-tv-card">
+    <Television cover={t.cover} label={t.subtitle} progress={t.progress ?? null} />
+    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker"><i className="wg-live" />Watching</small><b>{t.title}</b>{t.subtitle ? <em>{t.subtitle}</em> : null}</span> : null}
   </Crossing>;
+}
+
+function Television({ cover, label, progress }: { cover: string | null; label: string | null; progress: number | null }) {
+  return <span className={`wg-tv${cover ? " is-on" : ""}`} aria-hidden="true">
+    <span className="wg-tv-ears"><i /><i /></span>
+    <span className="wg-tv-body">
+      <span className="wg-tv-screen">
+        {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
+        {cover ? <img src={cover} alt="" /> : null}
+        <span className="wg-tv-scan" />
+        <span className="wg-tv-glass" />
+        {label ? <span className="wg-tv-osd">▶ {label}</span> : null}
+        {progress ? <span className="wg-tv-bar"><i style={{ width: `${progress * 100}%` }} /></span> : null}
+      </span>
+      <span className="wg-tv-side"><i /><i /><b /></span>
+    </span>
+  </span>;
 }
 
 function Artists({ w, d }: { w: Widget; d: BoardData }) {
@@ -269,6 +286,7 @@ function Artists({ w, d }: { w: Widget; d: BoardData }) {
         <i>{i + 1}</i>
       </span>
       <small>{a.name}</small>
+      {a.plays ? <em className="wg-artist-plays">{a.plays} {a.plays === 1 ? "play" : "plays"}</em> : null}
     </Crossing>)}</span>
   </div>;
 }
@@ -480,13 +498,22 @@ function FavouriteBook({ w }: { w: Widget }) {
   </Crossing>;
 }
 
+/** Their favourite film or show, as a ticket: the poster on the stub, the title on the ticket, a line to tear along. */
 function FavouriteShow({ w }: { w: Widget }) {
   const c = w.config ?? {};
-  return <Crossing kind="kakejiku" href={`/watch?t=${encodeURIComponent(c.key ?? "")}`} className="wg-card wg-watching wg-show">
-    {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
-    {c.cover ? <img className="wg-poster" src={c.cover} alt="" /> : null}
-    <span className="wg-watch-shade" />
-    <span className="wg-words wg-on-image"><small className="wg-kicker">Favourite</small><b>{c.title}</b>{c.subtitle && w.size !== "s" ? <em>{c.subtitle}</em> : null}</span>
+  return <Crossing kind="kakejiku" href={`/watch?t=${encodeURIComponent(c.key ?? "")}`} className="wg-card wg-ticket-card">
+    <span className="wg-ticket">
+      <span className="wg-ticket-stub">
+        {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
+        {c.cover ? <img src={c.cover} alt="" /> : null}
+      </span>
+      <span className="wg-ticket-main">
+        <small className="wg-ticket-admit">Admit one · Favourite</small>
+        <b>{c.title}</b>
+        {c.subtitle && w.size !== "s" ? <em>{c.subtitle}</em> : null}
+        <span className="wg-ticket-no" aria-hidden="true">No. {String((c.key ?? "").length * 7919 % 100000).padStart(5, "0")}</span>
+      </span>
+    </span>
   </Crossing>;
 }
 

@@ -200,7 +200,7 @@ export async function profileOf(viewer: string, username: string, origin: string
   /* Music's widgets (the record, top artists, the month): only when friends see what they listen to. */
   const you = viewer.toLowerCase() === person.username.toLowerCase();
   const musicShown = you || (!hiddenAppsOf(db, person.username).includes("music") && !keptOf(db, person.username).includes("music:playing"));
-  const music = musicShown ? await import("../music/social").then((m) => m.musicExtras(person.username)).catch(() => null) : null;
+  const music = musicShown ? await import("../music/social").then((m) => m.musicExtras(person.username, (profile.widgets ?? []).filter((w) => w.kind === "song" && w.config?.key).map((w) => w.config!.key!))).catch(() => null) : null;
   /* Books' widgets (reviews, the shelf): only when friends see what they've read. */
   const booksShown = you || (!hiddenAppsOf(db, person.username).includes("books") && !keptOf(db, person.username).includes("books:read"));
   const books = booksShown ? await import("./books-section").then((m) => m.booksExtras(person.username)).catch(() => null) : null;

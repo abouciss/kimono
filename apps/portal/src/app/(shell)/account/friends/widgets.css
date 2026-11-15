@@ -349,3 +349,78 @@ a.wg-card:hover .wg-play-mark { transform: scale(1.08); }
 /* The preview is drawn at full size and shrunk round the middle of its box. */
 .wg-preview { position: relative; display: block; }
 .wg-preview .wg-cell.wg-s, .wg-preview .wg-cell.wg-m { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
+
+
+/* ── Watching: a little television ────────────────────────────────────── */
+
+.wg-tv-card { gap: 18px; }
+.wg-tv { position: relative; flex: none; width: 170px; padding-top: 16%; }
+.wg-l .wg-tv { width: min(86%, 300px); }
+.wg-m .wg-tv { width: 132px; padding-top: 22px; }
+.wg-s .wg-tv { width: 112px; padding-top: 18px; }
+.wg-tv-ears { position: absolute; left: 50%; top: 0; width: 46%; height: 30%; margin-left: -23%; }
+.wg-tv-ears i { position: absolute; bottom: 0; left: 50%; width: 2px; height: 100%; border-radius: 2px; background: #6f6259; transform-origin: bottom center; transition: transform .6s var(--k-spring); }
+.wg-tv-ears i:first-child { transform: rotate(-32deg); }
+.wg-tv-ears i:last-child { transform: rotate(28deg); }
+.wg-tv-ears i::after { content: ""; position: absolute; top: -3px; left: -2px; width: 6px; height: 6px; border-radius: 50%; background: #6f6259; }
+a.wg-card:hover .wg-tv-ears i:first-child { transform: rotate(-22deg); }
+a.wg-card:hover .wg-tv-ears i:last-child { transform: rotate(38deg); }
+.wg-tv-ears::after { content: ""; position: absolute; left: 50%; bottom: -3px; width: 16px; height: 6px; margin-left: -8px; border-radius: 6px 6px 0 0; background: #4b3f39; }
+.wg-tv-body {
+  position: relative; display: flex; gap: 6%; padding: 7%; border-radius: 14%;
+  background: #6b4a35; box-shadow: inset 0 0 0 2px #7d583f, inset 0 -4px 0 #573b2a, 0 10px 22px -10px rgba(0, 0, 0, .6);
+}
+.wg-tv-screen {
+  position: relative; flex: 1; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 16% / 20%;
+  background: #121513; box-shadow: inset 0 0 0 3px #2b2420, inset 0 0 18px rgba(0, 0, 0, .9);
+}
+.wg-tv-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; filter: saturate(1.15) contrast(1.05); }
+/* Switching on: a bright line opens into the picture. */
+.wg-tv.is-on .wg-tv-screen img { animation: wg-tv-on .9s .15s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes wg-tv-on { 0% { transform: scale(1, .01); filter: brightness(6); } 45% { transform: scale(1, .02); filter: brightness(4); } 100% { transform: none; } }
+.wg-tv-scan { position: absolute; inset: 0; background: repeating-linear-gradient(transparent 0 2px, rgba(0, 0, 0, .22) 2px 3px); mix-blend-mode: multiply; pointer-events: none; animation: wg-flicker 3.5s steps(2) infinite; }
+@keyframes wg-flicker { 0%, 96% { opacity: 1; } 97% { opacity: .7; } }
+.wg-tv-glass { position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(120% 90% at 30% 20%, rgba(255, 255, 255, .18), transparent 45%); box-shadow: inset 0 0 26px rgba(0, 0, 0, .55); pointer-events: none; }
+.wg-tv-osd { position: absolute; left: 8%; top: 8%; font: 700 11px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .06em; color: #c8ffb8; text-shadow: 0 0 6px rgba(150, 255, 130, .8); }
+.wg-l .wg-tv-osd { font-size: 14px; }
+.wg-tv-bar { position: absolute; left: 8%; right: 8%; bottom: 8%; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+.wg-tv-bar i { display: block; height: 100%; background: #c8ffb8; box-shadow: 0 0 6px rgba(150, 255, 130, .9); }
+.wg-tv-side { display: grid; align-content: center; justify-items: center; gap: 22%; width: 16%; }
+.wg-tv-side i { width: 100%; aspect-ratio: 1; border-radius: 50%; background: #e2dbcf; box-shadow: inset 0 0 0 3px #bdb4a7, 0 2px 0 #4a3122; }
+.wg-tv-side b { width: 30%; aspect-ratio: 1; border-radius: 50%; background: #4a3122; }
+.wg-tv.is-on .wg-tv-side b { background: #8fd16a; box-shadow: 0 0 6px #8fd16a; }
+.wg-l .wg-tv-card { flex-direction: column; }
+@media (prefers-reduced-motion: reduce) { .wg-tv-screen img, .wg-tv-scan { animation: none !important; } }
+
+/* ── A favourite: a cinema ticket ─────────────────────────────────────── */
+
+.wg-ticket-card { padding: 14px; background: none; }
+a.wg-ticket-card:hover { background: none; transform: rotate(-1.5deg) translateY(-3px); }
+.wg-ticket {
+  position: relative; display: flex; width: 100%; height: 100%; min-height: 0;
+  border-radius: 10px; background: #f3e3c7; color: #3a2a1e; box-shadow: 0 12px 24px -12px rgba(0, 0, 0, .5);
+  /* The notches either side of the tear line. */
+  -webkit-mask: radial-gradient(circle at var(--tear, 34%) 0, transparent 9px, #000 9.5px) top / 100% 51% no-repeat, radial-gradient(circle at var(--tear, 34%) 100%, transparent 9px, #000 9.5px) bottom / 100% 51% no-repeat;
+          mask: radial-gradient(circle at var(--tear, 34%) 0, transparent 9px, #000 9.5px) top / 100% 51% no-repeat, radial-gradient(circle at var(--tear, 34%) 100%, transparent 9px, #000 9.5px) bottom / 100% 51% no-repeat;
+}
+.wg-ticket-stub { position: relative; flex: none; width: 34%; overflow: hidden; border-radius: 10px 0 0 10px; background: #a84d63; }
+.wg-ticket-stub img { width: 100%; height: 100%; object-fit: cover; }
+.wg-ticket-stub::after { content: ""; position: absolute; top: 8%; bottom: 8%; right: -1px; border-right: 2px dashed rgba(58, 42, 30, .45); }
+.wg-ticket-main { position: relative; display: grid; align-content: center; gap: 4px; min-width: 0; padding: 10px 16px; text-align: left; }
+.wg-ticket-admit { font: 700 10.5px/14px var(--k-sans); letter-spacing: .14em; text-transform: uppercase; color: #a84d63; }
+.wg-ticket-main b { font: 600 20px/1.15 var(--k-display); color: #2b1f16; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wg-l .wg-ticket-main b { font-size: 28px; }
+.wg-ticket-main em { font-style: normal; font-size: 13px; color: #6b5442; }
+.wg-ticket-no { position: absolute; right: 12px; bottom: 8px; font: 600 10px/1 ui-monospace, Menlo, monospace; color: rgba(58, 42, 30, .5); letter-spacing: .1em; }
+.wg-s .wg-ticket { --tear: 50%; flex-direction: column; -webkit-mask: none; mask: none; }
+.wg-s .wg-ticket-stub { width: 100%; height: 58%; border-radius: 10px 10px 0 0; }
+.wg-s .wg-ticket-stub::after { display: none; }
+.wg-s .wg-ticket-main { padding: 6px 10px; }
+.wg-s .wg-ticket-main b { font-size: 14px; }
+.wg-s .wg-ticket-no { display: none; }
+
+/* ── Counts: how often they've played it ──────────────────────────────── */
+
+.wg-artist-plays { font-style: normal; font-size: 12px; line-height: 14px; color: var(--k-ink-muted, #7a6a63); font-variant-numeric: tabular-nums; }
+.wg-times { display: inline-flex; align-items: baseline; gap: 5px; margin-top: 8px; font-size: 13px; color: var(--k-ink-muted, #7a6a63); }
+.wg-times b { font: 600 22px/1 var(--k-display); color: var(--fr-color, #a84d63); font-variant-numeric: tabular-nums; }

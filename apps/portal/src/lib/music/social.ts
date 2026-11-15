@@ -74,7 +74,7 @@ export async function friendsListening(viewer: string): Promise<FriendListening[
  * heard properly), the artists played most this month, and the month's count.
  * The profile asks only when friends may see this person's listening.
  */
-export async function musicExtras(username: string) {
+export async function musicExtras(username: string, songs: string[] = []) {
   const db = musicDb();
   const u = user(username);
   const now = Date.now();
@@ -88,20 +88,25 @@ export async function musicExtras(username: string) {
     if (t && last) listening = { track: t, at: new Date(last.played_at).toISOString(), live: false };
   }
   const month = db.prepare("SELECT count(*) AS n, coalesce(sum(seconds), 0) AS s FROM plays WHERE username = ? AND played_at > ? AND seconds >= 30").get(u, now - 30 * DAY) as { n: number; s: number };
-  const top = db.prepare("SELECT artists, count(*) AS n FROM plays WHERE username = ? AND played_at > ? AND seconds >= 30 GROUP BY artists ORDER BY n DESC LIMIT 12").all(u, now - 30 * DAY) as { artists: string }[];
-  const seen = new Set<string>();
-  const artists: { key: string; name: string; picture: string | null }[] = [];
-  for (const row of top) for (const a of JSON.parse(row.artists) as { key: string; name: string }[]) {
-    if (seen.has(a.key) || artists.length >= 6) continue;
-    seen.add(a.key);
+  /* Each artist's plays this month, a song with two artists counting for both. */
+  const rows = db.prepare("SELECT artists, count(*) AS n FROM plays WHERE username = ? AND played_at > ? AND seconds >= 30 GROUP BY artists").all(u, now - 30 * DAY) as { artists: string; n: number }[];
+  const tally = new Map<string, { key: string; name: string; plays: number }>();
+  for (const row of rows) for (const a of JSON.parse(row.artists) as { key: string; name: string }[]) {
+    const was = tally.get(a.key);
+    if (was) was.plays += row.n; else tally.set(a.key, { key: a.key, name: a.name, plays: row.n });
+  }
+  const artists = [...tally.values()].sort((a, b) => b.plays - a.plays).slice(0, 6).map((a) => {
     const kept = db.prepare("SELECT data FROM lookups WHERE kind = 'artist' AND id = ?").get(a.key) as { data: string | null } | undefined;
     const picture = kept?.data ? (JSON.parse(kept.data) as { artist?: { picture?: string | null } }).artist?.picture ?? null : null;
-    artists.push({ key: a.key, name: a.name, picture });
-  }
+    return { ...a, picture };
+  });
   /* The song played through most this month. */
   const repeat = db.prepare("SELECT track, count(*) AS n FROM plays WHERE username = ? AND played_at > ? AND seconds >= length * 0.6 GROUP BY track ORDER BY n DESC LIMIT 1").get(u, now - 30 * DAY) as { track: string; n: number } | undefined;
   const [onRepeat] = repeat ? await tracksFor([repeat.track], 1) : [];
-  return { listening, plays: month.n, minutes: Math.round(month.s / 60), artists, onRepeat: onRepeat ? { track: onRepeat, plays: repeat!.n } : null };
+  /* How many times they've played the songs their widgets show, ever. */
+  const counts: Record<string, number> = {};
+  for (const key of songs.slice(0, 20)) counts[key] = (db.prepare("SELECT count(*) AS n FROM plays WHERE username = ? AND track = ? AND seconds >= 30").get(u, key) as { n: number }).n;
+  return { listening, plays: month.n, minutes: Math.round(month.s / 60), artists, counts, onRepeat: onRepeat ? { track: onRepeat, plays: repeat!.n } : null };
 }
 
 /* ── Friends on a song ─────────────────────────────────────────────────── */
