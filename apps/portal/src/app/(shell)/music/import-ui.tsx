@@ -166,7 +166,7 @@ export function ImportSheet({ onClose, open }: { onClose: () => void; open?: { s
             </details> : null}
           </div>
           : <div className="km-import" aria-live="polite">
-            <p className="km-import-name">{step.name || "Reading the playlist…"}</p>
+            {step.name ? <p className="km-import-name">{step.name}</p> : <p className="km-import-reading">Reading the playlist…</p>}
             <InkWave className="km-import-wave" value={step.stage === "match" && step.total ? step.done / step.total : undefined} label="Finding songs" />
             <p className="km-import-count">{step.stage === "match" ? `Found ${step.found} of ${step.total}` : step.total ? `${step.total} songs` : " "}</p>
             {step.cut ? <p className="km-import-note">Only its first 100 songs came through.</p> : null}
