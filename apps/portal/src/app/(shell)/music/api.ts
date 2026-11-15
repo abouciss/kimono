@@ -63,25 +63,32 @@ export const musicApi = {
 /* What a page asked for, kept for the visit: going back to a page draws it at once, then freshens it. */
 const kept = new Map<string, unknown>();
 
-export function useMusic<T>(id: string | null, load: () => Promise<T>) {
+/** `keep`: while a new `id` loads, keep showing what was there (search as you type), with `stale` saying so. */
+export function useMusic<T>(id: string | null, load: () => Promise<T>, keep = false) {
   const [data, setData] = useState<T | null>(() => (id ? (kept.get(id) as T | undefined) ?? null : null));
+  const [loadedId, setLoadedId] = useState<string | null>(() => (id && kept.has(id) ? id : null));
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   /* Another thing asked for: what's kept of it shows at once (set while drawing, as React has it). */
   const [shownId, setShownId] = useState(id);
-  if (shownId !== id) { setShownId(id); setData(id ? (kept.get(id) as T | undefined) ?? null : null); setError(null); }
+  if (shownId !== id) {
+    setShownId(id);
+    const known = id ? (kept.get(id) as T | undefined) ?? null : null;
+    if (known !== null || !keep) { setData(known); setLoadedId(known !== null ? id : null); }
+    setError(null);
+  }
   useEffect(() => {
     if (!id) return;
     let live = true;
     const known = kept.get(id) as T | undefined;
-    load().then((value) => { if (!live) return; kept.set(id, value); setData(value); setError(null); })
+    load().then((value) => { if (!live) return; kept.set(id, value); setData(value); setLoadedId(id); setError(null); })
       .catch((e: unknown) => { if (live && !known) setError(e instanceof Error ? e.message : "Music couldn't load."); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is a fresh closure each render; `id` names what it loads
   }, [id, tick]);
   const retry = useCallback(() => setTick((t) => t + 1), []);
   const replace = useCallback((value: T) => { if (id) kept.set(id, value); setData(value); }, [id]);
-  return { data, error, retry, replace };
+  return { data, error, retry, replace, stale: data !== null && loadedId !== id };
 }
 
 export const forget = (prefix: string) => { for (const k of kept.keys()) if (k.startsWith(prefix)) kept.delete(k); };

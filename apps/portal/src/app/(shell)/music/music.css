@@ -689,3 +689,7 @@
 .km-slider-wave .k-wave { height: 14px; color: var(--k-accent); }
 .km-slider-is-wave .km-slider-knob { width: 5px; height: 22px; margin-left: -2.5px; border-radius: 3px; background: var(--k-accent); opacity: 1; transform: none; box-shadow: 0 0 0 3px var(--k-surface-container, var(--k-surface)); }
 .km-slider-is-wave:hover .km-slider-knob, .km-slider-is-wave.km-dragging .km-slider-knob { transform: scaleY(1.15); }
+
+/* Search as you type: the last results stay, faded a little, until the new ones arrive. */
+.km-results { transition: opacity .2s; }
+.km-results.is-stale { opacity: .55; }
