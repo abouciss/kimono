@@ -9,9 +9,10 @@ import { JointSwitch } from "@/components/joint-switch";
 import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
-import { Book3D } from "../../books/book3d";
 import { isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
 import { LinkMark } from "./link-marks";
+import { TitleCard, TitleRow } from "@/components/title-art";
+import "./recommend-sheet.css";
 import { LinksEditor } from "./links-editor";
 
 /*
@@ -57,38 +58,9 @@ function Face({ person, size = 44 }: { person: Person; size?: number }) {
   return <InkPortraitFrame seed={person.username} weight={size > 60 ? 3 : 5}><Portrait name={person.name} username={person.username} picture={person.picture} size={Math.round(size * .84)} /></InkPortraitFrame>;
 }
 
-/* A book is drawn as Books draws it, in 3D, with a cloth binding when there's no cover; anything else by its cover. */
-function Face3D({ item }: { item: Item }) {
-  const author = item.subtitle?.split(" · ")[0]?.trim();
-  return <Book3D book={{ key: item.itemId, title: item.title, authors: author ? [author] : [], cover: item.cover, pages: null }} />;
-}
-
-function Cover({ item }: { item: Item }) {
-  return <span className="fr-cover">
-    {/* eslint-disable-next-line @next/next/no-img-element -- covers come from each app */}
-    {item.cover ? <img src={item.cover} alt="" loading="lazy" /> : <span className="fr-cover-none">{item.title.slice(0, 1)}</span>}
-  </span>;
-}
-
-/** How they rated it, as a mark on the cover's corner. */
-const rated = { love: "Loved", up: "Liked", down: "Didn't like" } as const;
-function RatingMark({ rating }: { rating: "love" | "up" | "down" }) {
-  return <span className={`fr-rated fr-rated-${rating}`} title={rated[rating]} aria-label={rated[rating]}>
-    {rating === "love"
-      ? <svg viewBox="0 0 24 24" aria-hidden><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" /></svg>
-      : <svg viewBox="0 0 24 24" aria-hidden style={rating === "down" ? { transform: "rotate(180deg)" } : undefined}><path d="M7 11v9H4v-9h3Zm0 0 4-7c1.7 0 2.6 1.2 2.2 2.8L12.6 10H18a2 2 0 0 1 2 2.3l-1.1 6A2 2 0 0 1 17 20H7" /></svg>}
-  </span>;
-}
-
+/** A title on a shelf here: the one title card every app's titles share (components/title-art). */
 function Tile({ item, children }: { item: Item; children?: React.ReactNode }) {
-  const href = hrefOf(item);
-  const face = <><span className="fr-cover-wrap">{item.app === "books" ? <Face3D item={item} /> : <Cover item={item} />}{item.rating ? <RatingMark rating={item.rating} /> : null}</span>
-    {item.progress ? <span className="fr-progress" role="progressbar" aria-valuenow={Math.round(item.progress * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${item.progress * 100}%` }} /></span> : null}
-    <b>{item.title}</b>{item.subtitle ? <small>{item.subtitle}</small> : null}</>;
-  return <div className="fr-tile">
-    {href ? <Crossing kind="kakejiku" href={href}>{face}</Crossing> : <span>{face}</span>}
-    {children}
-  </div>;
+  return <TitleCard item={item} href={hrefOf(item)} rating={item.rating ?? null} progress={item.progress ?? null}>{children}</TitleCard>;
 }
 
 /* ───── Recommending ───── */
@@ -119,7 +91,7 @@ export function RecommendSheet({ item, onClose, onSent }: { item: Item; onClose:
     <Seal tone="quiet" compact onClick={onClose}>Cancel</Seal>
     <Seal compact busy={busy} disabled={!to.length && !profile} onClick={() => void send()}>Send</Seal>
   </>}>
-    <div className="fr-rec-item"><Cover item={item} /><span><b>{item.title}</b>{item.subtitle ? <small>{item.subtitle}</small> : null}</span></div>
+    <TitleRow item={item} />
     {friends === null ? <div className="fr-pick" aria-busy="true" /> : friends.length
       ? <div className="fr-pick" role="group" aria-label="Friends">{friends.map((f) =>
         <button key={f.username} type="button" className="fr-pick-one" aria-label={f.name || f.username} aria-pressed={to.includes(f.username)} onClick={() => toggle(f.username)}>
@@ -502,9 +474,9 @@ function OffSheet({ off, onClose, onBack, onProblem }: { off: Off[]; onClose: ()
     .then((r) => { setLeft(r.off); onBack(r.off, o); }, (e) => onProblem(message(e)));
   return <InkSheet title="Taken off" icon="eye" onClose={onClose} actions={<Seal compact onClick={onClose}>Done</Seal>}>
     <ul className="fr-off">{left.map((o) => <li key={`${o.app}:${o.kind}:${o.itemId}`}>
-      <Cover item={o} />
-      <span className="fr-off-words"><b>{o.title}</b><small>{o.appName} · {o.rowTitle}</small></span>
-      <Seal tone="quiet" compact onClick={() => void back(o)}>Put back</Seal>
+      <TitleRow item={o} line={<small>{o.appName} · {o.rowTitle}</small>}>
+        <Seal tone="quiet" compact onClick={() => void back(o)}>Put back</Seal>
+      </TitleRow>
     </li>)}</ul>
   </InkSheet>;
 }

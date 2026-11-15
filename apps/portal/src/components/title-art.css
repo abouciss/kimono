@@ -1,0 +1,62 @@
+/* 品 One title as its app draws it (title-art.tsx). */
+
+.ta { position: relative; display: block; flex: none; }
+.ta-m { width: 140px; }
+.ta-s { width: 52px; }
+
+/* Watch: the poster, 2:3, the name in Mincho when there's no art. */
+.ta-poster { position: relative; display: block; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 12px; background: var(--k-container-highest, #2c2624); box-shadow: 0 10px 22px -14px rgba(0, 0, 0, .7); transition: transform .45s var(--k-spring, ease), border-radius .35s; }
+.ta-s .ta-poster { border-radius: 7px; }
+.ta-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ta-none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--k-on-surface-variant, #a99); background: color-mix(in srgb, var(--k-accent, #a84d63) 14%, var(--k-container-highest, #2c2624)); }
+.ta-none .line-icon { width: 30%; height: auto; opacity: .55; }
+.ta-named { align-content: end; justify-items: start; gap: 8px; padding: 12px; text-align: left; }
+.ta-named .line-icon { width: 22px; }
+.ta-named b { font: 600 18px/1.15 var(--k-display); color: var(--k-on-surface); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.ta-s .ta-named { padding: 4px; align-content: center; justify-items: center; }
+.ta-s .ta-named b { display: none; }
+.ta-bar { position: absolute; left: 8px; right: 8px; bottom: 8px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .28); overflow: hidden; }
+.ta-bar i { display: block; height: 100%; background: var(--k-accent, #a84d63); }
+
+/* Music: a square sleeve, its record peeking out to the right. */
+.ta-music { padding-right: 14%; }
+.ta-music.ta-s { padding-right: 10px; }
+.ta-sleeve { position: relative; z-index: 1; display: block; aspect-ratio: 1; overflow: hidden; border-radius: 8px; background: var(--k-container-highest, #2c2624); box-shadow: 0 10px 22px -12px rgba(0, 0, 0, .7); }
+.ta-s .ta-sleeve { border-radius: 5px; }
+.ta-sleeve img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ta-disc { position: absolute; top: 4%; bottom: 4%; right: 0; aspect-ratio: 1; border-radius: 50%; background: repeating-radial-gradient(circle, #1b1716 0 1.5px, #262120 1.5px 3px); box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .8); transition: transform .6s var(--k-spring, ease); }
+.ta-disc i { position: absolute; inset: 34%; border-radius: 50%; background: var(--k-accent, #946c25); }
+.ta-disc i::after { content: ""; position: absolute; inset: 42%; border-radius: 50%; background: #120f0e; }
+
+/* Books: Books' own 3D book (book3d.css), at a shelf's size. */
+.ta-books.ta-m .kb-book { --w: 132px; margin: 4px 0 10px; }
+.ta-books.ta-s .kb-book { --w: 46px; }
+
+/* How someone rated it. */
+.ta-rated { position: absolute; right: 6px; bottom: 6px; z-index: 2; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--k-accent, #a84d63); color: var(--k-surface, #fff); box-shadow: 0 0 0 2px var(--k-surface, #111); }
+.ta-music .ta-rated { right: calc(14% + 6px); }
+.ta-books .ta-rated { bottom: 16px; }
+.ta-rated svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.ta-rated-up svg, .ta-rated-down svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ta-rated-down { background: var(--k-container-highest); color: var(--k-on-surface-variant); }
+
+/* A card on a shelf. */
+.ta-card { position: relative; display: grid; align-content: start; gap: 6px; scroll-snap-align: start; }
+.ta-link { display: grid; gap: 8px; color: inherit; text-decoration: none !important; }
+.ta-words { display: grid; gap: 2px; min-width: 0; }
+.ta-words b { font: 600 14px/1.3 var(--k-sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ta-words small { font-size: 12.5px; color: var(--k-on-surface-variant); }
+@media (hover: hover) {
+  a.ta-link:hover .ta-poster { transform: translateY(-4px) rotate(-1.5deg); }
+  a.ta-link:hover .ta-disc { transform: translateX(22%) rotate(40deg); }
+  a.ta-link:hover .kb-book { --turn: 0deg; --lift: -8px; --open: -28deg; --b-shade: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .ta-poster, .ta-disc { transition: none; } }
+
+/* A row in a list. */
+.ta-row { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ta-row .ta-words { flex: 1; }
+.ta-card .ta-link > .ta-m:not(.ta-books) { width: 100%; }
+/* What sits on a card's corner (put away, recommend) stays over the art, on the sleeve rather than its record. */
+.ta-card > button, .ta-card > .fr-away { z-index: 3; }
+.ta-card-music > .fr-away { right: calc(14% + 6px); }

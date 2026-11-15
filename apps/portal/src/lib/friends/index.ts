@@ -215,7 +215,7 @@ export async function profileOf(viewer: string, username: string, origin: string
   /* Ratings of what they watched are their own row to share: kept, the marks come off. */
   if (!shares("watch", "rated")) profile.sections = profile.sections.map((s) => (s.app === "watch" ? { ...s, items: s.items.map((i) => ({ ...i, rating: null })) } : s));
   const friendList = profile.friendList?.map((f) => personIn(everyone, f)).sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)) ?? null;
-  return { ...profile, friendList, recommendations: profile.recommendations.map((r) => viewOf(r, everyone)), kimonoRead, music, books };
+  return { ...profile, friendList, recommendations: await withCovers(profile.recommendations.map((r) => viewOf(r, everyone))), kimonoRead, music, books };
 }
 
 export const saveBio = (username: string, bio: unknown) => setBio(friendsDb(), username, bio);
@@ -300,16 +300,32 @@ export async function sendRecommendation(username: string, raw: Record<string, u
   return { recommendations: made.map((r) => viewOf(r, everyone)) };
 }
 
+/**
+ * A title sent without a picture (a film with no poster yet, say) gets one from its app now:
+ * Watch's poster, else its wide art. Anything still without one is drawn by its app's own fallback.
+ */
+async function withCovers<T extends { app: string; itemId: string; cover: string | null }>(items: T[]): Promise<T[]> {
+  if (!items.some((i) => !i.cover && i.app === "watch")) return items;
+  const watch = await Promise.all([import("../watch/index"), import("../watch/model"), import("../watch/images")]).catch(() => null);
+  if (!watch) return items;
+  const [{ watchDb }, { getTitle }, { imageUrl }] = watch;
+  return items.map((i) => {
+    if (i.cover || i.app !== "watch") return i;
+    const t = getTitle(watchDb(), i.itemId);
+    return { ...i, cover: t ? imageUrl("", t.poster, "w500") ?? imageUrl("", t.backdrop, "w780") : null };
+  });
+}
+
 /** What friends sent you (marked seen as it's read), what you sent, and what's on your profile. */
 export async function recommendationsFor(username: string, app?: string) {
   const db = friendsDb();
   const everyone = await people();
-  const received = receivedBy(db, username, app).map((r) => viewOf(r, everyone));
+  const received = await withCovers(receivedBy(db, username, app).map((r) => viewOf(r, everyone)));
   markSeen(db, username);
   return {
     received,
-    sent: sentBy(db, username).filter((r) => !app || r.app === app).map((r) => viewOf(r, everyone)),
-    profile: onProfile(db, username).filter((r) => !app || r.app === app).map((r) => viewOf(r, everyone)),
+    sent: await withCovers(sentBy(db, username).filter((r) => !app || r.app === app).map((r) => viewOf(r, everyone))),
+    profile: await withCovers(onProfile(db, username).filter((r) => !app || r.app === app).map((r) => viewOf(r, everyone))),
   };
 }
 
