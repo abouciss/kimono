@@ -693,3 +693,15 @@
 /* Search as you type: the last results stay, faded a little, until the new ones arrive. */
 .km-results { transition: opacity .2s; }
 .km-results.is-stale { opacity: .55; }
+
+/* ── Bringing a playlist in ───────────────────────────────────────────── */
+
+.km-import { display: grid; gap: 12px; }
+.km-import-name { margin: 0; font: 600 20px/26px var(--k-display); }
+.km-import-count, .km-import-note { margin: 0; font: 500 14px/20px var(--k-sans); color: var(--k-on-surface-variant); }
+.km-import-problem { margin: 0; font: 500 14px/20px var(--k-sans); color: var(--k-error, #b3261e); }
+.km-import-wave { width: 100%; }
+.km-import-missed summary { cursor: pointer; font: 600 14px/20px var(--k-sans); color: var(--k-on-surface-variant); }
+.km-import-missed ul { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; max-height: 40vh; overflow-y: auto; }
+.km-import-missed li { display: grid; font-size: 14px; line-height: 18px; }
+.km-import-missed li span { font-size: 13px; color: var(--k-on-surface-variant); }

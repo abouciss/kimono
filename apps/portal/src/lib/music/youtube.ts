@@ -116,3 +116,21 @@ export async function streamOf(videoId: string): Promise<Stream> {
 }
 
 export function forgetStream(videoId: string) { streams.delete(videoId); }
+
+/** A public YouTube or YouTube Music playlist, as names: what an import matches against the catalogue. */
+export async function playlistOf(id: string, max = 5000) {
+  const yt = await searchSession();
+  let page = await yt.music.getPlaylist(id);
+  const header = page.header as unknown as { title?: { toString(): string }; thumbnail?: { contents?: { url: string }[] } } | undefined;
+  const items = [...(page.items ?? [])];
+  while (page.has_continuation && items.length < max) { page = await page.getContinuation(); items.push(...(page.items ?? [])); }
+  return {
+    name: header?.title?.toString() ?? "",
+    cover: header?.thumbnail?.contents?.[0]?.url ?? null,
+    items: items.slice(0, max).flatMap((item) => {
+      const it = item as unknown as { title?: string; authors?: { name: string }[]; artists?: { name: string }[]; album?: { name?: string }; duration?: { seconds: number } };
+      if (!it.title) return [];
+      return [{ title: it.title, artists: (it.artists ?? it.authors ?? []).map((a) => a.name), album: it.album?.name ?? null, seconds: it.duration?.seconds ?? 0 }];
+    }),
+  };
+}

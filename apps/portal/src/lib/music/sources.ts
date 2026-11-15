@@ -24,11 +24,13 @@ async function getJson(url: string, timeoutMs = 9000): Promise<Json | null> {
 
 const dz = "https://api.deezer.com";
 
-async function deezer(path: string): Promise<Json | null> {
+async function deezer(path: string, tries = 3): Promise<Json | null> {
   const res = await getJson(`${dz}${path}`);
   /* Deezer answers 200 with { error } for most problems; "no data" is a miss. */
   if (res?.error) {
     if (res.error.code === 800) return null;
+    /* Over its 50 requests in 5 seconds: it asks for a moment. */
+    if (res.error.code === 4 && tries > 1) { await new Promise((r) => setTimeout(r, 1500)); return deezer(path, tries - 1); }
     throw new MusicProblem(`deezer: ${res.error.message ?? res.error.type ?? "error"}`);
   }
   return res;
@@ -127,6 +129,9 @@ export const deezerSource = {
     const r = await deezer(`/search/track?q=${q(`artist:"${artist}" track:"${title}"`)}&limit=1`);
     return tracks(r?.data)[0] ?? null;
   },
+  /** A recording by its ISRC: the same release, exactly. */
+  async isrc(code: string) { const t = await deezer(`/track/isrc:${q(code)}`); return t ? trackOf(t) : null; },
+  async searchTracks(text: string, limit = 10) { return tracks((await deezer(`/search/track?q=${q(text)}&limit=${limit}`))?.data); },
   async findArtist(name: string) {
     const r = await deezer(`/search/artist?q=${q(name)}&limit=1`);
     const a = ((r?.data ?? []) as Json[]).map(artistOf).filter(Boolean)[0];

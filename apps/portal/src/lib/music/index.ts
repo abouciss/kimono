@@ -77,7 +77,7 @@ const user = (username: string) => username.toLowerCase();
 const asking = new Map<string, Promise<unknown>>();
 
 /** What a source said, kept for `fresh` ms; a miss (null) is kept a day. A failure gives what was kept before, if anything. */
-async function kept<T>(kind: string, id: string, fresh: number, ask: () => Promise<T | null>): Promise<T | null> {
+export async function kept<T>(kind: string, id: string, fresh: number, ask: () => Promise<T | null>): Promise<T | null> {
   const db = musicDb();
   const row = db.prepare("SELECT data, checked_at FROM lookups WHERE kind = ? AND id = ?").get(kind, id) as { data: string | null; checked_at: number } | undefined;
   const old = row?.data ? JSON.parse(row.data) as T : null;
@@ -101,7 +101,7 @@ async function kept<T>(kind: string, id: string, fresh: number, ask: () => Promi
 }
 
 /** Tracks are kept as seen, so a playlist or history can draw them without asking Deezer. */
-function keepTracks(tracks: Track[]) {
+export function keepTracks(tracks: Track[]) {
   if (!tracks.length) return;
   const db = musicDb();
   const put = db.prepare("INSERT INTO tracks (key, data, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at");

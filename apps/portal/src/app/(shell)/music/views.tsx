@@ -7,6 +7,7 @@ import { AppLockup, cx, InkPortraitFrame, Seal, type AppIdentity } from "@kimono
 import { useTabTitle } from "@/components/tab-title";
 import { ago, byline, clock, forget, hrefOf, length, musicApi, share, useMusic, type Album, type FriendListening, type Person, type PlaylistPage, type Track } from "./api";
 import { InkSheet } from "@/components/ink-sheet";
+import { ImportSheet } from "./import-ui";
 import { askName, askSure } from "./ask";
 import { Icon } from "./icons";
 import { Portrait } from "@/components/portrait";
@@ -478,6 +479,7 @@ export function YouView() {
   const crossTo = useCrossTo();
   const { data: me, error, retry } = useMusic("me", musicApi.me);
   const { data: friends } = useMusic("friends", () => musicApi.friends().then((r) => r.friends));
+  const [bringing, setBringing] = useState(false);
   const newPlaylist = async () => {
     const name = await askName("New playlist", "Make it");
     if (!name) return;
@@ -487,6 +489,7 @@ export function YouView() {
   if (!me) return <Loading />;
   const hours = me.minutes >= 90 ? `${Math.round(me.minutes / 60)} hours` : `${me.minutes} minutes`;
   return <div className="km-page km-you">
+    {bringing ? <ImportSheet onClose={() => setBringing(false)} /> : null}
     <header className="km-head km-you-head">
       <div className="km-head-art km-you-portrait"><InkPortraitFrame seed={p.you.username} weight={5}><Portrait name={p.you.name} username={p.you.username} picture={p.you.picture} size={180} /></InkPortraitFrame></div>
       <div className="km-head-text">
@@ -496,6 +499,7 @@ export function YouView() {
         {me.tags.length ? <span className="km-tags">{me.tags.map((t) => <span key={t} className="km-tag">{t}</span>)}</span> : null}
         <div className="km-head-actions">
           <Seal onClick={newPlaylist}><Icon name="add" />New playlist</Seal>
+          <Seal tone="quiet" onClick={() => setBringing(true)}><Icon name="bring" />Bring one in</Seal>
           <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(p.you.username)}`} className="km-textbtn km-you-profile">Your profile</Crossing>
         </div>
       </div>
@@ -513,6 +517,11 @@ export function YouView() {
         <button type="button" className="km-card km-new-card" onClick={newPlaylist}>
           <span className="km-card-pic km-new-art"><Icon name="add" /></span>
           <span className="km-card-title">New playlist</span>
+        </button>
+        <button type="button" className="km-card km-new-card" onClick={() => setBringing(true)}>
+          <span className="km-card-pic km-new-art"><Icon name="bring" /></span>
+          <span className="km-card-title">Bring one in</span>
+          <span className="km-card-sub">From Spotify, Apple Music or YouTube</span>
         </button>
       </div>
     </section>
