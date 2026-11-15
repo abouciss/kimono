@@ -698,6 +698,8 @@
 
 .km-import { display: grid; gap: 12px; }
 .km-import-name { margin: 0; font: 600 20px/26px var(--k-display); }
+/* Before the playlist has a name: a status line, in the body face. */
+.km-import-reading { margin: 0; font: 500 15px/22px var(--k-sans); color: var(--k-on-surface-variant); }
 .km-import-count, .km-import-note { margin: 0; font: 500 14px/20px var(--k-sans); color: var(--k-on-surface-variant); }
 .km-import-problem { margin: 0; font: 500 14px/20px var(--k-sans); color: var(--k-error, #b3261e); }
 .km-import-wave { width: 100%; }
