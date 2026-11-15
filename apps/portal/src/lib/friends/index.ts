@@ -11,7 +11,7 @@ import { picturePaths } from "../pictures";
 import { stateDir } from "../state";
 import {
   answerFriend, apps, askFriend, setLook, keptOf, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
-  isInvisible, isOffProfile, offProfileList, offProfileOf, privacyOf, profileFor, putBackOnProfile, takeOffProfile, receivedBy, recommend, recommendedTo, removeFriend, seesProfile, sentBy, setAppHidden, setBio, setInvisible, setKept, unseenCount,
+  isInvisible, isOffProfile, offProfileList, offProfileOf, privacyOf, profileFor, putBackOnProfile, takeOffProfile, receivedBy, recommend, recommendedTo, removeFriend, seesProfile, sentBy, setAppHidden, setBio, setInvisible, setKept, unseenCount, setVisibility, visibilityOf, decideSharing, decidedOf, sharingAsks, type Visibility,
   type LinkState, type Recommendation, type Section,
 } from "./model";
 import { friendsActivity, type Activity } from "./activity";
@@ -197,13 +197,23 @@ export async function profileOf(viewer: string, username: string, origin: string
   const everyone = await people();
   /* Badges are for friends too: a Kimono Read shows even when their Books rows don't. */
   const kimonoRead = await import("./books-section").then((m) => m.kimonoReadOf(person.username)).catch(() => null);
-  /* Music's widgets (the record, top artists, the month): only when friends see what they listen to. */
-  const you = viewer.toLowerCase() === person.username.toLowerCase();
-  const musicShown = you || (!hiddenAppsOf(db, person.username).includes("music") && !keptOf(db, person.username).includes("music:playing"));
-  const music = musicShown ? await import("../music/social").then((m) => m.musicExtras(person.username, (profile.widgets ?? []).filter((w) => w.kind === "song" && w.config?.key).map((w) => w.config!.key!))).catch(() => null) : null;
-  /* Books' widgets (reviews, the shelf): only when friends see what they've read. */
-  const booksShown = you || (!hiddenAppsOf(db, person.username).includes("books") && !keptOf(db, person.username).includes("books:read"));
-  const books = booksShown ? await import("./books-section").then((m) => m.booksExtras(person.username)).catch(() => null) : null;
+  /* Music's and Books' widgets, each part only as far as they share it (their own profile shows it all). */
+  const you = profile.you;
+  const kept = new Set(keptOf(db, person.username));
+  const hiddenApps = hiddenAppsOf(db, person.username);
+  const shares = (app: string, kind: string) => you || (!hiddenApps.includes(app) && !kept.has(`${app}:${kind}`));
+  const songs = (profile.widgets ?? []).filter((w) => w.kind === "song" && w.config?.key).map((w) => w.config!.key!);
+  const fullMusic = shares("music", "playing") || shares("music", "stats")
+    ? await import("../music/social").then((m) => m.musicExtras(person.username, songs)).catch(() => null) : null;
+  const music = fullMusic ? {
+    ...fullMusic,
+    listening: shares("music", "playing") ? fullMusic.listening : null,
+    ...(shares("music", "stats") ? {} : { plays: 0, minutes: 0, artists: [], counts: {}, onRepeat: null }),
+  } : null;
+  const fullBooks = shares("books", "read") || shares("books", "reviews") ? await import("./books-section").then((m) => m.booksExtras(person.username)).catch(() => null) : null;
+  const books = fullBooks ? { ...fullBooks, ...(shares("books", "reviews") ? {} : { reviews: [] }), ...(shares("books", "read") ? {} : { read: [] }) } : null;
+  /* Ratings of what they watched are their own row to share: kept, the marks come off. */
+  if (!shares("watch", "rated")) profile.sections = profile.sections.map((s) => (s.app === "watch" ? { ...s, items: s.items.map((i) => ({ ...i, rating: null })) } : s));
   const friendList = profile.friendList?.map((f) => personIn(everyone, f)).sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)) ?? null;
   return { ...profile, friendList, recommendations: profile.recommendations.map((r) => viewOf(r, everyone)), kimonoRead, music, books };
 }
@@ -220,7 +230,9 @@ export const showApp = (username: string, app: string, shown: boolean) => setApp
 export function changePrivacy(username: string, body: Record<string, unknown>) {
   const db = friendsDb();
   const shown = body.shown !== false;
-  if (typeof body.invisible === "boolean") setInvisible(db, username, body.invisible);
+  if (typeof body.visibility === "string") setVisibility(db, username, body.visibility as Visibility);
+  else if (typeof body.share === "string") decideSharing(db, username, body.share, Array.isArray(body.on) ? body.on.map(String) : []);
+  else if (typeof body.invisible === "boolean") setInvisible(db, username, body.invisible);
   else if (typeof body.keep === "string") setKept(db, username, body.keep, !shown);
   else if (typeof body.app === "string") setAppHidden(db, username, body.app, !shown);
   else throw new FriendsProblem("Pick what friends see.");
@@ -228,6 +240,18 @@ export function changePrivacy(username: string, body: Record<string, unknown>) {
 }
 
 const profileRows: Record<string, string[]> = { watch: ["watching", "watched", "listed"], books: ["reading", "want", "read"], music: ["playing", "loved", "playlists"] };
+
+/**
+ * Whether an app should ask what to share, the first time it's opened: only once you have a friend to share
+ * with, and only until you answer. With the choices, each starting where it should.
+ */
+export function sharingAsk(username: string, app: string) {
+  const db = friendsDb();
+  const asks = sharingAsks[app];
+  if (!asks) return { ask: false, asks: [] };
+  const ask = !decidedOf(db, username).includes(app) && friendsOf(db, username).length > 0;
+  return { ask, asks: asks.map(({ key, says, on }) => ({ key, says, on })) };
+}
 const rowOf = (raw: Record<string, unknown>) => {
   const app = String(raw.app ?? ""), kind = String(raw.kind ?? ""), id = String(raw.itemId ?? "");
   if (!id) throw new FriendsProblem("Pick a title.");
@@ -262,6 +286,8 @@ const watchedSeen = async (username: string, id: string, seen: boolean) => {
 };
 
 /** Whether someone has gone invisible to friends (Kimono's switch, on their profile): apps keep what they do from friends while it's on. */
+/** Whether anyone with its address sees someone's profile. */
+export const isPublicProfile = (username: string) => visibilityOf(friendsDb(), username) === "public";
 export const invisibleToFriends = (username: string) => isInvisible(friendsDb(), username);
 
 /* ───── Recommendations ───── */
