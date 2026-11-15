@@ -164,7 +164,7 @@ async function readApple(id: string, storefront: string): Promise<Source> {
 }
 
 /* YouTube: a song's channel is "Artist - Topic" or "ArtistVEVO"; a video's title is often "Artist - Song (Official Video)". */
-function fromYouTube(item: { title: string; artists: string[]; album: string | null; seconds: number }): Wanted {
+export function fromYouTube(item: { title: string; artists: string[]; album: string | null; seconds: number }): Wanted {
   let artists = item.artists.map((a) => a.replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim()).filter(Boolean);
   let title = item.title;
   const split = /^(.+?)\s+[-–—]\s+(.+)$/.exec(title);
@@ -255,11 +255,17 @@ export type Progress =
   | { stage: "match"; done: number; found: number; total: number }
   | { stage: "done"; playlist: { id: string; name: string }; found: number; total: number; missed: { title: string; artists: string[] }[] };
 
-/** Reads the link, finds its songs, and makes the playlist, telling `say` how far along it is. */
-export async function importPlaylist(username: string, text: string, say: (p: Progress) => void, name?: string): Promise<void> {
+/** A playlist link, read. */
+export function fromLink(text: string): () => Promise<Source> {
   const link = linkOf(text);
   if (!link) throw new MusicProblem("That isn't a Spotify, Apple Music or YouTube Music playlist link.", 400);
-  const source = await readLink(link);
+  return () => readLink(link);
+}
+
+/** Reads the playlist, finds its songs, and makes it here, telling `say` how far along it is. */
+export async function importPlaylist(username: string, read: () => Promise<Source>, say: (p: Progress) => void, name?: string): Promise<void> {
+  const source = await read();
+  if (!source.tracks.length) throw new MusicProblem("That playlist has no songs to bring in.", 404);
   const total = source.tracks.length;
   say({ stage: "read", name: source.name, service: source.service, total, cut: source.cut });
   const found: (Track | null)[] = new Array(total).fill(null);
