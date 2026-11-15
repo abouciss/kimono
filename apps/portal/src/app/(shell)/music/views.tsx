@@ -263,9 +263,10 @@ export function SongView({ id }: { id: string }) {
       <Seal onClick={() => (here ? p.toggle() : p.play([t], 0, { kind: "song", id: t.key, title: t.title }))}>
         <Icon name={here && p.playing ? "pause" : "play"} />{here && p.playing ? "Pause" : "Play"}
       </Seal>
-      <RateMarks kind="track" keyOf={t.key} />
-      <AddToPlaylist keys={[t.key]} labelled />
-      <button type="button" className="km-pillbtn" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" /><span>Share</span></button>
+      <AddToPlaylist keys={[t.key]} compact={false} />
+      <Seal tone="quiet" className="km-seal-icon" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" />Share</Seal>
+      {/* The marks apart from the actions: how you feel, not what to do. */}
+      <RateMarks kind="track" keyOf={t.key} size="md" className="km-head-rates" />
     </Head>
 
     {words.some((w) => w.trim()) ? <section className="km-song-words">

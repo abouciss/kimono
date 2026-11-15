@@ -3,12 +3,12 @@
 import { Crossing } from "@/components/crossing";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { cx, InkWave } from "@kimono/ui";
+import { cx, InkWave, Seal } from "@kimono/ui";
 import { byline, clock, hrefOf, musicApi, share, type Lyrics } from "./api";
 import { Asker } from "./ask";
 import { Icon } from "./icons";
-import { AddToPlaylist, ArtistLinks, Bars, Cover, RateMarks } from "./parts";
-import { usePlayer, usePosition } from "./player";
+import { AddToPlaylist, ArtistLinks, Bars, Cover, Menu, MoreButton, playlistItems, RateMarks, songMenuItems, type Item } from "./parts";
+import { usePlayer, usePosition, type Source } from "./player";
 
 /*
  * What stays on screen while you browse: the bar along the bottom, and the
@@ -54,13 +54,142 @@ function Slider({ value, max, onChange, onCommit, label, format, className }: {
   </div>;
 }
 
-/* ── The bar ───────────────────────────────────────────────────────────── */
+/* ── Small things the bar and Now Playing share ────────────────────────── */
 
-function Bar() {
+/* Wider than a phone: Now Playing has room for the lyrics beside the song. */
+const wideQuery = "(min-width: 721px)";
+function useWide() {
+  return useSyncExternalStore(
+    (on) => { const m = matchMedia(wideQuery); m.addEventListener("change", on); return () => m.removeEventListener("change", on); },
+    () => matchMedia(wideQuery).matches,
+    () => true,
+  );
+}
+
+/* A song's words, fetched once and kept: the bar wants to know whether there are any, Now Playing wants them. */
+const lyricsKept = new Map<string, Promise<Lyrics | null>>();
+function lyricsOf(key: string) {
+  let found = lyricsKept.get(key);
+  if (!found) {
+    found = musicApi.lyrics(key).then((r) => r.lyrics).catch(() => { lyricsKept.delete(key); return null; });
+    lyricsKept.set(key, found);
+  }
+  return found;
+}
+/** Undefined while asking; null when there are none. */
+function useLyrics(key: string): Lyrics | null | undefined {
+  const [got, setGot] = useState<{ key: string; lyrics: Lyrics | null } | null>(null);
+  useEffect(() => {
+    if (!key) return;
+    let live = true;
+    void lyricsOf(key).then((lyrics) => { if (live) setGot({ key, lyrics }); });
+    return () => { live = false; };
+  }, [key]);
+  return got?.key === key ? got.lyrics : undefined;
+}
+const hasWords = (l: Lyrics | null | undefined) => l === undefined || Boolean(l && (l.synced?.length || l.plain));
+
+/* Where the queue came from, as somewhere to go back to. */
+function sourceHref(s: NonNullable<Source>): string | null {
+  switch (s.kind) {
+    case "album": return hrefOf.album(s.id);
+    case "artist": return hrefOf.artist(s.id);
+    case "playlist": return hrefOf.playlist(s.id);
+    case "genre": return hrefOf.genre(Number(s.id));
+    case "mix": return hrefOf.mix(s.id);
+    case "liked": return "/music/liked";
+    case "history": return "/music/history";
+    case "radio": case "song": return hrefOf.song(s.id);
+    case "search": return `/music/search?q=${encodeURIComponent(s.id)}`;
+    default: return null;
+  }
+}
+
+/** Shuffle, previous, play, next, repeat. Shuffle and repeat are pressed stamps when on. */
+function Transport({ large = false }: { large?: boolean }) {
+  const p = usePlayer();
+  const repeatLabel = p.repeat === "one" ? "Repeating this song" : p.repeat === "all" ? "Repeating the queue" : "Repeat";
+  return <div className={cx("km-transport", large && "km-transport-lg")}>
+    <button type="button" className={cx("km-iconbtn km-small km-order", p.shuffle && "km-on")} aria-pressed={p.shuffle} aria-label="Shuffle" title="Shuffle" onClick={() => p.setShuffle(!p.shuffle)}><Icon name="shuffle" /></button>
+    <button type="button" className="km-iconbtn" aria-label="Previous" title="Previous" onClick={p.prev}><Icon name="prev" /></button>
+    <button type="button" className={cx("km-playbtn", large && "km-playbtn-lg", p.waiting && "km-waiting")} aria-label={p.playing ? "Pause" : "Play"} onClick={p.toggle}>
+      <Icon name={p.playing ? "pause" : "play"} />
+    </button>
+    <button type="button" className="km-iconbtn" aria-label="Next" title="Next" onClick={p.next}><Icon name="next" /></button>
+    <button type="button" className={cx("km-iconbtn km-small km-order", p.repeat !== "off" && "km-on")} aria-pressed={p.repeat !== "off"} aria-label={repeatLabel} title={repeatLabel} onClick={p.cycleRepeat}>
+      <Icon name={p.repeat === "one" ? "repeatOne" : "repeat"} />
+    </button>
+  </div>;
+}
+
+/** The song's place: a rail between its times, or (phone Now Playing) a rail with the times under it. */
+function SongPlace({ under = false }: { under?: boolean }) {
   const p = usePlayer();
   const { position, duration } = usePosition();
   const [scrub, setScrub] = useState<number | null>(null);
+  const rail = <Slider label="Place in the song" value={position} max={duration} format={(v) => `${clock(v)} of ${clock(duration)}`} onChange={setScrub} onCommit={(v) => { setScrub(null); p.seek(v); }} />;
+  if (under) return <div className="km-seek km-seek-under">{rail}<span className="km-time">{clock(scrub ?? position)}</span><span className="km-time">{clock(duration)}</span></div>;
+  return <div className="km-seek"><span className="km-time">{clock(scrub ?? position)}</span>{rail}<span className="km-time">{clock(duration)}</span></div>;
+}
+
+/**
+ * Lyrics and Queue, worded, seated while open. In the bar, Lyrics opens the song
+ * in full and Queue the queue beside the page, or, with the song open, its Up next.
+ */
+function BarViews({ words }: { words: boolean }) {
+  const p = usePlayer();
+  const lyricsOn = p.nowPlaying && p.panel !== "queue";
+  const queueOn = p.panel === "queue";
+  return <span className="km-leaves" role="group" aria-label="Views">
+    <button type="button" className={cx("km-leaf", lyricsOn && "km-on", !words && "km-lifted")} aria-pressed={lyricsOn} title={words ? "Lyrics" : "No lyrics for this song"}
+      onClick={() => { if (!p.nowPlaying) p.setNowPlaying(true); else if (p.panel === "queue") p.setPanel("lyrics"); else p.setNowPlaying(false); }}>
+      <Icon name="lyrics" /><span>Lyrics</span>
+    </button>
+    <button type="button" className={cx("km-leaf", queueOn && "km-on")} aria-pressed={queueOn} title="Queue"
+      onClick={() => p.setPanel(queueOn ? (p.nowPlaying ? "lyrics" : null) : "queue")}>
+      <Icon name="queue" /><span>Queue</span>
+    </button>
+  </span>;
+}
+
+/** Volume: a rail beside the speaker; where there's no room, a tap mutes and holding brings the rail up. */
+function Volume() {
+  const p = usePlayer();
+  const [raised, setRaised] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  const hold = useRef<number | undefined>(undefined);
+  const held = useRef(false);
+  useEffect(() => {
+    if (!raised) return;
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setRaised(false); };
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
+  }, [raised]);
+  const label = p.muted ? "Unmute" : "Mute";
+  return <span ref={box} className={cx("km-volume", raised && "km-volume-raised")}>
+    <button type="button" className="km-iconbtn km-small" aria-label={label} title={label}
+      onPointerDown={() => { held.current = false; hold.current = window.setTimeout(() => { held.current = true; setRaised(true); }, 450); }}
+      onPointerUp={() => clearTimeout(hold.current)} onPointerLeave={() => clearTimeout(hold.current)}
+      onContextMenu={(e) => { e.preventDefault(); setRaised(true); }}
+      onClick={() => { if (held.current) { held.current = false; return; } p.setMuted(!p.muted); }}>
+      <Icon name={p.muted || p.volume === 0 ? "muted" : "volume"} />
+    </button>
+    <Slider label="Volume" value={p.muted ? 0 : p.volume} max={1} format={(v) => `${Math.round(v * 100)}%`} onChange={p.setVolume} onCommit={p.setVolume} className="km-volume-slider" />
+  </span>;
+}
+
+/* ── The bar ───────────────────────────────────────────────────────────── */
+
+/*
+ * Three groups, each with one meaning: the song and how you feel about it;
+ * playing; and what's around the song (its views, the volume, its menu).
+ * Nothing sits beside the marks.
+ */
+function Bar() {
+  const p = usePlayer();
+  const { position, duration } = usePosition();
   const t = p.current;
+  const lyrics = useLyrics(t?.key ?? "");
   if (!t) return null;
   const arriving = p.arriving;
   const arrivingText = arriving?.stage === "finding" ? "Finding the song" : "Getting it ready";
@@ -74,82 +203,103 @@ function Bar() {
         <button type="button" className="km-bar-title" onClick={() => p.setNowPlaying(!p.nowPlaying)}>{t.title}</button>
         <span className="km-bar-by">{arriving ? <span className="km-arriving-short">{arrivingText}…</span> : null}<span className="km-bar-artists"><ArtistLinks artists={t.artists} /></span></span>
       </div>
-      <span className="km-bar-rate"><RateMarks kind="track" keyOf={t.key} /><AddToPlaylist keys={[t.key]} /></span>
+      <RateMarks kind="track" keyOf={t.key} className="km-bar-rate" />
     </div>
 
     <div className="km-bar-middle">
-      <div className="km-transport">
-        <button type="button" className={cx("km-iconbtn km-small", p.shuffle && "km-on")} aria-pressed={p.shuffle} aria-label="Shuffle" title="Shuffle" onClick={() => p.setShuffle(!p.shuffle)}><Icon name="shuffle" /></button>
-        <button type="button" className="km-iconbtn" aria-label="Previous" title="Previous" onClick={p.prev}><Icon name="prev" /></button>
-        <button type="button" className={cx("km-playbtn", p.waiting && "km-waiting")} aria-label={p.playing ? "Pause" : "Play"} onClick={p.toggle}>
-          <Icon name={p.playing ? "pause" : "play"} />
-        </button>
-        <button type="button" className="km-iconbtn" aria-label="Next" title="Next" onClick={p.next}><Icon name="next" /></button>
-        <button type="button" className={cx("km-iconbtn km-small", p.repeat !== "off" && "km-on")} aria-label={p.repeat === "one" ? "Repeating this song" : p.repeat === "all" ? "Repeating the queue" : "Repeat"} title="Repeat" onClick={p.cycleRepeat}>
-          <Icon name={p.repeat === "one" ? "repeatOne" : "repeat"} />
-        </button>
-      </div>
+      <Transport />
       {arriving
         /* The first time anyone plays a song, the server fetches it: the wave fills as it comes in. */
         ? <div className="km-seek km-arriving" role="status">
           <span className="km-arriving-label">{arrivingText}</span>
           <InkWave value={arriving.stage === "fetching" && arriving.fraction > 0 ? arriving.fraction : undefined} label={arrivingText} className="km-arriving-wave" />
         </div>
-        : <div className="km-seek">
-          <span className="km-time">{clock(scrub ?? position)}</span>
-          <Slider label="Place in the song" value={position} max={duration} format={(v) => `${clock(v)} of ${clock(duration)}`} onChange={setScrub} onCommit={(v) => { setScrub(null); p.seek(v); }} />
-          <span className="km-time">{clock(duration)}</span>
-        </div>}
+        : <SongPlace />}
     </div>
 
     <div className="km-bar-end">
-      {/* Worded, so what they open is plain; filled while open. */}
-      <button type="button" className={cx("km-pillbtn", p.nowPlaying && "km-on")} aria-pressed={p.nowPlaying} title="Lyrics" onClick={() => p.setNowPlaying(!p.nowPlaying)}><Icon name="lyrics" /><span>Lyrics</span></button>
-      <button type="button" className={cx("km-pillbtn", p.panel === "queue" && "km-on")} aria-pressed={p.panel === "queue"} title="Queue" onClick={() => p.setPanel(p.panel === "queue" ? null : "queue")}><Icon name="queue" /><span>Queue</span></button>
-      <span className="km-volume">
-        <button type="button" className="km-iconbtn km-small" aria-label={p.muted ? "Unmute" : "Mute"} title={p.muted ? "Unmute" : "Mute"} onClick={() => p.setMuted(!p.muted)}><Icon name={p.muted || p.volume === 0 ? "muted" : "volume"} /></button>
-        <Slider label="Volume" value={p.muted ? 0 : p.volume} max={1} format={(v) => `${Math.round(v * 100)}%`} onChange={p.setVolume} onCommit={p.setVolume} className="km-volume-slider" />
-      </span>
+      <BarViews words={hasWords(lyrics)} />
+      <Volume />
+      {/* The song's own menu, last and away from the marks; where the marks don't fit, they're in it. */}
+      <MoreButton label={`More for ${t.title}`} className="km-bar-more" items={() => songMenuItems(t, p, matchMedia("(max-width: 900px)").matches)} />
     </div>
-    {/* On a phone the bar is one line, with the song's place drawn along its top. */}
-    <span className={cx("km-bar-line", arriving && "km-bar-line-arriving")} style={{ width: `${arriving ? (arriving.stage === "fetching" ? Math.max(4, arriving.fraction * 100) : 4) : duration ? (position / duration) * 100 : 0}%` }} />
+    {/* Narrower, the song's place runs along the bar's top edge: a rail you can take hold of. A phone draws it as a line. */}
+    {arriving
+      ? <span className="km-bar-line km-bar-line-arriving" style={{ width: `${arriving.stage === "fetching" ? Math.max(4, arriving.fraction * 100) : 4}%` }} />
+      : <>
+        <Slider label="Place in the song" value={position} max={duration} format={(v) => `${clock(v)} of ${clock(duration)}`} onCommit={(v) => p.seek(v)} className="km-bar-seekline" />
+        <span className="km-bar-line" style={{ width: `${duration ? (position / duration) * 100 : 0}%` }} />
+      </>}
   </div>;
 }
 
-/* ── The song in full, with its lyrics ─────────────────────────────────── */
+/* ── The song in full ──────────────────────────────────────────────────── */
 
+/*
+ * Each of the song's actions has its own place: the marks under its name, alone;
+ * the artist and album are its byline; Add to playlist and Share in the header,
+ * worded; the queue is Up next, beside the lyrics. On a phone it's the whole
+ * player, and Lyrics and Up next take the art's place.
+ */
 function NowPlaying() {
   const p = usePlayer();
+  const wide = useWide();
   const t = p.current;
   const open = p.nowPlaying && Boolean(t);
   /* Kept drawn a moment after closing, so it can slide away. */
   const [shown, setShown] = useState(open);
   if (open && !shown) setShown(true);
   useEffect(() => { if (open) return; const timer = setTimeout(() => setShown(false), 220); return () => clearTimeout(timer); }, [open]);
+  const lyrics = useLyrics(t?.key ?? "");
   if (!shown || !t) return null;
-  return <section className={cx("km-np", open ? "km-np-in" : "km-np-out")} aria-label="Now playing">
-    <button type="button" className="km-iconbtn km-np-close" aria-label="Close" onClick={() => p.setNowPlaying(false)}><Icon name="collapse" /></button>
+  const view = p.panel === "queue" ? "queue" : p.panel === "lyrics" ? "lyrics" : "song";
+  const from = p.source ? sourceHref(p.source) : null;
+  const words = hasWords(lyrics);
+  /* Wide, the lyrics are there unless Up next is; on a phone they're one of three. */
+  const lyricsOn = wide ? view !== "queue" : view === "lyrics";
+  const leaves = <span className="km-leaves" role="group" aria-label="Views">
+    <button type="button" className={cx("km-leaf", lyricsOn && "km-on", !words && "km-lifted")} aria-pressed={lyricsOn} title={words ? "Lyrics" : "No lyrics for this song"}
+      onClick={() => p.setPanel(wide ? "lyrics" : view === "lyrics" ? null : "lyrics")}><Icon name="lyrics" /><span>Lyrics</span></button>
+    <button type="button" className={cx("km-leaf", view === "queue" && "km-on")} aria-pressed={view === "queue"} title="Up next"
+      onClick={() => p.setPanel(view === "queue" ? (wide ? "lyrics" : null) : "queue")}><Icon name="queue" /><span>Up next</span></button>
+  </span>;
+  return <section className={cx("km-np", open ? "km-np-in" : "km-np-out", `km-np-view-${view}`)} aria-label="Now playing">
+    <header className="km-np-head">
+      <button type="button" className="km-iconbtn km-np-close" aria-label="Close" title="Close" onClick={() => p.setNowPlaying(false)}><Icon name="collapse" /></button>
+      <span className="km-np-from">
+        {p.source ? <><span className="k-label">Playing from</span>
+          {from ? <Crossing kind="kakejiku" href={from} onClick={() => p.setNowPlaying(false)}>{p.source.title}</Crossing> : <span>{p.source.title}</span>}</> : null}
+      </span>
+      <span className="km-np-tools">
+        <AddToPlaylist keys={[t.key]} className="km-np-worded" />
+        <Seal tone="quiet" compact className="km-seal-icon km-np-worded" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" />Share</Seal>
+        <MoreButton label={`More for ${t.title}`} items={() => songMenuItems(t, p)} />
+      </span>
+    </header>
     <div className="km-np-song">
       <Cover src={t.album?.cover} quality="full" className="km-np-art" alt={t.album?.title ?? ""} />
       <div className="km-np-name">
-        <h2 className="km-np-title"><Crossing kind="kakejiku" href={hrefOf.song(t.key)} onClick={() => p.setNowPlaying(false)}>{t.title}</Crossing></h2>
-        <p className="km-np-by"><ArtistLinks artists={t.artists} />{t.album ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)} onClick={() => p.setNowPlaying(false)}>{t.album.title}</Crossing></> : null}</p>
-        <div className="km-np-actions"><RateMarks kind="track" keyOf={t.key} /><AddToPlaylist keys={[t.key]} labelled />
-          <button type="button" className="km-pillbtn" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" /><span>Share</span></button></div>
+        <div className="km-np-said">
+          <h2 className="km-np-title"><Crossing kind="kakejiku" href={hrefOf.song(t.key)} onClick={() => p.setNowPlaying(false)}>{t.title}</Crossing></h2>
+          <p className="km-np-by"><ArtistLinks artists={t.artists} />{t.album ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)} onClick={() => p.setNowPlaying(false)}>{t.album.title}</Crossing></> : null}</p>
+        </div>
+        <RateMarks kind="track" keyOf={t.key} size={wide ? "lg" : "md"} />
       </div>
     </div>
-    <LyricsView key={t.key} trackKey={t.key} />
+    <div className="km-np-side">
+      {wide ? leaves : null}
+      {view === "queue" ? <QueueList /> : <LyricsView key={t.key} lyrics={lyrics} />}
+    </div>
+    {wide ? null : <div className="km-np-controls">
+      <SongPlace under />
+      <Transport large />
+      {leaves}
+    </div>}
   </section>;
 }
 
-function LyricsView({ trackKey }: { trackKey: string }) {
+function LyricsView({ lyrics }: { lyrics: Lyrics | null | undefined }) {
   const p = usePlayer();
-  const [lyrics, setLyrics] = useState<Lyrics | null | undefined>(undefined);
-  useEffect(() => {
-    let live = true;
-    musicApi.lyrics(trackKey).then((r) => { if (live) setLyrics(r.lyrics); }).catch(() => { if (live) setLyrics(null); });
-    return () => { live = false; };
-  }, [trackKey]);
   const lines = lyrics?.synced ?? null;
   const { position } = usePosition(Boolean(lines));
   const here = useMemo(() => {
@@ -181,17 +331,18 @@ function LyricsView({ trackKey }: { trackKey: string }) {
 
 /* ── The queue ─────────────────────────────────────────────────────────── */
 
-function QueuePanel() {
+/** What plays next, and in what order: shuffle and repeat live here, worded, beside it. */
+function QueueList() {
   const p = usePlayer();
   const [drag, setDrag] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
-  if (p.panel !== "queue") return null;
   const next = p.tracks.slice(p.index + 1).map((t, k) => ({ t, at: p.index + 1 + k }));
-  return <aside className="km-queue" aria-label="Queue">
-    <header>
-      <h2 className="k-heading">Queue</h2>
-      <button type="button" className="km-iconbtn" aria-label="Close the queue" onClick={() => p.setPanel(null)}><Icon name="close" /></button>
-    </header>
+  const repeatLabel = p.repeat === "one" ? "Repeat this song" : p.repeat === "all" ? "Repeat all" : "Repeat";
+  return <div className="km-queue-body">
+    <div className="km-queue-order">
+      <button type="button" className={cx("km-ordertoggle", p.shuffle && "km-on")} aria-pressed={p.shuffle} onClick={() => p.setShuffle(!p.shuffle)}><Icon name="shuffle" /><span>Shuffle</span></button>
+      <button type="button" className={cx("km-ordertoggle", p.repeat !== "off" && "km-on")} aria-pressed={p.repeat !== "off"} onClick={p.cycleRepeat}><Icon name={p.repeat === "one" ? "repeatOne" : "repeat"} /><span>{repeatLabel}</span></button>
+    </div>
     {p.current ? <>
       <h3 className="k-label km-queue-label">Now playing</h3>
       <div className="km-qrow km-now">
@@ -212,13 +363,38 @@ function QueuePanel() {
           <Cover src={t.album?.cover} size={44} />
           <span className="km-qrow-name"><span>{t.title}</span><span className="km-qrow-by">{byline(t)}</span></span>
         </button>
-        <button type="button" className="km-iconbtn km-small" aria-label={`Take ${t.title} out of the queue`} onClick={() => p.remove(at)}><Icon name="close" /></button>
+        <button type="button" className="km-iconbtn km-small" aria-label={`Take ${t.title} out of the queue`} title="Take out of the queue" onClick={() => p.remove(at)}><Icon name="close" /></button>
       </li>)}
     </ol> : <p className="km-queue-empty">When this ends, songs like it play on.</p>}
+  </div>;
+}
+
+/** The queue beside the page, while the song isn't open (open, it's the song's Up next). */
+function QueuePanel() {
+  const p = usePlayer();
+  if (p.panel !== "queue" || p.nowPlaying) return null;
+  return <aside className="km-queue" aria-label="Queue">
+    <header>
+      <h2 className="k-heading">Queue</h2>
+      <button type="button" className="km-iconbtn" aria-label="Close the queue" title="Close" onClick={() => p.setPanel(null)}><Icon name="close" /></button>
+    </header>
+    <QueueList />
   </aside>;
 }
 
+/** A word along the bottom. After a like it says where the song went, and offers a playlist then and there. */
 function Toast() {
   const p = usePlayer();
-  return <div className={cx("km-toast", p.toast && "km-on")} role="status" aria-live="polite">{p.toast?.text}</div>;
+  const [menu, setMenu] = useState<{ at: HTMLElement; items: Item[] } | null>(null);
+  const t = p.toast;
+  const offer = t?.playlistFor;
+  return <>
+    <div className={cx("km-toast", t && "km-on", offer && "km-toast-offer")} role="status" aria-live="polite"
+      onPointerEnter={() => { if (offer) p.holdToast(true); }} onPointerLeave={() => { if (offer && !menu) p.holdToast(false); }}>
+      <span>{t?.text}</span>
+      {offer ? <button type="button" className="km-toast-action" aria-haspopup="menu" aria-expanded={Boolean(menu)}
+        onClick={async (e) => { const at = e.currentTarget; p.holdToast(true); setMenu({ at, items: await playlistItems(offer, p.say)() }); }}>Add to playlist</button> : null}
+    </div>
+    {menu ? <Menu anchor={menu.at} items={menu.items} onClose={() => { setMenu(null); p.holdToast(false); }} /> : null}
+  </>;
 }

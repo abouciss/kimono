@@ -126,21 +126,32 @@
 
 /* ── Buttons that aren't seals: icon buttons ──────────────────────────── */
 
-.km-iconbtn { display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--k-on-surface-variant); cursor: pointer; transition: background var(--k-t-state) var(--k-ease-settle), color var(--k-t-state) var(--k-ease-settle); }
+.km-iconbtn { position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: var(--k-r-m); background: none; color: var(--k-on-surface-variant); cursor: pointer; transition: background var(--k-t-state) var(--k-ease-settle), color var(--k-t-state) var(--k-ease-settle); }
 .km-iconbtn:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); color: var(--k-on-surface); }
 .km-iconbtn:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 1px; }
 .km-iconbtn.km-small .km-icon { width: 20px; height: 20px; }
-.km-iconbtn.km-on { color: var(--k-accent); }
-.km-iconbtn.km-on::after { content: ""; position: absolute; width: 4px; height: 4px; margin-top: 30px; border-radius: 50%; background: currentColor; }
-.km-iconbtn.km-on { position: relative; }
+/* A toggle that's on is a pressed stamp: toned, and sunk into what it sits on. */
+.km-iconbtn.km-on, .km-iconbtn.km-on:hover { background: var(--k-secondary-container); color: var(--k-on-secondary-container); box-shadow: inset 0 2px 0 color-mix(in srgb, var(--k-ink) 14%, transparent); transform: translateY(1px); }
 
-/* Ratings: the three marks, the one set in the accent. */
-.km-rates { display: inline-flex; gap: 2px; }
-.km-rate { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--k-on-surface-variant); cursor: pointer; transition: transform var(--k-t-tap) var(--k-spring), color var(--k-t-state); }
+/* Ratings: the three marks as one object, a tray with nothing else in it. The
+   one set stands on a wash of ink, in the accent. */
+.km-rates { display: inline-flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--k-r-m); background: var(--k-container-high); }
+.km-rate { position: relative; isolation: isolate; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--k-r-s); background: none; color: var(--k-on-surface-variant); cursor: pointer; transition: transform var(--k-t-tap) var(--k-spring), color var(--k-t-state), background var(--k-t-state); }
 .km-rate .km-icon { width: 18px; height: 18px; }
 .km-rate:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); color: var(--k-on-surface); }
 .km-rate:active { transform: scale(.88); }
+.km-rate:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 1px; }
+.km-rate:focus:not(:focus-visible) { outline: none; }
 .km-rate.km-on { color: var(--k-accent); }
+.km-rate.km-on:hover { background: none; }
+.km-rate-wash { position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); z-index: -1; overflow: visible; pointer-events: none; animation: km-wash-in var(--k-t-fold) var(--k-ease-settle); }
+.km-rate-puddle { fill: var(--k-accent-pale); opacity: .9; }
+.km-rate-ring { fill: none; stroke: var(--k-plum); stroke-width: 3; stroke-linecap: round; opacity: .5; }
+@keyframes km-wash-in { from { opacity: 0; transform: scale(.7); } }
+.km-rates-md .km-rate { width: 40px; height: 40px; }
+.km-rates-md .km-icon, .km-rates-lg .km-icon { width: 22px; height: 22px; }
+.km-rates-lg { gap: 4px; padding: 3px; }
+.km-rates-lg .km-rate { width: 44px; height: 44px; border-radius: 10px; }
 .km-rate-love.km-on { animation: km-love .42s var(--k-spring); }
 @keyframes km-love { 40% { transform: scale(1.25); } }
 
@@ -434,12 +445,11 @@
 @media (max-width: 1100px) {
   .km-bar { grid-template-columns: minmax(0, 1fr) auto auto; }
   .km-bar-middle { grid-column: 2; }
-  .km-seek { display: none; }
+  .km-bar .km-seek { display: none; }
   .km-bar-arriving .km-arriving-short { display: inline; }
   .km-bar-arriving .km-bar-artists { display: none; }
   .km-bar-line { display: block; position: absolute; left: 0; top: 0; height: 2px; background: var(--k-accent); }
   .km-volume-slider { display: none; }
-  .km-bar-rate { display: none; }
   .km-results-top { grid-template-columns: 1fr; }
   .km-np { grid-template-columns: 1fr; align-content: start; overflow-y: auto; }
   .km-np-art { width: min(100%, 320px); }
@@ -472,13 +482,14 @@
   /* Above the phone's bottom bar, reaching to its edge. */
   .km-bar { left: 8px; right: 8px; bottom: calc(76px + 6px); height: 64px; padding: 0 6px 0 8px; border-radius: var(--k-r-m); grid-template-columns: minmax(0, 1fr) auto; box-shadow: var(--k-shadow-raised); overflow: hidden; }
   .km-bar-middle { grid-column: 2; }
-  .km-transport .km-iconbtn:not([aria-label="Next"]) { display: none; }
+  .km-bar .km-transport .km-iconbtn:not([aria-label="Next"]) { display: none; }
   .km-bar-end { display: none; }
   .km-bar-art .km-cover { width: 44px !important; height: 44px !important; }
   .km-np { left: 0; bottom: 0; z-index: 50; padding: var(--k-space-6) var(--k-space-4) calc(76px + 64px + 24px); gap: var(--k-space-4); }
   .km-np-title { font-size: 24px; line-height: 28px; }
   .km-line { font-size: 22px; }
-  .km-np ~ .km-bar { z-index: 55; }
+  /* Now Playing is the whole player on a phone: the mini bar steps aside. */
+  .km-bar.km-bar-open { display: none; }
   .km-queue { top: auto; right: 8px; left: 8px; width: auto; bottom: calc(76px + 64px + 14px); max-height: 70vh; }
   .km-toast { bottom: calc(76px + 64px + 18px); }
 }
@@ -486,24 +497,131 @@
 /* A portrait in its ink frame, as the rail draws yours: the wash shows round it and behind the letter. */
 .km .k-ink-portrait > .portrait, .km-np .k-ink-portrait > .portrait { margin: calc(var(--portrait-size, 34px) * .12); background: transparent; box-shadow: none; }
 
-/* Buttons that say what they do: the bar's Lyrics and Queue, and Now Playing's Add to playlist. */
+/* Buttons that say what they do. */
 .km-pillbtn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border: 0; border-radius: var(--k-r-s); background: none; color: var(--k-on-surface-variant); font: 700 13px/16px var(--k-sans); cursor: pointer; transition: background var(--k-t-state), color var(--k-t-state); }
 .km-pillbtn .km-icon { width: 20px; height: 20px; }
 .km-pillbtn:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); color: var(--k-on-surface); }
 .km-pillbtn.km-on { background: var(--k-secondary-container); color: var(--k-on-secondary-container, var(--k-on-surface)); }
 .km-pillbtn:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 2px; }
-.km-bar-rate { display: inline-flex; align-items: center; gap: 2px; }
-.km-np-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.km-np-actions .km-pillbtn { background: var(--k-container-high); color: var(--k-on-surface); }
-.km-np-actions .km-pillbtn:hover { background: var(--k-container-highest); }
 /* A press doesn't leave a ring: only keys do. */
 .km-iconbtn:focus:not(:focus-visible), .km-pillbtn:focus:not(:focus-visible) { outline: none; }
-/* Narrow bars keep the song's name: its ratings and Add to playlist are in Now Playing. */
-@media (max-width: 1100px) { .km-bar-rate { display: none; } }
 
 /* A song's page: its words, set as a quiet column. */
 .km-words { display: grid; gap: 2px; max-width: 640px; }
 .km-words p { margin: 0; font: 600 18px/1.55 var(--k-sans); color: var(--k-on-surface); }
 .km-words-short { mask-image: linear-gradient(#000 70%, transparent); }
-.km-head-actions .km-pillbtn { height: 44px; background: var(--k-container-high); color: var(--k-on-surface); }
-.km-head-actions .km-pillbtn:hover { background: var(--k-container-highest); }
+
+/* ── The player's controls ────────────────────────────────────────────────
+   The bar in three groups: the song and how you feel about it; playing; and
+   what's around the song. Views are worded leaves on a tray; toggles that
+   are on are pressed stamps; nothing round. */
+
+.km-seal-icon .km-icon { width: 20px; height: 20px; }
+.km-head-rates { margin-left: var(--k-space-3); }
+
+/* Lyrics, Queue, Up next: worded leaves on one tray; the open one seated, with the accent's marker. */
+.km-leaves { display: inline-flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--k-r-m); background: var(--k-container-high); }
+.km-leaf { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border: 0; border-radius: var(--k-r-s); background: none; color: var(--k-on-surface-variant); font: 700 13px/16px var(--k-sans); white-space: nowrap; cursor: pointer; transition: background var(--k-t-state), color var(--k-t-state); }
+.km-leaf .km-icon { width: 20px; height: 20px; }
+.km-leaf:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); color: var(--k-on-surface); }
+.km-leaf.km-on { background: var(--k-secondary-container); color: var(--k-on-secondary-container); }
+.km-leaf.km-on::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 14px; height: 3px; margin-left: -7px; border-radius: 2px; background: var(--k-accent); }
+/* No words for this song: lifted, still opens the song. */
+.km-leaf.km-lifted:not(.km-on) { color: color-mix(in srgb, var(--k-on-surface-variant) 55%, transparent); }
+.km-leaf:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 1px; }
+.km-leaf:focus:not(:focus-visible) { outline: none; }
+
+/* The bar's groups. */
+.km-bar-name { flex: 0 1 auto; margin-right: var(--k-space-2); }
+.km-bar-end { gap: 6px; }
+.km-volume { position: relative; gap: 2px; }
+.km-volume-slider { width: 96px; }
+.km-bar-seekline { display: none; }
+.km-bar-seekline .km-slider-fill { background: var(--k-accent); }
+
+/* Shuffle and repeat beside the queue they order, worded. */
+.km-queue-order { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 4px; }
+.km-ordertoggle { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border: 0; border-radius: var(--k-r-s); background: var(--k-container-highest); color: var(--k-on-surface-variant); font: 700 13px/16px var(--k-sans); cursor: pointer; transition: background var(--k-t-state), color var(--k-t-state); }
+.km-ordertoggle .km-icon { width: 18px; height: 18px; }
+.km-ordertoggle:hover { color: var(--k-on-surface); }
+.km-ordertoggle.km-on { background: var(--k-secondary-container); color: var(--k-on-secondary-container); box-shadow: inset 0 2px 0 color-mix(in srgb, var(--k-ink) 14%, transparent); }
+.km-ordertoggle:focus:not(:focus-visible) { outline: none; }
+
+/* The toast after a like: where the song went, and a playlist to put it in too. */
+.km-toast { display: flex; align-items: center; gap: 14px; }
+.km-toast-offer { padding: 8px 8px 8px 18px; }
+.km-toast.km-on.km-toast-offer { pointer-events: auto; }
+.km-toast-action { height: 32px; padding: 0 10px; border: 0; border-radius: var(--k-r-s); background: none; color: color-mix(in srgb, var(--k-accent) 60%, #fff); font: 700 14px/1 var(--k-sans); white-space: nowrap; cursor: pointer; }
+.km-toast-action:hover { background: rgba(255, 255, 255, .1); }
+
+/* Now Playing: a header of where it's from and what to do; the song; and its lyrics or what's next. */
+.km-np { grid-template-rows: 64px minmax(0, 1fr); row-gap: 0; align-items: stretch; padding-top: 0; padding-bottom: var(--k-space-4); }
+.km-np-head { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--k-space-2); min-width: 0; }
+.km-np-close { position: static; order: 3; }
+.km-np-from { display: grid; margin-right: auto; min-width: 0; }
+.km-np-from .k-label { font-size: 11.5px; line-height: 14px; color: var(--k-on-surface-variant); }
+.km-np-from a, .km-np-from > span:last-child { font: 700 15px/20px var(--k-sans); color: var(--k-app-text, var(--k-accent)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.km-np-tools { display: flex; align-items: center; gap: var(--k-space-2); }
+.km-np-song { align-self: center; }
+.km-np-said { display: grid; justify-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.km-np-name > .km-rates { margin-top: var(--k-space-4); }
+.km-np-by a { color: var(--k-app-text, var(--k-accent)); }
+.km-np-side { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--k-space-3); min-height: 0; padding-top: var(--k-space-2); }
+.km-np-side > .km-leaves { justify-self: start; }
+.km-np-side .km-queue-body { min-height: 0; max-width: 560px; overflow-y: auto; }
+.km-np-controls { display: none; }
+
+@media (max-width: 1100px) {
+  /* Shuffle and repeat go to the queue; the place in the song to the bar's top edge. */
+  .km-bar .km-order { display: none; }
+  .km-volume-raised .km-volume-slider { display: grid; position: absolute; right: -8px; bottom: calc(100% + 12px); width: 168px; height: 44px; padding: 0 16px; border-radius: var(--k-r-m); background: var(--k-container-high); box-shadow: var(--k-shadow-raised); }
+  .km-np { grid-template-rows: auto; }
+  .km-np-head { min-height: 64px; }
+  .km-np-side { min-height: 50vh; }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  .km-bar-line:not(.km-bar-line-arriving) { display: none; }
+  .km-bar-seekline { display: grid; position: absolute; left: 0; right: 0; top: -9px; height: 18px; }
+  .km-bar-seekline .km-slider-rail { border-radius: 0; }
+}
+@media (max-width: 900px) {
+  /* The marks go into the song's menu (and stay in Now Playing); Lyrics and Queue keep their words, under the icon. */
+  .km-bar-rate { display: none; }
+  .km-bar .km-leaf { flex-direction: column; gap: 1px; height: 48px; padding: 0 10px; font-size: 11px; line-height: 13px; }
+  .km-bar .km-leaf.km-on::after { bottom: 2px; }
+}
+@media (max-width: 720px) {
+  /* The whole player: the art (or the lyrics, or what's next), the name and the marks, the place, the controls. */
+  .km-np { display: flex; flex-direction: column; gap: 0; padding: max(8px, env(safe-area-inset-top)) 20px calc(env(safe-area-inset-bottom) + var(--k-space-5)); overflow: hidden; }
+  .km-np-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; min-height: 56px; text-align: center; }
+  .km-np-close { order: 0; }
+  .km-np-from { margin: 0; justify-items: center; }
+  .km-np-worded { display: none; }
+  .km-np-song { display: contents; }
+  /* The art shrinks on a short phone so the controls never leave the screen. */
+  .km-np-art { order: 1; flex: none; width: min(100%, 420px, calc(100dvh - 420px)); align-self: center; margin: var(--k-space-2) 0 auto; }
+  /* Lyrics or what's next scroll in the art's place; the name and the controls stay put. */
+  .km-np-side { order: 1; display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; padding-top: var(--k-space-2); }
+  .km-np-side > .km-lyrics, .km-np-side > .km-queue-body { flex: 1; min-height: 0; overflow-y: auto; }
+  .km-np-side > .km-lyrics { padding: 6vh 0 18vh; mask-image: linear-gradient(transparent, #000 8%, #000 82%, transparent); }
+  .km-np-side > .km-lyrics-quiet { padding: 0; mask-image: none; }
+  .km-np-view-song .km-np-side { display: none; }
+  .km-np-view-lyrics .km-np-art, .km-np-view-queue .km-np-art { display: none; }
+  .km-np-name { order: 2; flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--k-space-3); margin-top: var(--k-space-4); text-align: left; }
+  .km-np-said { justify-items: start; gap: 2px; }
+  .km-np-title { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .km-np-by { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .km-np-name > .km-rates { margin-top: 0; }
+  .km-np-controls { order: 3; flex: none; display: grid; gap: var(--k-space-3); margin-top: var(--k-space-4); }
+  .km-seek-under { grid-template-columns: 1fr auto; row-gap: 0; max-width: none; }
+  .km-seek-under .km-slider { grid-column: 1 / -1; }
+  .km-seek-under .km-time:first-of-type { text-align: left; }
+  .km-transport-lg { justify-content: space-between; }
+  .km-transport-lg .km-iconbtn { width: 48px; height: 48px; }
+  .km-transport-lg .km-iconbtn .km-icon { width: 26px; height: 26px; }
+  .km-transport-lg .km-iconbtn.km-small .km-icon { width: 22px; height: 22px; }
+  .km-playbtn-lg { width: 64px; height: 56px; }
+  .km-playbtn-lg .km-icon { width: 30px; height: 30px; }
+  .km-np-controls .km-leaves { display: flex; }
+  .km-np-controls .km-leaf { flex: 1; height: 44px; font-size: 14px; }
+}
