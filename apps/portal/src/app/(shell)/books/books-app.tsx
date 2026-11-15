@@ -786,9 +786,9 @@ function FileActions({ files, prefers, onPrefers, onRead }: {
         {best?.sample ? "Preview" : "Read"}
         {getting ? <span className="kb-got" aria-hidden /> : null}
       </button>
-      {copy ? <button className="kb-btn kb-tonal" title="Save a copy" onClick={() => { location.href = `/api/v1/books/file?f=${encodeURIComponent(copy.address)}&format=${copy.format}&download=1`; }}>
+      {copy ? <a className="kb-btn kb-tonal" title="Save a copy" download href={`/api/v1/books/file?f=${encodeURIComponent(copy.address)}&format=${copy.format}&download=1`}>
         <svg viewBox="0 0 24 24" aria-hidden><path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" /></svg>
-        {copy.format.toUpperCase()}{sizeOf(copy)}</button> : null}
+        {copy.format.toUpperCase()}{sizeOf(copy)}</a> : null}
     </div>
     {getting ? <div className="kb-getting-line" role="status" aria-live="polite">
       <InkWave value={getting.fraction ?? undefined} label={getting.note} className="kb-getting-wave" />
