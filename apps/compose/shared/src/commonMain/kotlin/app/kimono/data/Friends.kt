@@ -55,6 +55,8 @@ data class KimonoProfile(
     /* What makes it theirs: pronouns, a colour, links, and the home screen of widgets (null: the default set). */
     val pronouns: String = "",
     val color: String? = null,
+    /** A photo across the top of the profile, as a path on the Portal; null for the colour alone. */
+    val banner: String? = null,
     val links: List<ProfileLink> = emptyList(),
     val widgets: List<Widget>? = null,
     val music: MusicExtras? = null,
@@ -106,6 +108,7 @@ data class BooksExtras(val reviews: List<ReadBook> = emptyList(), val read: List
 /** Something found to put on a widget: a song, an album, a book, a film or show, a playlist. */
 data class Pick(val key: String, val title: String, val subtitle: String, val cover: String?)
 
+@Serializable private data class BannerNow(val banner: String? = null)
 @Serializable private data class Look(val pronouns: String = "", val color: String? = null, val links: List<ProfileLink> = emptyList(), val bio: String? = null)
 @Serializable private data class MusicSearch(val tracks: List<MusicTrack> = emptyList(), val albums: List<MusicAlbumHit> = emptyList())
 @Serializable private data class MusicAlbumHit(val key: String, val title: String = "", val artist: MusicArtistRef? = null, val cover: String? = null)
@@ -228,6 +231,13 @@ class Friends(private val session: Session) {
     private suspend fun privacy(body: String): PrivacyNow = json.decodeFromString(session.call("/api/v1/profile", HttpMethod.Patch) {
         contentType(ContentType.Application.Json); setBody(body)
     })
+
+    /** Puts up a banner (a 2400×800 JPEG from Platform.pickBanner); answers its path. */
+    suspend fun saveBanner(jpeg: ByteArray): String? = json.decodeFromString<BannerNow>(session.call("/api/v1/me/banner", HttpMethod.Put) {
+        setBody(io.ktor.http.content.ByteArrayContent(jpeg, ContentType.Image.JPEG))
+    }).banner
+    /** Takes the banner down: the band is your colour again. */
+    suspend fun dropBanner() { session.call("/api/v1/me/banner", HttpMethod.Delete) }
 
     /** Your home screen of widgets, as arranged. */
     suspend fun saveWidgets(widgets: List<Widget>) {

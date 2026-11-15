@@ -156,6 +156,14 @@ class AndroidPlatform(private val context: Context) : Platform {
         return squarePicture(uri)
     }
 
+    override suspend fun pickBanner(): ByteArray? {
+        val waiting = CompletableDeferred<Uri?>()
+        picking = waiting
+        launchPicker?.invoke() ?: return null
+        val uri = waiting.await() ?: return null
+        return bannerPicture(uri)
+    }
+
     fun picked(uri: Uri?) { picking?.complete(uri); picking = null }
 
     override val os = "android"
@@ -351,6 +359,26 @@ class AndroidPlatform(private val context: Context) : Platform {
     }
 
     /** A photo, cut square from the middle and scaled to the 512×512 PNG the Portal stores. */
+    /** Cut 3:1 from the middle and scaled to the 2400×800 JPEG the Portal keeps as a banner (lib/banner-jpeg.ts). */
+    suspend fun bannerPicture(uri: Uri): ByteArray? = withContext(Dispatchers.Default) {
+        val bitmap = decodePicked(uri) ?: return@withContext null
+        val w = minOf(bitmap.width, bitmap.height * 3)
+        val h = w / 3
+        val cut = Bitmap.createBitmap(bitmap, (bitmap.width - w) / 2, (bitmap.height - h) / 2, w, h)
+        val scaled = Bitmap.createScaledBitmap(cut, 2400, 800, true)
+        ByteArrayOutputStream().use { out ->
+            scaled.compress(Bitmap.CompressFormat.JPEG, 86, out)
+            out.toByteArray()
+        }
+    }
+
+    private fun decodePicked(uri: Uri): Bitmap? = runCatching {
+        if (Build.VERSION.SDK_INT >= 28) ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            decoder.setTargetSampleSize(1)
+        } else context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    }.getOrNull()
+
     suspend fun squarePicture(uri: Uri): ByteArray? = withContext(Dispatchers.Default) {
         val bitmap = runCatching {
             if (Build.VERSION.SDK_INT >= 28) ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
