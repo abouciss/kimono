@@ -174,8 +174,8 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
           <LineIcon name="lock" /><span>{data.own?.publicProfile ? "Nobody else sees this" : "Friends don't see this"}</span>
           {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, data.own?.publicProfile ? "everyone" : "friends")}>Share</button> : null}
         </span> : !arranging && widgetRow[w.kind] && friendsOnlyRows.includes(widgetRow[w.kind]!) ? <span className="wg-kept" title="Your privacy settings keep this to friends">
-          <LineIcon name="people" /><span>Only friends see this</span>
-          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, "everyone")}>Make public</button> : null}
+          <LineIcon name="lock" /><span>Public doesn&rsquo;t see this</span>
+          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, "everyone")}>Share</button> : null}
         </span> : null}
         {arranging ? <div className="wg-edit">
           <button type="button" className="wg-x" aria-label={`Remove ${kindOf(w.kind).name}`} onClick={() => drop(w.id)}><LineIcon name="close" /></button>
