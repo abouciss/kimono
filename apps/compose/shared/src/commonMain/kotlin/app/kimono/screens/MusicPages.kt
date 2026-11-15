@@ -26,6 +26,7 @@ import app.kimono.data.FriendOnSong
 import app.kimono.data.KimonoProblem
 import app.kimono.data.Lyrics
 import app.kimono.data.Music
+import app.kimono.data.MusicPerson
 import app.kimono.data.PartyNow
 import app.kimono.data.PlaylistPage
 import app.kimono.data.QueueSource
@@ -206,39 +207,70 @@ fun MusicPlaylistScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
-    var rowMenu by remember { mutableStateOf<Int?>(null) }
+    var leaving by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
+    var arranging by remember { mutableStateOf(false) }
     LaunchedEffect(id, tries) { runCatching { player.music.playlist(id) }.onSuccess { page = it; problem = null }.onFailure { if (page == null) problem = it.message } }
-    fun change(work: suspend () -> PlaylistPage) = scope.launch { runCatching { work() }.onSuccess { page = it }.onFailure { player.say(it.message ?: "That didn't save.") } }
+    fun change(failed: String = "That didn't save.", work: suspend () -> PlaylistPage) = scope.launch { runCatching { work() }.onSuccess { page = it }.onFailure { player.say(it.message ?: failed) } }
+    fun leave() = scope.launch { runCatching { player.music.leave(id) }.onSuccess { back() }.onFailure { player.say("That didn't go through.") } }
     Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
         KimonoTopBar("", onBack = back) {
-            IconButton(onClick = { player.share("/music/playlist/$id") }) { Icon(kimonoIcon("share"), "Share") }
-            if (page?.mine == true) IconButton(onClick = { menu = true }) { Icon(kimonoIcon("more"), "More") }
+            if (page?.who == "owner") IconButton(onClick = { sharing = true }) { Icon(kimonoIcon("people"), "Share") }
+            if (page?.public == true || page?.who == "owner") IconButton(onClick = { player.share("/music/playlist/$id") }) { Icon(kimonoIcon("share"), "Send the link") }
+            if (page?.edits == true) IconButton(onClick = { menu = true }) { Icon(kimonoIcon("more"), "More") }
         }
     }) { pad ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 24.dp)) {
             val p = page
             if (p == null) { item { if (problem != null) MusicProblem(problem!!) { tries++ } else MusicLoading() }; return@LazyColumn }
             val src = QueueSource("playlist", id, p.name)
+            val owner = p.who == "owner"
+            val joined = p.joined
             item {
-                Head({ Mosaic(p.tracks.mapNotNull { it.cover }.distinct().take(4), 220.dp) }, listOfNotNull("Playlist", p.visibility?.replaceFirstChar { it.uppercase() }).joinToString(" · "), p.name,
-                    if (p.mine) "" else "By ${p.owner?.name ?: p.owner?.username.orEmpty()}")
+                Head({ Mosaic(p.tracks.mapNotNull { it.cover }.distinct().take(4), 220.dp) }, if (p.public) "Public playlist" else if (joined.isNotEmpty()) "Shared playlist" else "Playlist", p.name,
+                    if (owner) "" else "By ${p.owner?.name?.ifBlank { null } ?: p.owner?.username.orEmpty()}") {
+                    /* Who it's made with: their faces, then their names. */
+                    val faces = if (owner) joined.map { MusicPerson(it.username, it.name, it.picture) } else listOfNotNull(p.owner) + joined.map { MusicPerson(it.username, it.name, it.picture) }
+                    if (joined.isNotEmpty()) Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) { faces.take(5).forEach { Portrait(it.picture, it.name, it.username, 28.dp) } }
+                        if (owner) Text("with ${joined.joinToString(", ") { it.name.substringBefore(' ').ifBlank { it.username } }}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            if (p.who == "invited") item {
+                /* Asked on: join to add, move and take out songs together. */
+                Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            p.owner?.let { Portrait(it.picture, it.name, it.username, 40.dp) }
+                            Text("${p.owner?.name?.substringBefore(' ') ?: "A friend"} asked you onto this playlist", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                            Seal("No thanks", { leave() }, tone = SealTone.Quiet, compact = true)
+                            Seal("Join", { change("That didn't go through.") { player.music.join(id) } }, compact = true)
+                        }
+                    }
+                }
             }
             item { PlayAll(player, p.tracks, src, Modifier.padding(vertical = 12.dp)) }
-            if (p.tracks.isEmpty()) item { Text("Add songs from their menu: Add to playlist.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
+            if (p.tracks.isEmpty()) item { Text(if (p.edits) "Add songs from any song's menu." else "Nothing in it yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
             itemsIndexed(p.tracks, key = { i, t -> "$i" + t.key }) { i, t -> SongRow(player, t, { player.play(p.tracks, i, src) }, go) }
-            if (p.mine && p.tracks.isNotEmpty()) item { Seal("Arrange songs", { rowMenu = -1 }, tone = SealTone.Quiet, compact = true, modifier = Modifier.padding(20.dp)) }
         }
     }
     val p = page
-    if (rowMenu == -1 && p != null) ArrangeSheet(p, onMove = { from, to -> change { player.music.setPlaylist(id, p.tracks.map { it.key }.toMutableList().apply { add(to, removeAt(from)) }) } }, onRemove = { i -> change { player.music.setPlaylist(id, p.tracks.filterIndexed { n, _ -> n != i }.map { it.key }) } }) { rowMenu = null }
+    if (arranging && p != null) ArrangeSheet(p, onMove = { from, to -> change { player.music.setPlaylist(id, p.tracks.map { it.key }.toMutableList().apply { add(to, removeAt(from)) }) } }, onRemove = { i -> change { player.music.setPlaylist(id, p.tracks.filterIndexed { n, _ -> n != i }.map { it.key }) } }) { arranging = false }
     if (menu && p != null) InkSheet(onDismissRequest = { menu = false }) {
-        InkMenuItem("Rename", { menu = false; renaming = true }, icon = "edit")
-        if (p.visibility != null) {
-            val public = p.visibility == "public"
-            InkMenuItem(if (public) "Make it private" else "Make it public", { menu = false; scope.launch { if (player.music.setVisibility(id, if (public) "private" else "public")) tries++ else player.say("That didn't save.") } }, icon = "lock")
-        }
-        InkMenuItem("Delete playlist", { menu = false; deleting = true }, icon = "trash", danger = true)
+        if (p.tracks.isNotEmpty()) InkMenuItem("Arrange songs", { menu = false; arranging = true }, icon = "move")
+        InkMenuItem("Add to queue", { menu = false; player.addToQueue(p.tracks) }, icon = "plus")
+        /* Only the owner renames, shares or deletes; anyone on it can leave. */
+        if (p.who == "owner") {
+            InkMenuItem("Rename", { menu = false; renaming = true }, icon = "edit")
+            InkMenuItem("Share", { menu = false; sharing = true }, icon = "people")
+            InkMenuItem("Delete playlist", { menu = false; deleting = true }, icon = "trash", danger = true)
+        } else InkMenuItem("Leave playlist", { menu = false; leaving = true }, icon = "out", danger = true)
+        Spacer(Modifier.height(8.dp))
     }
+    if (sharing && p != null) PlaylistShareSheet(player, p, onChange = { work -> change(work = work) }) { sharing = false }
     if (renaming && p != null) {
         var name by remember { mutableStateOf(p.name) }
         app.kimono.ui.InkDialog("Rename", onDismiss = { renaming = false }, actions = {
@@ -247,9 +279,57 @@ fun MusicPlaylistScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -
         }) { OutlinedTextField(name, { name = it.take(100) }, Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp)) }
     }
     if (deleting && p != null) app.kimono.ui.InkConfirm(
-        title = "Delete “${p.name}”?", text = "The songs stay in Music; only the playlist goes.", action = "Delete", danger = true, icon = "trash",
+        title = "Delete “${p.name}”?", text = if (p.joined.isNotEmpty()) "It goes for everyone it's shared with. The songs stay in Music." else "The songs in it stay in Music.", action = "Delete", danger = true, icon = "trash",
         onDismiss = { deleting = false }, onConfirm = { deleting = false; scope.launch { runCatching { player.music.deletePlaylist(id) }.onSuccess { back() }.onFailure { player.say(it.message ?: "It wasn't deleted.") } } },
     )
+    if (leaving && p != null) app.kimono.ui.InkConfirm(
+        title = "Leave “${p.name}”?", text = "You can be asked back in.", action = "Leave", danger = true,
+        onDismiss = { leaving = false }, onConfirm = { leaving = false; leave() },
+    )
+}
+
+/** Who a playlist is for: private or public, and the friends asked onto it to make it together. */
+@Composable
+private fun PlaylistShareSheet(player: MusicPlayer, p: PlaylistPage, onChange: (suspend () -> PlaylistPage) -> Unit, onDone: () -> Unit) {
+    var friends by remember { mutableStateOf<List<app.kimono.data.FriendPerson>?>(null) }
+    LaunchedEffect(Unit) { friends = runCatching { app.kimono.data.Friends(player.music.session).list().friends }.getOrDefault(emptyList()) }
+    val members = p.members.associateBy { it.username }
+    InkSheet(onDismissRequest = onDone, seed = "share:${p.id}") {
+        app.kimono.ui.InkTitle("Share this playlist", icon = "people", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            for ((pub, title, about) in listOf(Triple(false, "Private", "You, and who you ask on"), Triple(true, "Public", "Friends see it on your profile and can play it"))) {
+                val on = p.public == pub
+                Surface(onClick = { if (!on) onChange { player.music.setPublic(p.id, pub) } }, shape = RoundedCornerShape(if (on) 14.dp else 22.dp),
+                    color = if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.weight(1f)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(title, style = MaterialTheme.typography.titleSmall, color = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                        Text(about, style = MaterialTheme.typography.bodySmall, color = (if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = .85f))
+                    }
+                }
+            }
+        }
+        Text("Make it together", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 4.dp))
+        val list = friends
+        when {
+            list == null -> MusicLoading()
+            list.isEmpty() -> Text("Add friends to make playlists together.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            else -> LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                items(list, key = { it.username }) { f ->
+                    val m = members[f.username]
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Portrait(f.picture, f.name, f.username, 36.dp)
+                        Column(Modifier.weight(1f)) {
+                            Text(f.name.ifBlank { f.username }, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                            Text(if (m == null) "@${f.username}" else if (m.joined) "On it with you" else "Asked", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (m != null) Seal(if (m.joined) "Remove" else "Take back", { onChange { player.music.drop(p.id, f.username) } }, tone = SealTone.Quiet, compact = true)
+                        else Seal("Ask", { onChange { player.music.invite(p.id, f.username) } }, compact = true)
+                    }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.End) { Seal("Done", onDone, compact = true) }
+    }
 }
 
 /** Your playlist's songs in order: nudge one up or down, or take it out. */

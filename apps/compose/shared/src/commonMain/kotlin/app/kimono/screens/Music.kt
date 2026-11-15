@@ -372,3 +372,36 @@ fun MusicDownloadsScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
         }
     }
 }
+
+/**
+ * The first time you open Music with a friend: what they can see of it.
+ * Nothing is shared until you answer; Share nothing is an answer too.
+ */
+@Composable
+fun MusicSharingAsk(player: MusicPlayer) {
+    var ask by remember { mutableStateOf<app.kimono.data.SharingAsk?>(null) }
+    val on = remember { mutableStateMapOf<String, Boolean>() }
+    var saving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        runCatching { player.music.sharingAsk() }.getOrNull()?.takeIf { it.ask && it.asks.isNotEmpty() }?.let { a -> a.asks.forEach { on[it.key] = it.on }; ask = a }
+    }
+    val a = ask ?: return
+    fun save(keys: List<String>) {
+        saving = true
+        scope.launch { runCatching { player.music.saveSharing(keys) }; saving = false; ask = null }
+    }
+    app.kimono.ui.InkSheet(onDismissRequest = { ask = null }, seed = "music-sharing") {
+        app.kimono.ui.InkTitle("What your friends can see", icon = "people", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        a.asks.forEach { c ->
+            Row(Modifier.fillMaxWidth().clickable { on[c.key] = on[c.key] != true }.padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(c.says, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(checked = on[c.key] == true, onCheckedChange = { on[c.key] = it })
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            app.kimono.ui.Seal("Share nothing", { save(emptyList()) }, tone = app.kimono.ui.SealTone.Quiet, compact = true, enabled = !saving)
+            app.kimono.ui.Seal("Save", { save(on.filterValues { it }.keys.toList()) }, compact = true, busy = saving)
+        }
+    }
+}
