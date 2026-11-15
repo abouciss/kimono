@@ -204,7 +204,7 @@ private fun SongTitle(player: MusicPlayer, t: app.kimono.data.Track, go: MusicGo
             Column(Modifier.weight(1f)) {
                 Text(t.title, style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = titleModifier)
                 Text(t.byline, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable { t.artists.firstOrNull()?.let { player.nowPlayingOpen = false; go(MusicRoutes.artist(it.key)) } })
+                    modifier = Modifier.clickable { t.artists.firstOrNull()?.takeIf { it.key.isNotBlank() }?.let { player.nowPlayingOpen = false; go(MusicRoutes.artist(it.key)) } })
             }
         }
         player.arriving?.let { s ->

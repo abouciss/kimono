@@ -93,8 +93,10 @@ export function useMusic<T>(id: string | null, load: () => Promise<T>, keep = fa
 
 export const forget = (prefix: string) => { for (const k of kept.keys()) if (k.startsWith(prefix)) kept.delete(k); };
 
-/* Addresses: Deezer's numbers in the path, so /music/artist/27 is Daft Punk. */
-export const idOf = (key: string) => key.replace(/^dz:/, "");
+/* Addresses: Deezer's numbers in the path, so /music/artist/27 is Daft Punk; a YouTube song is yt-<video>. */
+export const idOf = (key: string) => key.startsWith("yt:") ? `yt-${key.slice(3)}` : key.replace(/^dz:/, "");
+/** A song's key from its address's id. */
+export const songKeyOf = (id: string) => id.startsWith("yt-") ? `yt:${id.slice(3)}` : `dz:${id}`;
 export const hrefOf = {
   artist: (key: string) => `/music/artist/${idOf(key)}`,
   album: (key: string) => `/music/album/${idOf(key)}`,

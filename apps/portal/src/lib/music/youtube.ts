@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Innertube, Platform } from "youtubei.js";
-import { matchScore, MusicProblem, type Candidate, type Track } from "./model";
+import { matchScore, MusicProblem, videoTrack, type Candidate, type Track } from "./model";
 import { poExpires, poToken } from "./po-token";
 
 /*
@@ -62,14 +62,58 @@ async function session(): Promise<Innertube> {
 /** Drops the session, so the next request makes a fresh one (after YouTube turned one down). */
 export function forgetSession() { g.kimonoMusicYt = undefined; }
 
-async function candidates(yt: Innertube, query: string, type: "song" | "video"): Promise<Candidate[]> {
+type Thumbs = { thumbnails?: { url: string; width?: number }[]; contents?: { url: string; width?: number }[] } | { url: string; width?: number }[] | undefined;
+/** The largest of YouTube's thumbnails, square ones (YouTube Music's) preferred as they are. */
+function bestThumb(t: Thumbs): string | null {
+  const list = Array.isArray(t) ? t : t?.thumbnails ?? t?.contents ?? [];
+  const top = [...list].sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]?.url ?? null;
+  /* YouTube Music's art comes sized in its address (=w60-h60): ask for a big one. */
+  return top ? top.replace(/=w\d+-h\d+/, "=w600-h600") : null;
+}
+
+type Found = Candidate & { cover: string | null; album: string | null };
+
+async function candidates(yt: Innertube, query: string, type: "song" | "video"): Promise<Found[]> {
   const res = await yt.music.search(query, { type });
   const shelf = type === "song" ? res.songs : res.videos;
   return (shelf?.contents ?? []).flatMap((item) => {
-    const it = item as unknown as { id?: string; title?: string; artists?: { name: string }[]; authors?: { name: string }[]; duration?: { seconds: number } };
+    const it = item as unknown as { id?: string; title?: string; artists?: { name: string }[]; authors?: { name: string }[]; duration?: { seconds: number }; thumbnail?: Thumbs; thumbnails?: Thumbs; album?: { name?: string } };
     if (!it.id || !it.title) return [];
-    return [{ id: it.id, title: it.title, artists: (it.artists ?? it.authors ?? []).map((a) => a.name), seconds: it.duration?.seconds ?? 0, kind: type }];
+    return [{ id: it.id, title: it.title, artists: (it.artists ?? it.authors ?? []).map((a) => a.name), seconds: it.duration?.seconds ?? 0, kind: type, cover: bestThumb(it.thumbnail ?? it.thumbnails), album: it.album?.name ?? null }];
   });
+}
+
+/**
+ * A song Deezer doesn't have, found on YouTube Music as a song of its own (a
+ * label's or a Topic channel's upload; never a video): the same title, the
+ * same artist, within seconds of its length. Null when there's none.
+ */
+export async function songOnYouTube(want: { title: string; artists: string[]; seconds: number }): Promise<Track | null> {
+  const yt = await searchSession();
+  const like: Track = { key: "", title: want.title, artists: want.artists.map((name) => ({ key: "", name })), album: null, duration: want.seconds, isrc: null, explicit: false, rank: 0 };
+  const query = `${want.artists[0] ?? ""} ${want.title.replace(/\s*[([](feat|ft|with)\.?\s[^)\]]*[)\]]/gi, "")}`.trim();
+  let best: { c: Found; s: number } | null = null;
+  /* Only YouTube Music's own songs: a video (a gameplay run, a piano cover, a fan edit) borrows a song's name too easily. */
+  for (const type of ["song"] as const) {
+    for (const c of await candidates(yt, query, type).catch(() => [])) {
+      if (!c.artists.length) continue;
+      const s = matchScore(like, c);
+      if (s > 0 && (!best || s > best.s)) best = { c, s };
+    }
+    if (best && best.s >= 12) break;
+  }
+  if (!best) return null;
+  const c = best.c;
+  return videoTrack({ id: c.id, title: c.title, artists: c.artists, seconds: c.seconds || want.seconds, cover: c.cover, album: c.album });
+}
+
+/** A YouTube video as a song: its title, its channel, its length and its thumbnail. */
+export async function videoAsTrack(id: string): Promise<Track | null> {
+  const yt = await searchSession();
+  const info = await yt.music.getInfo(id).catch(() => null) ?? await yt.getBasicInfo(id).catch(() => null);
+  const b = info?.basic_info as { title?: string; author?: string; duration?: number; thumbnail?: { url: string; width?: number }[] } | undefined;
+  if (!b?.title) return null;
+  return videoTrack({ id, title: b.title, artists: b.author ? [b.author] : [], seconds: b.duration ?? 0, cover: bestThumb(b.thumbnail) });
 }
 
 /** The YouTube video id of this recording, or null when nothing matches well enough. */
@@ -128,9 +172,9 @@ export async function playlistOf(id: string, max = 5000) {
     name: header?.title?.toString() ?? "",
     cover: header?.thumbnail?.contents?.[0]?.url ?? null,
     items: items.slice(0, max).flatMap((item) => {
-      const it = item as unknown as { title?: string; authors?: { name: string }[]; artists?: { name: string }[]; album?: { name?: string }; duration?: { seconds: number } };
+      const it = item as unknown as { id?: string; title?: string; authors?: { name: string }[]; artists?: { name: string }[]; album?: { name?: string }; duration?: { seconds: number }; thumbnail?: Thumbs; thumbnails?: Thumbs };
       if (!it.title) return [];
-      return [{ title: it.title, artists: (it.artists ?? it.authors ?? []).map((a) => a.name), album: it.album?.name ?? null, seconds: it.duration?.seconds ?? 0 }];
+      return [{ id: it.id ?? null, title: it.title, artists: (it.artists ?? it.authors ?? []).map((a) => a.name), album: it.album?.name ?? null, seconds: it.duration?.seconds ?? 0, cover: bestThumb(it.thumbnail ?? it.thumbnails) }];
     }),
   };
 }

@@ -289,7 +289,7 @@ function NowPlaying() {
       <div className="km-np-name">
         <div className="km-np-said">
           <h2 className="km-np-title"><Crossing kind="kakejiku" href={hrefOf.song(t.key)} onClick={() => p.setNowPlaying(false)}>{t.title}</Crossing></h2>
-          <p className="km-np-by"><ArtistLinks artists={t.artists} />{t.album ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)} onClick={() => p.setNowPlaying(false)}>{t.album.title}</Crossing></> : null}</p>
+          <p className="km-np-by"><ArtistLinks artists={t.artists} />{t.album?.key ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)} onClick={() => p.setNowPlaying(false)}>{t.album.title}</Crossing></> : t.album?.title ? <> · {t.album.title}</> : null}</p>
         </div>
         <RateMarks kind="track" keyOf={t.key} size={wide ? "lg" : "md"} />
       </div>

@@ -348,8 +348,9 @@ fun SongMenu(player: MusicPlayer, track: Track, go: MusicGo, onDismiss: () -> Un
         InkMenuItem(keepLabel, { keepDo(); onDismiss() }, icon = keepIcon)
         HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
         InkMenuItem("Go to song", { onDismiss(); go(MusicRoutes.song(track.key)) }, icon = "go")
-        track.artists.firstOrNull()?.let { a -> InkMenuItem("Go to ${a.name}", { onDismiss(); go(MusicRoutes.artist(a.key)) }, icon = "person") }
-        track.album?.let { al -> InkMenuItem("Go to album", { onDismiss(); go(MusicRoutes.album(al.key)) }, icon = "book") }
+        /* A YouTube song's channel and thumbnail have no pages (blank keys). */
+        track.artists.firstOrNull()?.takeIf { it.key.isNotBlank() }?.let { a -> InkMenuItem("Go to ${a.name}", { onDismiss(); go(MusicRoutes.artist(a.key)) }, icon = "person") }
+        track.album?.takeIf { it.key.isNotBlank() }?.let { al -> InkMenuItem("Go to album", { onDismiss(); go(MusicRoutes.album(al.key)) }, icon = "book") }
         InkMenuItem("Share", { onDismiss(); player.share("/music/song/${Music.idOf(track.key)}") }, icon = "share")
         Spacer(Modifier.height(8.dp))
     }

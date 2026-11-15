@@ -9,9 +9,9 @@ import { getPlatformSettings } from "../settings";
 import { stateDir } from "../state";
 import { audioStatus, prefetch } from "./audio";
 import { musicConfig, type MusicConfig } from "./config";
-import { deezerId, MusicProblem, type Album, type Artist, type Lyrics, type Playlist, type RatedKind, type Rating, type Row, type Track } from "./model";
+import { deezerId, isTrackKey, MusicProblem, videoId, type Album, type Artist, type Lyrics, type Playlist, type RatedKind, type Rating, type Row, type Track } from "./model";
 import { deezerSource as dz, lastfm, lrclib } from "./sources";
-import { findRecording } from "./youtube";
+import { findRecording, videoAsTrack } from "./youtube";
 
 export * from "./model";
 
@@ -120,7 +120,7 @@ function keptTracks(keys: string[]): Map<string, Track> {
 
 /** Tracks by key, as the server knows them (kept, else asked of Deezer): what a browser says a track is never kept. */
 export async function tracksFor(keys: string[], max = 1000): Promise<Track[]> {
-  const wanted = [...new Set(keys.filter((k) => typeof k === "string" && deezerId(k)))].slice(0, max);
+  const wanted = [...new Set(keys.filter((k) => typeof k === "string" && isTrackKey(k)))].slice(0, max);
   const known = keptTracks(wanted);
   const missing = wanted.filter((k) => !known.has(k));
   for (let i = 0; i < missing.length; i += 8) {
@@ -149,6 +149,14 @@ export async function search(q: string) {
 
 export async function getTrack(key: string): Promise<Track | null> {
   const known = keptTracks([key]).get(key);
+  /* A YouTube song is kept for good once seen: its video doesn't change, so it's asked of YouTube once. */
+  const video = videoId(key);
+  if (video) {
+    if (known) return known;
+    const t = await kept<Track>("video-track", key, 365 * DAY, () => videoAsTrack(video));
+    if (t) keepTracks([t]);
+    return t;
+  }
   /* An ISRC only comes with a track's own page: worth asking once for, it finds the recording. */
   if (known?.isrc) return known;
   const t = await kept<Track>("track", key, 30 * DAY, () => dz.track(idOf(key)));
@@ -209,6 +217,12 @@ export async function chart(genre = 0) {
 /** The YouTube recording of a track: found once, kept; a miss is tried again after a day, a week, then a month. */
 export async function recordingOf(key: string): Promise<string> {
   const db = musicDb();
+  /* A YouTube song is its video. */
+  const own = videoId(key);
+  if (own) {
+    db.prepare("INSERT INTO recordings (track, video, tries, checked_at) VALUES (?, ?, 0, ?) ON CONFLICT (track) DO NOTHING").run(key, own, Date.now());
+    return own;
+  }
   const row = db.prepare("SELECT video, tries, checked_at FROM recordings WHERE track = ?").get(key) as { video: string | null; tries: number; checked_at: number } | undefined;
   if (row?.video) return row.video;
   const wait = !row ? 0 : row.tries <= 1 ? DAY : row.tries === 2 ? 7 * DAY : 30 * DAY;
@@ -222,12 +236,20 @@ export async function recordingOf(key: string): Promise<string> {
   return video;
 }
 
+/** The recording a song came with (a YouTube Music playlist's own upload of it), kept unless one was already found. */
+export function seedRecording(key: string, video: string) {
+  if (!deezerId(key) || !/^[A-Za-z0-9_-]{11}$/.test(video)) return;
+  musicDb().prepare("INSERT INTO recordings (track, video, tries, checked_at) VALUES (?, ?, 0, ?) ON CONFLICT (track) DO UPDATE SET video = excluded.video, tries = 0, checked_at = excluded.checked_at WHERE recordings.video IS NULL")
+    .run(key, video, Date.now());
+}
+
 /**
  * Where a song is on its way to playing, for the bar's first-play progress:
  * still finding its recording, coming in (how much of it), or ready.
  */
 export function songStatus(key: string): { stage: "finding" } | { stage: "fetching"; fraction: number } | { stage: "ready" } {
-  const row = musicDb().prepare("SELECT video FROM recordings WHERE track = ?").get(key) as { video: string | null } | undefined;
+  const own = videoId(key);
+  const row = own ? { video: own } : musicDb().prepare("SELECT video FROM recordings WHERE track = ?").get(key) as { video: string | null } | undefined;
   if (!row?.video) return { stage: "finding" };
   const s = audioStatus(row.video);
   if (!s || s.ready) return s ? { stage: "ready" } : { stage: "fetching", fraction: 0 };
@@ -514,7 +536,8 @@ export async function taste(config: MusicConfig, username: string) {
   const db = musicDb();
   const now = Date.now();
   const artists = new Map<string, { name: string; score: number }>();
-  const add = (key: string, name: string, w: number) => { const a = artists.get(key) ?? { name, score: 0 }; a.score += w; artists.set(key, a); };
+  /* A YouTube song's channel has no artist page (no key): it counts for nothing here. */
+  const add = (key: string, name: string, w: number) => { if (!key) return; const a = artists.get(key) ?? { name, score: 0 }; a.score += w; artists.set(key, a); };
   const plays = db.prepare("SELECT artists, played_at, seconds, length FROM plays WHERE username = ? AND played_at > ?").all(user(username), now - 365 * DAY) as { artists: string; played_at: number; seconds: number; length: number }[];
   for (const p of plays) {
     const decay = Math.pow(0.5, (now - p.played_at) / halfLife);
@@ -561,7 +584,7 @@ function mixed(tracks: Track[], username: string, disliked: Set<string>, skip = 
   const down = downRated(username);
   const seen = new Set<string>();
   return tracks.filter((t) => {
-    if (seen.has(t.key) || skip.has(t.key) || down.has(t.key) || t.artists.some((a) => disliked.has(a.key) || down.has(a.key))) return false;
+    if (seen.has(t.key) || skip.has(t.key) || down.has(t.key) || t.artists.some((a) => a.key && (disliked.has(a.key) || down.has(a.key)))) return false;
     seen.add(t.key);
     return true;
   });
@@ -577,7 +600,7 @@ export async function radio(config: MusicConfig, username: string, seed: string,
     const similar = await kept("similar", seed, 30 * DAY, () => lastfm(config.lastfmKey).similarTracks(track.artists[0]?.name ?? "", track.title, 60)).catch(() => null);
     found = await byName(similar ?? [], 30);
   }
-  if (found.length < 10 && track.artists[0]) found.push(...await artistRadio(track.artists[0].key));
+  if (found.length < 10 && track.artists[0]?.key) found.push(...await artistRadio(track.artists[0].key));
   return mixed(found, username, disliked, new Set([seed, ...skip])).slice(0, 25);
 }
 

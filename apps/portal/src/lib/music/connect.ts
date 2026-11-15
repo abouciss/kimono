@@ -233,7 +233,11 @@ export async function readMine(config: MusicConfig, username: string, service: S
         const v = await api(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${ids.join(",")}`, h, service, username);
         for (const x of (v.items ?? []) as Json[]) lengths.set(String(x.id), isoSeconds(String(x.contentDetails?.duration ?? "")));
       }
-      for (const i of items) tracks.push(fromYouTube({ title: String(i.snippet.title), artists: [String(i.snippet.videoOwnerChannelTitle ?? "")].filter(Boolean), album: null, seconds: lengths.get(String(i.contentDetails?.videoId)) ?? 0 }));
+      for (const i of items) {
+        const t = i.snippet.thumbnails ?? {};
+        tracks.push(fromYouTube({ id: String(i.contentDetails?.videoId ?? "") || null, title: String(i.snippet.title), artists: [String(i.snippet.videoOwnerChannelTitle ?? "")].filter(Boolean), album: null, seconds: lengths.get(String(i.contentDetails?.videoId)) ?? 0,
+          cover: (t.maxres ?? t.standard ?? t.high ?? t.medium ?? t.default)?.url ?? null }));
+      }
       token = typeof page.nextPageToken === "string" ? page.nextPageToken : "";
     } while (token && tracks.length < MAX);
   } else {

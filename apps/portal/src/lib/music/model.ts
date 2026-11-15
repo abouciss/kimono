@@ -3,7 +3,10 @@
  * Deezer called them. Pure (no requests, no database).
  *
  * Keys are Deezer's ids with a prefix (`dz:3135556`): a track's page, its
- * place in a playlist and its stream all go by that key.
+ * place in a playlist and its stream all go by that key. A song Deezer doesn't
+ * have (a game's score, a fan upload, a niche version) is its YouTube video
+ * instead (`yt:dQw4w9WgXcQ`): it plays that video, its artist is the channel
+ * (no key, so no page), and its album is only there to carry the thumbnail.
  */
 
 export type ArtistRef = { key: string; name: string };
@@ -56,6 +59,21 @@ export class MusicProblem extends Error {
 }
 
 export const deezerId = (key: string): string | null => /^dz:(\d{1,20})$/.exec(key)?.[1] ?? null;
+export const videoId = (key: string): string | null => /^yt:([A-Za-z0-9_-]{11})$/.exec(key)?.[1] ?? null;
+/** A song's key, from Deezer or YouTube. */
+export const isTrackKey = (key: string): boolean => Boolean(deezerId(key) || videoId(key));
+
+/** A channel's name as an artist's: YouTube Music's "Artist - Topic" and "ArtistVEVO" are the artist. */
+export const channelName = (name: string) => name.replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim();
+
+/** A song that is a YouTube video. */
+export function videoTrack(v: { id: string; title: string; artists: string[]; seconds: number; cover: string | null; album?: string | null }): Track {
+  return {
+    key: `yt:${v.id}`, title: v.title.slice(0, 300),
+    artists: v.artists.map(channelName).filter(Boolean).slice(0, 6).map((name) => ({ key: "", name })),
+    album: { key: "", title: v.album ?? "", cover: v.cover }, duration: v.seconds, isrc: null, explicit: false, rank: 0,
+  };
+}
 
 /** For matching a recording elsewhere: no "(feat. …)", "- Radio Edit", accents or punctuation. */
 export function plainTitle(title: string): string {

@@ -1,9 +1,9 @@
 import "server-only";
 
-import { createPlaylist, kept, keepTracks } from "./index";
-import { MusicProblem, plainTitle, type Track } from "./model";
+import { createPlaylist, kept, keepTracks, seedRecording } from "./index";
+import { MusicProblem, plainTitle, videoTrack, type Track } from "./model";
 import { deezerSource as dz } from "./sources";
-import { playlistOf } from "./youtube";
+import { playlistOf, songOnYouTube } from "./youtube";
 
 /*
  * Bringing a playlist in from Spotify, Apple Music or YouTube Music: its
@@ -15,7 +15,11 @@ import { playlistOf } from "./youtube";
 export type Service = "spotify" | "apple" | "youtube";
 /** A song as another service names it. */
 /** `video`: a music video, whose length runs past the song's (an intro, a scene after). */
-export type Wanted = { title: string; artists: string[]; album: string | null; seconds: number; isrc: string | null; video?: boolean };
+export type Wanted = {
+  title: string; artists: string[]; album: string | null; seconds: number; isrc: string | null; video?: boolean;
+  /** The YouTube video it came as (a YouTube playlist's), kept as it was named there. */
+  from?: { id: string; title: string; channel: string[]; cover: string | null };
+};
 export type Source = { service: Service; name: string; cover: string | null; tracks: Wanted[]; cut: boolean };
 
 export const serviceName: Record<Service, string> = { spotify: "Spotify", apple: "Apple Music", youtube: "YouTube Music" };
@@ -164,13 +168,14 @@ async function readApple(id: string, storefront: string): Promise<Source> {
 }
 
 /* YouTube: a song's channel is "Artist - Topic" or "ArtistVEVO"; a video's title is often "Artist - Song (Official Video)". */
-export function fromYouTube(item: { title: string; artists: string[]; album: string | null; seconds: number }): Wanted {
+export function fromYouTube(item: { id?: string | null; title: string; artists: string[]; album: string | null; seconds: number; cover?: string | null }): Wanted {
   let artists = item.artists.map((a) => a.replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim()).filter(Boolean);
   let title = item.title;
   const split = /^(.+?)\s+[-–—]\s+(.+)$/.exec(title);
   if (split && !item.album) { artists = [split[1].trim()]; title = split[2]; }
   title = title.replace(/\s*[([](?:official|lyrics?|audio|music video|video|visuali[sz]er|hd|4k)[^)\]]*[)\]]/gi, "").trim();
-  return { title, artists, album: item.album, seconds: item.seconds, isrc: null, video: !item.album };
+  const from = item.id && /^[A-Za-z0-9_-]{11}$/.test(item.id) ? { id: item.id, title: item.title, channel: item.artists, cover: item.cover ?? null } : undefined;
+  return { title, artists, album: item.album, seconds: item.seconds, isrc: null, video: !item.album, from };
 }
 
 async function readYouTube(id: string): Promise<Source> {
@@ -244,10 +249,32 @@ async function find(w: Wanted): Promise<Track | null> {
   return best?.t ?? null;
 }
 
+const wantedId = (w: Wanted) => [w.isrc ?? "", w.artists.join(","), w.title, w.seconds].join("|").toLowerCase().slice(0, 400);
+
 /** The catalogue's track for a song named elsewhere, kept a month (a miss, a day). */
 export function match(w: Wanted): Promise<Track | null> {
-  const id = [w.isrc ?? "", w.artists.join(","), w.title, w.seconds].join("|").toLowerCase().slice(0, 400);
-  return kept("import-match", id, 30 * DAY, () => find(w));
+  return kept("import-match", wantedId(w), 30 * DAY, () => find(w));
+}
+
+/**
+ * A song Deezer doesn't have, as YouTube has it: the very video when it came
+ * from YouTube, else YouTube Music's own upload of that recording (asked once
+ * and kept three months, so a niche song is only ever looked up once).
+ */
+async function onYouTube(w: Wanted): Promise<Track | null> {
+  if (w.from) return videoTrack({ id: w.from.id, title: w.from.title, artists: w.from.channel, seconds: w.seconds, cover: w.from.cover, album: w.album });
+  return kept("import-youtube", wantedId(w), 90 * DAY, () => songOnYouTube(w));
+}
+
+/** Where a song named elsewhere is here: Deezer's track when it has it, else its YouTube video. */
+export async function place(w: Wanted): Promise<Track | null> {
+  const t = await match(w).catch(() => null);
+  if (t) {
+    /* A YouTube Music song (not a music video) is that recording: play the very upload they had. */
+    if (w.from && !w.video) seedRecording(t.key, w.from.id);
+    return t;
+  }
+  return onYouTube(w).catch(() => null);
 }
 
 export type Progress =
@@ -274,13 +301,13 @@ export async function importPlaylist(username: string, read: () => Promise<Sourc
   await Promise.all(Array.from({ length: 6 }, async () => {
     while (next < total) {
       const i = next++;
-      found[i] = await match(source.tracks[i]).catch(() => null);
+      found[i] = await place(source.tracks[i]);
       done++; if (found[i]) hits++;
       if (Date.now() - last > 300 || done === total) { last = Date.now(); say({ stage: "match", done, found: hits, total }); }
     }
   }));
   const tracks = found.filter((t): t is Track => Boolean(t));
-  if (!tracks.length) throw new MusicProblem("None of its songs are in Music's catalogue.", 404);
+  if (!tracks.length) throw new MusicProblem("None of its songs could be found.", 404);
   keepTracks(tracks);
   const title = (name?.trim() || source.name.trim() || `From ${serviceName[source.service]}`).slice(0, 120);
   const made = await createPlaylist(username, title, tracks.map((t) => t.key));
