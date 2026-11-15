@@ -304,7 +304,7 @@ function Shelf({ title, children, delay = 0, action }: { title: ReactNode; child
 function BookCaption({ book }: { book: Pick<Book, "key" | "title" | "authors" | "rating" | "readers"> }) {
   const mine = useContext(MyShelf)(book);
   if (mine?.state === "reading") return <span className="kb-caption">
-    <span className="kb-cap-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(mine.fraction * 100)}><span style={{ width: `${Math.max(mine.fraction * 100, 3)}%` }} /></span>
+    <InkWave className="kb-cap-progress" value={mine.fraction} label="Read" />
     <span className="kb-cap-title">{book.title}</span>
     <span className="kb-cap-continue">Continue reading · {Math.round(mine.fraction * 100)}%</span>
   </span>;
@@ -875,7 +875,7 @@ function PlaceControl({ fraction, pages, onSave }: { fraction: number; pages: nu
       : <>
         <div className="kb-place-now">
           <b>{placeLabel(fraction, pages)}</b>
-          <span className="kb-cap-progress"><span style={{ width: `${Math.max(fraction * 100, 2)}%` }} /></span>
+          <InkWave className="kb-cap-progress" value={fraction} label="Read" />
         </div>
         <button className="kb-btn kb-tonal" onClick={() => setEditing(true)}>Update</button>
       </>}
@@ -885,9 +885,7 @@ function PlaceControl({ fraction, pages, onSave }: { fraction: number; pages: nu
 /* ── Small parts ───────────────────────────────────────────────────────── */
 
 function Progress({ fraction }: { fraction: number }) {
-  return <div className="kb-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)}>
-    <span style={{ width: `${Math.max(fraction * 100, 2)}%` }} /><em>{Math.round(fraction * 100)}%</em>
-  </div>;
+  return <div className="kb-progress"><InkWave value={fraction} label="Read" /><em>{Math.round(fraction * 100)}%</em></div>;
 }
 
 function Star() {

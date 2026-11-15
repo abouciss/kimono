@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { InkPortraitFrame, Seal } from "@kimono/ui";
+import { InkPortraitFrame, InkWave, Seal } from "@kimono/ui";
 import { Crossing } from "@/components/crossing";
 import { InkSheet } from "@/components/ink-sheet";
 import { LineIcon, type LineIconName } from "@/components/line-icon";
@@ -251,7 +251,7 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   return <Crossing kind="kakejiku" href={b.href ?? "/books"} className="wg-card wg-reading">
     <span className="wg-book"><Book3D book={{ key: b.itemId, title: b.title, authors: author ? [author] : [], cover: b.cover, pages: null }} /></span>
     {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Reading</small><b>{b.title}</b>{author ? <em>{author}</em> : null}
-      {b.progress ? <span className="wg-progress"><span className="wg-bar"><i style={{ width: `${b.progress * 100}%` }} /></span><small>{Math.round(b.progress * 100)}%</small></span> : null}</span> : null}
+      {b.progress ? <span className="wg-progress"><InkWave className="wg-wave" value={b.progress} label="Read" /><small>{Math.round(b.progress * 100)}%</small></span> : null}</span> : null}
   </Crossing>;
 }
 

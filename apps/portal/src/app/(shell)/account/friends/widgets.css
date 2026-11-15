@@ -32,8 +32,7 @@ a.wg-card:hover { background: var(--k-container); transform: translateY(-2px); }
 .wg-empty .line-icon { width: 26px; height: 26px; opacity: .6; }
 .wg-live { width: 8px; height: 8px; border-radius: 50%; background: var(--k-moss); animation: fr-live 1.8s var(--k-ease-settle) infinite; }
 .wg-progress { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.wg-bar { display: block; flex: 1; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--k-on-surface) 14%, transparent); overflow: hidden; }
-.wg-bar i { display: block; height: 100%; border-radius: inherit; background: var(--fr-color, var(--k-suo)); }
+.wg-progress .wg-wave { flex: 1; height: 10px; color: var(--fr-color, var(--k-suo)); }
 .wg-progress small { font-size: 12px; color: var(--k-on-surface-variant); }
 
 /* ── The record: just the disc, turning while they listen ─────────────── */
@@ -84,7 +83,7 @@ a.wg-watching:hover .wg-poster { transform: scale(1.04); }
 .wg-on-image b { color: #fff; }
 .wg-on-image em { color: rgba(255, 255, 255, .75); }
 .wg-on-image .wg-kicker { color: #f2b8c4; }
-.wg-on-image .wg-bar { background: rgba(255, 255, 255, .25); }
+.wg-on-image .wg-wave { color: #f3e7e2; }
 .wg-on-image .wg-bar i { background: #e86f8c; }
 
 /* ── Artists, the month ───────────────────────────────────────────────── */

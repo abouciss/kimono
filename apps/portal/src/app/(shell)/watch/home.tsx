@@ -1,5 +1,6 @@
 "use client";
 
+import { InkWave } from "@kimono/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { labelOf, watchApi, minutesText, type Card, type ContinueCard, type FreshCard, type Home, type Rating, type Shelf, type TitleView } from "./api";
@@ -88,7 +89,7 @@ function ContinueTile({ card }: { card: ContinueCard }) {
     <button className="kw-shot" aria-label={card.name} onClick={() => watch.openTitle(card.id)}>
       <Img src={card.backdrop ?? card.poster} />
     </button>
-    <div className="kw-bar"><i style={{ width: `${Math.max(4, card.fraction * 100)}%` }} /></div>
+    <InkWave className="kw-bar" value={Math.max(.04, card.fraction)} label="Watched" />
     <div className="kw-meta"><div><b>{card.name}</b>{label}</div><button className="kw-iconbtn" aria-label={`Resume ${card.name}`} onClick={() => watch.play(card.id, series ? { season: card.season, episode: card.episode } : undefined)}><Icon name="play" /></button>
       <TileMenu card={card} /></div>
   </div>;
@@ -223,7 +224,7 @@ function HoverCard() {
         <div className="kw-info">{card.badge ? <span className="kw-hi">{card.badge}</span> : null}{card.age ? <span className="kw-box">{card.age}</span> : null}{meta ? <span>{meta}</span> : card.year ? <span>{card.year}</span> : null}</div>
         {resume && resumeEp ? <>
           <div className="kw-info"><span>{resume.label ?? labelOf(v, resume.season, resume.episode)} “{resumeEp.name}”</span></div>
-          <div className="kw-bar"><i style={{ width: `${resumeEp.fraction * 100}%` }} /></div>
+          <InkWave className="kw-bar" value={resumeEp.fraction} label="Watched" />
         </> : null}
         {v ? <div className="kw-dots">{[...v.title.genres, ...v.title.moods].slice(0, 3).map((g) => <span key={g}>{g}</span>)}</div> : <div className="kw-sk kw-sk-line" style={{ width: "60%" }} />}
       </div>

@@ -15,8 +15,7 @@
 .ta-named b { font: 600 18px/1.15 var(--k-display); color: var(--k-on-surface); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .ta-s .ta-named { padding: 4px; align-content: center; justify-items: center; }
 .ta-s .ta-named b { display: none; }
-.ta-bar { position: absolute; left: 8px; right: 8px; bottom: 8px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .28); overflow: hidden; }
-.ta-bar i { display: block; height: 100%; background: var(--k-accent, #a84d63); }
+.ta-bar { position: absolute; left: 8px; right: 8px; bottom: 8px; width: auto; height: 10px; color: #f3e7e2; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .7)); }
 
 /* Music: a square sleeve, its record peeking out to the right. */
 .ta-music { padding-right: 14%; }
