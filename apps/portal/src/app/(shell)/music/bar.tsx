@@ -7,7 +7,7 @@ import { cx, InkWave } from "@kimono/ui";
 import { byline, clock, hrefOf, musicApi, type Lyrics } from "./api";
 import { Asker } from "./ask";
 import { Icon } from "./icons";
-import { ArtistLinks, Bars, Cover, RateMarks } from "./parts";
+import { AddToPlaylist, ArtistLinks, Bars, Cover, RateMarks } from "./parts";
 import { usePlayer, usePosition } from "./player";
 
 /*
@@ -74,7 +74,7 @@ function Bar() {
         <button type="button" className="km-bar-title" onClick={() => p.setNowPlaying(!p.nowPlaying)}>{t.title}</button>
         <span className="km-bar-by">{arriving ? <span className="km-arriving-short">{arrivingText}…</span> : null}<span className="km-bar-artists"><ArtistLinks artists={t.artists} /></span></span>
       </div>
-      <span className="km-bar-rate"><RateMarks kind="track" keyOf={t.key} /></span>
+      <span className="km-bar-rate"><RateMarks kind="track" keyOf={t.key} /><AddToPlaylist keys={[t.key]} /></span>
     </div>
 
     <div className="km-bar-middle">
@@ -103,8 +103,9 @@ function Bar() {
     </div>
 
     <div className="km-bar-end">
-      <button type="button" className={cx("km-iconbtn km-small", p.nowPlaying && "km-on")} aria-pressed={p.nowPlaying} aria-label="Lyrics" title="Lyrics" onClick={() => p.setNowPlaying(!p.nowPlaying)}><Icon name="lyrics" /></button>
-      <button type="button" className={cx("km-iconbtn km-small", p.panel === "queue" && "km-on")} aria-pressed={p.panel === "queue"} aria-label="Queue" title="Queue" onClick={() => p.setPanel(p.panel === "queue" ? null : "queue")}><Icon name="queue" /></button>
+      {/* Worded, so what they open is plain; filled while open. */}
+      <button type="button" className={cx("km-pillbtn", p.nowPlaying && "km-on")} aria-pressed={p.nowPlaying} title="Lyrics" onClick={() => p.setNowPlaying(!p.nowPlaying)}><Icon name="lyrics" /><span>Lyrics</span></button>
+      <button type="button" className={cx("km-pillbtn", p.panel === "queue" && "km-on")} aria-pressed={p.panel === "queue"} title="Queue" onClick={() => p.setPanel(p.panel === "queue" ? null : "queue")}><Icon name="queue" /><span>Queue</span></button>
       <span className="km-volume">
         <button type="button" className="km-iconbtn km-small" aria-label={p.muted ? "Unmute" : "Mute"} title={p.muted ? "Unmute" : "Mute"} onClick={() => p.setMuted(!p.muted)}><Icon name={p.muted || p.volume === 0 ? "muted" : "volume"} /></button>
         <Slider label="Volume" value={p.muted ? 0 : p.volume} max={1} format={(v) => `${Math.round(v * 100)}%`} onChange={p.setVolume} onCommit={p.setVolume} className="km-volume-slider" />
@@ -133,7 +134,7 @@ function NowPlaying() {
       <div className="km-np-name">
         <h2 className="km-np-title">{t.title}</h2>
         <p className="km-np-by"><ArtistLinks artists={t.artists} />{t.album ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)} onClick={() => p.setNowPlaying(false)}>{t.album.title}</Crossing></> : null}</p>
-        <RateMarks kind="track" keyOf={t.key} />
+        <div className="km-np-actions"><RateMarks kind="track" keyOf={t.key} /><AddToPlaylist keys={[t.key]} labelled /></div>
       </div>
     </div>
     <LyricsView key={t.key} trackKey={t.key} />
