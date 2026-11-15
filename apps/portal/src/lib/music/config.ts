@@ -25,5 +25,5 @@ export type MusicConfig = ReturnType<typeof musicConfig>;
 export async function musicIdentity(settings: PlatformSettings): Promise<AppIdentity> {
   const definition = await getAppDefinition(musicAppId);
   const colors = settings.apps[musicAppId]?.colors || definition?.metadata.colors;
-  return { id: musicAppId, name: "Music", accent: colors ? accentOf(colors) : "#8a3b4f", glyph: "music" };
+  return { id: musicAppId, name: "Music", accent: colors ? accentOf(colors) : "#8f6f14", glyph: "music" };
 }
