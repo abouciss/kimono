@@ -63,6 +63,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -293,7 +294,7 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
     LaunchedEffect(Unit) { if (!still) pop.animateTo(1f, spring(.5f, 260f)) }
     val rise = remember { Animatable(if (still) 1f else 0f) }
     LaunchedEffect(Unit) { if (!still) { delay(200); rise.animateTo(1f, spring(.7f, 200f)) } }
-    val socials = if (p.open && !closed) p.links.filter { isSocial(it.url) } else emptyList()
+    val socials = if (p.open && !closed) p.links.filter(::underName) else emptyList()
     val uri = LocalUriHandler.current
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Band(color, still)
@@ -603,7 +604,8 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
     val ready = wholeLink(typed)
     fun add() { if (ready == null || links.size >= 8) return; links = links + ProfileLink(nameFor(ready), ready); typed = "" }
     fun move(from: Int, to: Int) { if (to !in links.indices || from == to) return; links = links.toMutableList().apply { add(to, removeAt(from)) } }
-    val featured = links.indexOfFirst { !isSocial(it.url) }
+    /* The first link in the Links widget is its featured one. */
+    val featured = links.indexOfFirst(::inLinks)
     var dragging by remember { mutableStateOf<Int?>(null) }
     var dragY by remember { mutableStateOf(0f) }
     val rowPx = with(androidx.compose.ui.platform.LocalDensity.current) { 68.dp.toPx() }
@@ -635,7 +637,7 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
             }
             val hint = when {
                 typed.isNotBlank() && ready == null -> "That isn't a web address yet."
-                ready != null -> "Adds as ${nameFor(ready)}${if (isSocial(ready)) ", a mark under your name" else ", a button in your links"}"
+                ready != null -> "Adds as ${nameFor(ready)}${if (isSocial(ready)) ", under your name and in Links" else ", in Links"}"
                 links.size >= 8 -> "That's eight: take one away to add another."
                 else -> null
             }
@@ -646,7 +648,7 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
             }
             links.forEachIndexed { i, l ->
                 val whole = wholeLink(l.url)
-                val social = whole != null && isSocial(whole)
+                val linked = whole != null && inLinks(l)
                 val lifted = dragging == i
                 Column(
                     Modifier.fillMaxWidth().zIndex(if (lifted) 1f else 0f).graphicsLayer { if (lifted) { translationY = dragY; scaleX = 1.03f; scaleY = 1.03f; shadowElevation = 12f } }
@@ -671,13 +673,13 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
                         Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable { openAt = if (openAt == i) null else i }.padding(horizontal = 6.dp, vertical = 6.dp)) {
                             Text(l.title.ifBlank { nameFor(whole ?: l.url) }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                if (whole == null) "Not a web address" else "${if (social) "Under your name" else if (i == featured) "Featured button" else "Button"} · ${hostOf(whole).ifEmpty { whole.removePrefix("mailto:") }}",
+                                if (whole == null) "Not a web address" else hostOf(whole).ifEmpty { whole.removePrefix("mailto:") },
                                 style = MaterialTheme.typography.bodySmall, color = if (whole == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        if (!social && whole != null) Box(
-                            Modifier.size(36.dp).clip(CircleShape).clickable { if (i != featured) move(i, maxOf(0, links.indexOfFirst { !isSocial(it.url) })) }
-                                .semantics { contentDescription = if (i == featured) "Featured" else "Feature it" },
+                        if (linked) Box(
+                            Modifier.size(36.dp).clip(CircleShape).clickable { if (i != featured) move(i, maxOf(0, featured)) }
+                                .semantics { contentDescription = if (i == featured) "First in Links" else "Put it first in Links" },
                             contentAlignment = Alignment.Center,
                         ) { Icon(kimonoIcon("star"), null, tint = if (i == featured) LocalBoardColor.current else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .6f), modifier = Modifier.size(20.dp)) }
                         Column {
@@ -691,10 +693,29 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
                     if (openAt == i) Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(l.title, { t -> if (t.length <= 40) links = links.mapIndexed { j, x -> if (j == i) x.copy(title = t) else x } }, label = { Text("Title") }, singleLine = true, colors = kataFieldColors(), modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(l.url.removePrefix("mailto:"), { u -> links = links.mapIndexed { j, x -> if (j == i) x.copy(url = u) else x } }, label = { Text("Address") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), colors = kataFieldColors(), modifier = Modifier.fillMaxWidth())
+                        ShowPick(showOf(l)) { show -> links = links.mapIndexed { j, x -> if (j == i) x.copy(show = show) else x } }
                         IconPick(whole, l.icon) { icon -> links = links.mapIndexed { j, x -> if (j == i) x.copy(icon = icon) else x } }
                     }
                 }
             }
+        }
+    }
+}
+
+/** Where a link shows: under your name, in Links, or both. */
+@Composable
+private fun ShowPick(show: String, pick: (String) -> Unit) {
+    Text("Shows", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("name" to "Under your name", "links" to "In Links", "both" to "Both").forEachIndexed { k, (value, label) ->
+            val on = show == value
+            val shape = when (k) { 0 -> RoundedCornerShape(12.dp, 3.dp, 3.dp, 12.dp); 2 -> RoundedCornerShape(3.dp, 12.dp, 12.dp, 3.dp); else -> RoundedCornerShape(3.dp) }
+            Box(
+                Modifier.weight(1f).heightIn(min = 42.dp).clip(shape).background(if (on) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .then(if (on) Modifier.border(2.dp, LocalBoardColor.current, shape) else Modifier).clickable { pick(value) }
+                    .semantics { contentDescription = label; selected = on }.padding(horizontal = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) LocalBoardColor.current else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
     }
 }

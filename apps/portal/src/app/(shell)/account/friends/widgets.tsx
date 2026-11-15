@@ -35,7 +35,7 @@ export type BooksExtras = { reviews: (ReadBook & { review: string })[]; read: Re
 export type BoardData = {
   person: Person;
   sections: Section[];
-  links: { title: string; url: string; icon?: string }[];
+  links: { title: string; url: string; icon?: string; show?: LinkShow }[];
   friends: Person[];
   music: MusicExtras;
   books?: BooksExtras;
@@ -397,6 +397,11 @@ function Clock({ w, d }: { w: Widget; d: BoardData }) {
 const socialHosts = /(^|\.)(instagram|twitter|x|bsky|threads|mastodon\.social|tiktok|youtube|youtu\.be|twitch|github|gitlab|linkedin|facebook|spotify|soundcloud|bandcamp|letterboxd|goodreads|discord|reddit|pinterest|behance|dribbble|vimeo|last\.fm|steamcommunity)\.[a-z.]+$/;
 export const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } };
 export const isSocial = (url: string) => socialHosts.test(hostOf(url));
+export type LinkShow = "name" | "links" | "both";
+/** Where a link shows, as chosen; unchosen, a social site is in both places and the rest are buttons. */
+export const showOf = (l: { url: string; show?: LinkShow }): LinkShow => l.show ?? (isSocial(l.url) ? "both" : "links");
+export const underName = (l: { url: string; show?: LinkShow }) => showOf(l) !== "links";
+export const inLinks = (l: { url: string; show?: LinkShow }) => showOf(l) !== "name";
 
 /** A link's own icon, from its site, or a mark when there isn't one. */
 export function Favicon({ url, fallback }: { url: string; fallback: LineIconName }) {
@@ -408,9 +413,8 @@ export function Favicon({ url, fallback }: { url: string; fallback: LineIconName
 }
 
 function Links({ w, d, onEdit }: { w: Widget; d: BoardData; onEdit?: () => void }) {
-  /* The socials are under the name; this is for the rest (all of them, if there's nothing else). */
-  const own = d.links.filter((l) => !isSocial(l.url));
-  const list = own.length ? own : d.links;
+  /* Each link says where it shows; this is the ones that show here. */
+  const list = d.links.filter(inLinks);
   if (!list.length) return onEdit
     ? <button type="button" className="wg-card wg-links-empty" onClick={onEdit}><Empty icon="link" text="Add your links" /></button>
     : <div className="wg-card"><Empty icon="link" text="No links yet" /></div>;

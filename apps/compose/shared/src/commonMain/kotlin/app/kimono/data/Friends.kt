@@ -62,7 +62,8 @@ data class KimonoProfile(
 )
 
 @Serializable
-data class ProfileLink(val title: String = "", val url: String, val icon: String? = null)
+/** [show]: "name" (a mark under the name), "links" (a button in the Links widget) or "both"; none is both for a social site, the widget for the rest. */
+data class ProfileLink(val title: String = "", val url: String, val icon: String? = null, val show: String? = null)
 
 /** One widget on a profile's home screen: a kind, a size ("s", "m", "l", "xl") and what it keeps (lib/friends/model.ts widgetsFrom). */
 @Serializable

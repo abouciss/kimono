@@ -4,17 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { Seal } from "@kimono/ui";
 import { InkSheet } from "@/components/ink-sheet";
 import { LineIcon } from "@/components/line-icon";
-import { Favicon, hostOf, isSocial } from "./widgets";
+import { Favicon, hostOf, inLinks, isSocial, showOf, type LinkShow } from "./widgets";
 import { isEmojiIcon, LinkMark, linkGlyphs } from "./link-marks";
 
 /*
  * 鎖 Your links, edited as they'll look: paste an address and it's there,
  * named after the site; drag to put them in order; the star puts one first,
- * featured. Socials (Instagram, GitHub…) say they'll show as marks under your
- * name; the rest are the buttons in your Links widget. Each change saves.
+ * featured. Each link shows under your name, in your Links widget, or both
+ * (open it to choose; social sites start in both). Each change saves.
  */
 
-export type Link = { title: string; url: string; icon?: string };
+export type Link = { title: string; url: string; icon?: string; show?: LinkShow };
+
+const shows: { value: LinkShow; label: string }[] = [{ value: "name", label: "Under your name" }, { value: "links", label: "In Links" }, { value: "both", label: "Both" }];
 
 /** The last character typed, whole (an emoji with its joins and skin tone counts as one). */
 const lastGrapheme = (v: string) => { const all = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(v.trim())]; return all.length ? all[all.length - 1].segment : ""; };
@@ -82,7 +84,8 @@ export function LinksEditor({ links: start, onClose, onSave }: { links: Link[]; 
   };
   const set = (i: number, part: Partial<Link>) => setLinks((ls) => ls.map((l, j) => (j === i ? { ...l, ...part } : l)));
   const move = (from: number, to: number) => setLinks((ls) => { const o = [...ls]; const [l] = o.splice(from, 1); o.splice(to, 0, l); return o; });
-  const featured = links.findIndex((l) => !isSocial(l.url));
+  /* The first link in the Links widget is its featured one. */
+  const featured = links.findIndex(inLinks);
 
   return <InkSheet title="Your links" icon="link" onClose={onClose} actions={<>
     <span className="le-saved" role="status">{saving === "saving" ? "Saving…" : saving === "saved" ? "Saved" : saving === "problem" ? "Not saved" : ""}</span>
@@ -95,13 +98,13 @@ export function LinksEditor({ links: start, onClose, onSave }: { links: Link[]; 
         <button type="submit" className="le-add" disabled={!ready || links.length >= 8}><LineIcon name="plus" />Add</button>
       </form>
       {typed && !ready ? <p className="le-hint">That isn&rsquo;t a web address yet.</p>
-        : ready ? <p className="le-hint">Adds as <b>{nameFor(ready)}</b>{isSocial(ready) ? ", a mark under your name" : ", a button in your links"}</p>
+        : ready ? <p className="le-hint">Adds as <b>{nameFor(ready)}</b>{isSocial(ready) ? ", under your name and in Links" : ", in Links"}</p>
           : links.length >= 8 ? <p className="le-hint">That&rsquo;s eight: take one away to add another.</p> : null}
 
       {links.length ? <ol className="le-list">
         {links.map((l, i) => {
           const ok = Boolean(whole(l.url));
-          const social = ok && isSocial(whole(l.url)!);
+          const linked = ok && inLinks(l);
           return <li key={i} className={`le-link${open === i ? " is-open" : ""}${dragging === i ? " is-dragging" : ""}${ok ? "" : " is-wrong"}`}
             draggable={open !== i} onDragStart={(e) => { setDragging(i); e.dataTransfer.effectAllowed = "move"; }}
             onDragOver={(e) => { if (dragging === null || dragging === i) return; e.preventDefault(); move(dragging, i); setDragging(i); }}
@@ -111,10 +114,10 @@ export function LinksEditor({ links: start, onClose, onSave }: { links: Link[]; 
               <span className="le-mark">{ok ? <LinkMark url={whole(l.url)!} icon={l.icon} /> : <LineIcon name="link" />}</span>
               <button type="button" className="le-words" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
                 <b>{l.title || nameFor(whole(l.url) ?? l.url)}</b>
-                <small>{ok ? (social ? "Under your name" : i === featured ? "Featured button" : "Button") + " · " + (hostOf(whole(l.url)!) || l.url.replace(/^mailto:/, "")) : "Not a web address"}</small>
+                <small>{ok ? hostOf(whole(l.url)!) || l.url.replace(/^mailto:/, "") : "Not a web address"}</small>
               </button>
-              {!social && ok ? <button type="button" className={`le-star${i === featured ? " is-on" : ""}`} aria-pressed={i === featured} title={i === featured ? "Featured: it's first" : "Feature it: put it first"}
-                onClick={() => { const nonSocialFirst = links.findIndex((x) => !isSocial(x.url)); if (i !== nonSocialFirst) move(i, Math.max(0, nonSocialFirst)); }}>
+              {linked ? <button type="button" className={`le-star${i === featured ? " is-on" : ""}`} aria-pressed={i === featured} title={i === featured ? "First in Links" : "Put it first in Links"}
+                onClick={() => { if (i !== featured) move(i, Math.max(0, featured)); }}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>
               </button> : null}
               <span className="le-order">
@@ -126,6 +129,10 @@ export function LinksEditor({ links: start, onClose, onSave }: { links: Link[]; 
             {open === i ? <div className="le-fields">
               <label className="field"><small>Title</small><input value={l.title} maxLength={40} onChange={(e) => set(i, { title: e.target.value })} autoFocus /></label>
               <label className="field"><small>Address</small><input value={l.url.replace(/^mailto:/, "")} inputMode="url" onChange={(e) => set(i, { url: e.target.value })} /></label>
+              <div className="le-show" role="radiogroup" aria-label="Shows">
+                <small>Shows</small>
+                <span>{shows.map((o) => <button key={o.value} type="button" role="radio" aria-checked={showOf(l) === o.value} onClick={() => set(i, { show: o.value })}>{o.label}</button>)}</span>
+              </div>
               <div className="le-icons" role="radiogroup" aria-label="Icon">
                 <small>Icon</small>
                 <div className="le-icon-grid">
