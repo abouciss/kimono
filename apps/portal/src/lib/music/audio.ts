@@ -1,6 +1,6 @@
 import "server-only";
 
-import { closeSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statfsSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { stateDir } from "../state";
 import type { MusicConfig } from "./config";
@@ -20,11 +20,13 @@ import { forgetSession, forgetStream, streamOf } from "./youtube";
  *
  * Players don't wait for the whole file: a range is answered as soon as its
  * bytes have arrived. Least recently played songs make room past the cap
- * (KIMONO_MUSIC_CACHE_GB, 20 GB by default).
+ * (KIMONO_MUSIC_CACHE_GB, 100 GB by default), or when the disk gets down to its last 10 GB.
  */
 
 const dir = join(stateDir, "music", "audio");
-const capBytes = (Number(process.env.KIMONO_MUSIC_CACHE_GB) || 20) * 1024 ** 3;
+const capBytes = (Number(process.env.KIMONO_MUSIC_CACHE_GB) || 100) * 1024 ** 3;
+const leaveFree = 10 * 1024 ** 3;
+const freeOnDisk = () => { try { const f = statfsSync(dir); return f.bavail * f.bsize; } catch { return Infinity; } };
 const chunk = 2 * 1024 * 1024;
 
 type Entry = { size: number; mime: string; at: number };
@@ -66,12 +68,14 @@ function kept(videoId: string): Entry | null {
 function evict() {
   const s = state();
   let total = Object.values(s.index).reduce((n, e) => n + e.size, 0);
+  let free = freeOnDisk();
   for (const [id, e] of Object.entries(s.index).sort((a, b) => a[1].at - b[1].at)) {
-    if (total <= capBytes) break;
+    if (total <= capBytes && free >= leaveFree) break;
     if (s.jobs.has(id)) continue;
     rmSync(fileOf(id), { force: true });
     delete s.index[id];
     total -= e.size;
+    free += e.size;
   }
 }
 

@@ -70,6 +70,21 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
     private var worker: Job? = null
     private var loaded = false
 
+    /*
+     * 聴 Every song played is kept too, apart from the downloads: the same file,
+     * fetched once it starts, so the next time it starts at once from the phone.
+     * Up to 100 GB, the longest unplayed going first, and always leaving room on the phone.
+     */
+    @Serializable private data class Played(val songs: List<Kept> = emptyList())
+    private val playedFolder by lazy { Path(folder, "played") }
+    private val playedFile by lazy { Path(folder, "played.json") }
+    private val _played = MutableStateFlow<Map<String, Kept>>(emptyMap())
+    /** Songs kept from playing them, by key. */
+    val played: StateFlow<Map<String, Kept>> = _played
+    val playedBytes get() = _played.value.values.sumOf { it.size }
+    private val toKeep = MutableStateFlow<List<Track>>(emptyList())
+    private var keeper: Job? = null
+
     init {
         scope.launch(Dispatchers.Default) {
             runCatching {
@@ -80,13 +95,22 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
                     _waiting.value = (still + _waiting.value).distinctBy { it.key }
                 }
             }
+            runCatching {
+                if (SystemFileSystem.exists(playedFile)) {
+                    val index = json.decodeFromString<Played>(SystemFileSystem.source(playedFile).buffered().use { it.readString() })
+                    _played.value = index.songs.filter { SystemFileSystem.exists(Path(it.file)) }.associateBy { it.track.key } + _played.value
+                }
+            }
             loaded = true
             if (_waiting.value.isNotEmpty()) run()
+            if (toKeep.value.isNotEmpty()) keepOn()
         }
     }
 
     /** The song's file here, when it's been downloaded. */
-    fun fileOf(key: String): String? = _kept.value[key]?.file
+    fun fileOf(key: String): String? = _kept.value[key]?.file ?: _played.value[key]?.file
+    /** Whether [key] plays from the phone: downloaded, or kept from playing it. */
+    fun here(key: String) = fileOf(key) != null
     fun has(key: String) = _kept.value.containsKey(key)
     /** Whether every one of [tracks] is here. */
     fun hasAll(tracks: List<Track>) = tracks.isNotEmpty() && tracks.all { has(it.key) }
@@ -143,6 +167,71 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
     /** Every song off the phone, and nothing more to come. */
     fun removeAll() = remove(_kept.value.values.map { it.track } + _waiting.value + _failed.value.values.map { it.track })
 
+    /** A song's just been played: kept, if it isn't yet, or marked as heard now. */
+    fun keepPlayed(track: Track) {
+        val key = track.key
+        _played.value[key]?.let { p ->
+            _played.value = _played.value + (key to p.copy(at = nowMillis()))
+            scope.launch(Dispatchers.Default) { lock.withLock { savePlayed() } }
+            return
+        }
+        if (has(key) || _waiting.value.any { it.key == key } || toKeep.value.any { it.key == key }) return
+        toKeep.value = toKeep.value + track
+        keepOn()
+    }
+
+    /** Every played song off the phone (downloads stay). */
+    fun clearPlayed() {
+        toKeep.value = emptyList()
+        keeper?.cancel(); keeper = null
+        scope.launch(Dispatchers.Default) {
+            lock.withLock {
+                for (p in _played.value.values) runCatching { SystemFileSystem.delete(Path(p.file)) }
+                _played.value = emptyMap()
+                savePlayed()
+            }
+        }
+    }
+
+    private fun keepOn() {
+        if (keeper?.isActive == true || !loaded) return
+        keeper = scope.launch {
+            while (true) {
+                val next = toKeep.value.firstOrNull() ?: break
+                /* A moment first, so the song's own start comes before the copy. */
+                delay(4_000)
+                val free = platform.freeBytes()
+                if (free != null && free < LEAVE_FREE + 50_000_000 && _played.value.isEmpty()) { toKeep.value = emptyList(); break }
+                val got = if (has(next.key) || _played.value.containsKey(next.key)) null
+                    else try { withContext(Dispatchers.Default) { fetch(next, playedFolder, shown = false) } } catch (c: CancellationException) { throw c } catch (_: Throwable) { null }
+                lock.withLock {
+                    toKeep.value = toKeep.value.filter { it.key != next.key }
+                    if (got != null) { _played.value = _played.value + (next.key to got); roomForPlayed(); savePlayed() }
+                }
+            }
+        }
+    }
+
+    /** Over 100 GB, or the phone running short: the songs played longest ago go. */
+    private fun roomForPlayed() {
+        var total = playedBytes
+        var free = platform.freeBytes()
+        val gone = mutableSetOf<String>()
+        for (p in _played.value.values.sortedBy { it.at }) {
+            if (total <= PLAYED_CAP && (free == null || free >= LEAVE_FREE)) break
+            runCatching { SystemFileSystem.delete(Path(p.file)) }
+            total -= p.size; free = free?.plus(p.size); gone += p.track.key
+        }
+        if (gone.isNotEmpty()) _played.value = _played.value - gone
+    }
+
+    private fun savePlayed() {
+        runCatching {
+            SystemFileSystem.createDirectories(folder)
+            SystemFileSystem.sink(playedFile).buffered().use { it.writeString(json.encodeToString(Played.serializer(), Played(_played.value.values.sortedByDescending { k -> k.at }))) }
+        }
+    }
+
     private fun run() {
         if (worker?.isActive == true || !loaded) return
         worker = scope.launch {
@@ -175,16 +264,25 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
     }
 
     private suspend fun fetchWithRetries(track: Track): Kept {
+        /* Already here from playing it: moved over, not fetched again. */
+        _played.value[track.key]?.let { p ->
+            SystemFileSystem.createDirectories(folder)
+            val target = Path(folder, Path(p.file).name)
+            if (runCatching { SystemFileSystem.atomicMove(Path(p.file), target) }.isSuccess) {
+                lock.withLock { _played.value = _played.value - track.key; savePlayed() }
+                return Kept(track, target.toString(), p.size, nowMillis())
+            }
+        }
         var tries = 0
         while (true) {
-            try { return fetch(track) } catch (p: KimonoProblem) {
+            try { return fetch(track, folder, shown = true) } catch (p: KimonoProblem) {
                 if (p.message != OFFLINE || ++tries >= 4) throw p
                 delay(1_500L shl tries)
             }
         }
     }
 
-    private suspend fun fetch(track: Track): Kept {
+    private suspend fun fetch(track: Track, folder: Path, shown: Boolean): Kept {
         SystemFileSystem.createDirectories(folder)
         val name = track.key.replace(Regex("[^A-Za-z0-9]"), "_") + ".m4a"
         val target = Path(folder, name)
@@ -209,7 +307,7 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
                         if (read == 0) { if (channel.isClosedForRead) break else continue }
                         sink.write(buffer, 0, read)
                         received += read
-                        if (total > 0) _now.value = track.key to (received.toFloat() / total).coerceIn(0f, 1f)
+                        if (shown && total > 0) _now.value = track.key to (received.toFloat() / total).coerceIn(0f, 1f)
                     }
                 }
                 if (length > 0 && received < total) throw KimonoProblem(OFFLINE)
@@ -217,7 +315,7 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
             }
         } catch (p: KimonoProblem) { throw p } catch (c: CancellationException) { throw c } catch (_: Exception) { throw KimonoProblem(OFFLINE) }
         SystemFileSystem.atomicMove(partial, target)
-        return Kept(track, target.toString(), total, kotlin.time.Clock.System.now().toEpochMilliseconds())
+        return Kept(track, target.toString(), total, nowMillis())
     }
 
     private fun persist() { scope.launch(Dispatchers.Default) { lock.withLock { save() } } }
@@ -230,6 +328,11 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
         }
     }
 }
+
+private const val PLAYED_CAP = 100_000_000_000L
+/** What's always left free on the phone for everything else. */
+private const val LEAVE_FREE = 2_000_000_000L
+private fun nowMillis() = kotlin.time.Clock.System.now().toEpochMilliseconds()
 
 /** "120 MB", "1.2 GB". */
 fun megabytes(bytes: Long): String = when {
