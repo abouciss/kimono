@@ -58,6 +58,8 @@ targets:
           NSAllowsLocalNetworking: true
         # Kimono's own iPhone apps, to tell whether they're installed and open them straight away.
         LSApplicationQueriesSchemes: [kimono-photos, kimono-watch]
+        # Music plays on with the phone locked, its controls on the lock screen.
+        UIBackgroundModes: [audio]
     preBuildScripts:
       - name: Build the shared Kotlin framework
         basedOnDependencyAnalysis: false

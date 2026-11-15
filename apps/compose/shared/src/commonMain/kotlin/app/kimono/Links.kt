@@ -43,6 +43,18 @@ fun routeOfLink(link: String): String? {
             BookAsk.key.value = query["b"]?.takeIf { it.isNotBlank() }
             if (query["tab"] == "shelf") "books/shelf" else "books"
         }
+        /* Music: Deezer's numbers in the path (/music/song/3135556), a party by its id. */
+        path == "/music" -> "music"
+        path.startsWith("/music/") -> {
+            val parts = path.removePrefix("/music/").split('/')
+            val what = parts.getOrNull(0)
+            val which = id(parts.getOrNull(1))
+            when {
+                what == "you" || what == "liked" || what == "history" || what == "search" || what == "downloads" -> "music/$what"
+                which != null && what in setOf("song", "artist", "album", "playlist", "party") -> "music/$what/$which"
+                else -> "music"
+            }
+        }
         path == "/account" -> "you"
         path == "/account/details" -> "details"
         path == "/account/devices" -> "devices"
