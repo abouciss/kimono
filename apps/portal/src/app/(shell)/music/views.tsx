@@ -103,15 +103,18 @@ export function HomeView() {
     {friends?.length ? <FriendsListening friends={friends} /> : null}
     <SentToYou />
 
-    {home.mixes.length ? <Shelf title="Made for you">
-      {home.mixes.map((m) => <SetCard key={m.id} title={m.title} sub={`${m.items.length} songs`} covers={[...new Set(m.items.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))]}
-        href={hrefOf.mix(m.id)} onPlay={() => p.play(m.items, 0, { kind: "mix", id: m.id, title: m.title })} />)}
-    </Shelf> : null}
+    {/* A mix or two sits beside the chart; more get a shelf of their own. */}
+    <div className={home.mixes.length && home.mixes.length <= 2 ? "km-duo" : "km-duo is-single"}>
+      {home.mixes.length ? <Shelf title="Made for you">
+        {home.mixes.map((m) => <SetCard key={m.id} title={m.title} sub={`${m.items.length} songs`} covers={[...new Set(m.items.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))]}
+          href={hrefOf.mix(m.id)} onPlay={() => p.play(m.items, 0, { kind: "mix", id: m.id, title: m.title })} />)}
+      </Shelf> : null}
 
-    <section className="km-chart">
-      <header><h2 className="k-heading">{home.charts.title}</h2><Crossing kind="kakejiku" className="km-shelf-all" href={hrefOf.mix("chart")}>Show all</Crossing></header>
-      <Songs tracks={home.charts.items.slice(0, 10)} source={{ kind: "mix", id: "chart", title: home.charts.title }} numbered className="km-chart-songs" />
-    </section>
+      <section className="km-chart">
+        <header><h2 className="k-heading">{home.charts.title}</h2><Crossing kind="kakejiku" className="km-shelf-all" href={hrefOf.mix("chart")}>Show all</Crossing></header>
+        <Songs tracks={home.charts.items.slice(0, 10)} source={{ kind: "mix", id: "chart", title: home.charts.title }} numbered className="km-chart-songs" />
+      </section>
+    </div>
 
     {home.artists.length ? <Shelf title={home.greeting === "back" ? "Artists for you" : "Popular artists"}>
       {home.artists.map((a) => <ArtistCard key={a.key} artist={a} />)}
