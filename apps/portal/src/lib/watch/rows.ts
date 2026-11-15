@@ -28,8 +28,10 @@ const series: Shelf[] = ["Series"];
 const anime: Shelf[] = ["Anime"];
 const popular = { sort_by: "popularity.desc", "vote_count.gte": "150" };
 
-/** The house order: what's airing and well loved first, then genres. */
+/** The house order: what's new and well loved first, then genres. */
 export const rowCatalog: RowSpec[] = [
+  { id: "new-episodes", title: "New episodes this week", path: "/tv/on_the_air", params: {}, ttl: 6, shelves: series, genres: [] },
+  { id: "new-films", title: "New on Kimono", path: "/discover/movie", params: { sort_by: "popularity.desc", with_release_type: "4|5", "release_date.lte": "{today}", "release_date.gte": "{daysAgo:150}", "vote_count.gte": "40" }, ttl: 12, shelves: film, genres: [] },
   { id: "airing-anime", title: "Anime airing now", path: "/discover/tv", params: { with_genres: "16", with_origin_country: "JP", "air_date.gte": "{daysAgo:10}", "air_date.lte": "{today}", sort_by: "popularity.desc" }, ttl: 6, shelves: anime, genres: ["Animation"] },
   { id: "acclaimed-series", title: "Critically acclaimed series", path: "/tv/top_rated", params: {}, ttl: 48, shelves: series, genres: ["Drama"] },
   { id: "acclaimed-films", title: "Critically acclaimed films", path: "/movie/top_rated", params: {}, ttl: 48, shelves: film, genres: ["Drama"] },
