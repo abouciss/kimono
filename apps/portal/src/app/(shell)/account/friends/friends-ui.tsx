@@ -17,6 +17,11 @@ import { Book3D } from "../../books/book3d";
  * recommendations through RecommendSheet.
  */
 
+
+/* Each app's colour and mark on a profile: moss for Books, lapis for Music, rose for Watch. */
+const appTint = (app: string) => (app === "books" ? "#5c7150" : app === "music" ? "#2e5e8a" : "#a84d63");
+const appIcon = (app: string) => (app === "books" ? "book" as const : app === "music" ? "music" as const : "film" as const);
+
 export type Person = { username: string; name: string; picture: string | null };
 export type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; rating?: "love" | "up" | "down" | null };
 export type Recommendation = Item & { id: string; from: Person; to: Person | null; note: string | null; at: number; seen: boolean; appName: string };
@@ -313,7 +318,7 @@ export function ProfileView({ username, home = false }: { username: string; home
         const some = (privacy?.apps.find((a) => a.app === app)?.rows ?? []).some((r) => !r.shown);
         return <section key={app} className={`fr-group fr-app-${app}${kept ? " is-kept" : ""}`}>
           <div className="fr-app-head">
-            <InkBlot tint={app === "books" ? "#5c7150" : "#a84d63"} seed={`app:${app}`}><LineIcon name={app === "books" ? "book" : "film"} /></InkBlot>
+            <InkBlot tint={appTint(app)} seed={`app:${app}`}><LineIcon name={appIcon(app)} /></InkBlot>
             <h2>{rows[0].appName}</h2>
             {p.you ? tag(kept, some, () => setPrivacyOpen(app)) : null}
           </div>
@@ -385,7 +390,7 @@ function AppPrivacySheet({ app, privacy, onClose, onChanged }: { app: string; pr
     .then((r) => { setNow(r.privacy); onChanged(r); setProblem(null); }, (e) => setProblem(message(e)));
   const a = now.apps.find((x) => x.app === app);
   if (!a) return null;
-  return <InkSheet title={a.name} icon={app === "books" ? "book" : "film"} tint={app === "books" ? "#5c7150" : "#a84d63"} onClose={onClose} actions={<Seal compact onClick={onClose}>Done</Seal>}>
+  return <InkSheet title={a.name} icon={appIcon(app)} tint={appTint(app)} onClose={onClose} actions={<Seal compact onClick={onClose}>Done</Seal>}>
     <div className="fr-privacy">
       <label className="fr-toggle fr-priv-main"><span><b>Friends see your {a.name}</b></span>
         <JointSwitch name={`see-${a.app}`} label={`Friends see your ${a.name}`} defaultChecked={a.shown} onChange={(on) => void change({ app: a.app, shown: on })} /></label>

@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { appIcons } from "@/lib/app-favicon";
 import { musicConfig, musicIdentity } from "@/lib/music/config";
+import { picturePathFor } from "@/lib/pictures";
 import { getPlatformSettings } from "@/lib/settings";
 import { PlayerChrome } from "./bar";
 import { MusicProvider } from "./player";
@@ -27,9 +28,10 @@ export default async function MusicLayout({ children }: { children: ReactNode })
     if (admin) redirect("/admin/apps/kimono-music");
     return <AppShell user={session.user}><div className="km km-off"><h1 className="km-page-title">Music isn&rsquo;t switched on yet.</h1><p className="km-quiet">Ask whoever runs this Kimono.</p></div></AppShell>;
   }
-  const app = await musicIdentity(settings);
+  const [app, picture] = await Promise.all([musicIdentity(settings), picturePathFor(session.user.username)]);
+  const you = { username: session.user.username.toLowerCase(), name: session.user.name?.trim() || session.user.username, picture: picture ?? session.user.image ?? null };
   return <AppShell user={session.user}>
-    <MusicProvider>
+    <MusicProvider you={you}>
       <div className="km">
         <Suspense><TopBar app={app} /></Suspense>
         {children}

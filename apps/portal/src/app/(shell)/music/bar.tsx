@@ -3,7 +3,7 @@
 import { Crossing } from "@/components/crossing";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { cx } from "@kimono/ui";
+import { cx, InkWave } from "@kimono/ui";
 import { byline, clock, hrefOf, musicApi, type Lyrics } from "./api";
 import { Asker } from "./ask";
 import { Icon } from "./icons";
@@ -62,7 +62,9 @@ function Bar() {
   const [scrub, setScrub] = useState<number | null>(null);
   const t = p.current;
   if (!t) return null;
-  return <div className={cx("km-bar", p.nowPlaying && "km-bar-open")} role="region" aria-label="Player">
+  const arriving = p.arriving;
+  const arrivingText = arriving?.stage === "finding" ? "Finding the song" : "Getting it ready";
+  return <div className={cx("km-bar", p.nowPlaying && "km-bar-open", arriving && "km-bar-arriving")} role="region" aria-label="Player">
     <div className="km-bar-song">
       <button type="button" className="km-bar-art" aria-label={p.nowPlaying ? "Close the song" : "Open the song"} onClick={() => p.setNowPlaying(!p.nowPlaying)}>
         <Cover src={t.album?.cover} size={52} />
@@ -70,7 +72,7 @@ function Bar() {
       </button>
       <div className="km-bar-name">
         <button type="button" className="km-bar-title" onClick={() => p.setNowPlaying(!p.nowPlaying)}>{t.title}</button>
-        <span className="km-bar-by"><ArtistLinks artists={t.artists} /></span>
+        <span className="km-bar-by">{arriving ? <span className="km-arriving-short">{arrivingText}…</span> : null}<span className="km-bar-artists"><ArtistLinks artists={t.artists} /></span></span>
       </div>
       <span className="km-bar-rate"><RateMarks kind="track" keyOf={t.key} /></span>
     </div>
@@ -87,11 +89,17 @@ function Bar() {
           <Icon name={p.repeat === "one" ? "repeatOne" : "repeat"} />
         </button>
       </div>
-      <div className="km-seek">
-        <span className="km-time">{clock(scrub ?? position)}</span>
-        <Slider label="Place in the song" value={position} max={duration} format={(v) => `${clock(v)} of ${clock(duration)}`} onChange={setScrub} onCommit={(v) => { setScrub(null); p.seek(v); }} />
-        <span className="km-time">{clock(duration)}</span>
-      </div>
+      {arriving
+        /* The first time anyone plays a song, the server fetches it: the wave fills as it comes in. */
+        ? <div className="km-seek km-arriving" role="status">
+          <span className="km-arriving-label">{arrivingText}</span>
+          <InkWave value={arriving.stage === "fetching" && arriving.fraction > 0 ? arriving.fraction : undefined} label={arrivingText} className="km-arriving-wave" />
+        </div>
+        : <div className="km-seek">
+          <span className="km-time">{clock(scrub ?? position)}</span>
+          <Slider label="Place in the song" value={position} max={duration} format={(v) => `${clock(v)} of ${clock(duration)}`} onChange={setScrub} onCommit={(v) => { setScrub(null); p.seek(v); }} />
+          <span className="km-time">{clock(duration)}</span>
+        </div>}
     </div>
 
     <div className="km-bar-end">
@@ -103,7 +111,7 @@ function Bar() {
       </span>
     </div>
     {/* On a phone the bar is one line, with the song's place drawn along its top. */}
-    <span className="km-bar-line" style={{ width: `${duration ? (position / duration) * 100 : 0}%` }} />
+    <span className={cx("km-bar-line", arriving && "km-bar-line-arriving")} style={{ width: `${arriving ? (arriving.stage === "fetching" ? Math.max(4, arriving.fraction * 100) : 4) : duration ? (position / duration) * 100 : 0}%` }} />
   </div>;
 }
 

@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { apiError } from "../api-v1";
 import { getPlatformSettings } from "../settings";
 import { stateDir } from "../state";
-import { prefetch } from "./audio";
+import { audioStatus, prefetch } from "./audio";
 import { musicConfig, type MusicConfig } from "./config";
 import { deezerId, MusicProblem, type Album, type Artist, type Lyrics, type Playlist, type RatedKind, type Rating, type Row, type Track } from "./model";
 import { deezerSource as dz, lastfm, lrclib } from "./sources";
@@ -214,6 +214,18 @@ export async function recordingOf(key: string): Promise<string> {
   return video;
 }
 
+/**
+ * Where a song is on its way to playing, for the bar's first-play progress:
+ * still finding its recording, coming in (how much of it), or ready.
+ */
+export function songStatus(key: string): { stage: "finding" } | { stage: "fetching"; fraction: number } | { stage: "ready" } {
+  const row = musicDb().prepare("SELECT video FROM recordings WHERE track = ?").get(key) as { video: string | null } | undefined;
+  if (!row?.video) return { stage: "finding" };
+  const s = audioStatus(row.video);
+  if (!s || s.ready) return s ? { stage: "ready" } : { stage: "fetching", fraction: 0 };
+  return { stage: "fetching", fraction: s.size ? Math.min(1, s.got / s.size) : 0 };
+}
+
 /** Gets the next songs ready while this one plays, so the queue never stops to fetch. */
 export async function getReady(config: MusicConfig, keys: string[]) {
   for (const key of keys.slice(0, 3)) {
@@ -359,7 +371,7 @@ export async function addToPlaylist(username: string, id: string, keys: string[]
 /* ── Queue ─────────────────────────────────────────────────────────────── */
 
 /** What's playing and what's next, and where in the song: picked up on any device. */
-export type Queue = { tracks: Track[]; index: number; position: number; shuffle: boolean; repeat: "off" | "all" | "one"; source: { kind: string; id: string; title: string } | null; updatedAt: string };
+export type Queue = { tracks: Track[]; index: number; position: number; shuffle: boolean; repeat: "off" | "all" | "one"; source: { kind: string; id: string; title: string } | null; playing: boolean; updatedAt: string };
 
 export function getQueue(username: string): Queue | null {
   const row = musicDb().prepare("SELECT data, updated_at FROM queues WHERE username = ?").get(user(username)) as { data: string; updated_at: number } | undefined;
@@ -370,7 +382,7 @@ export async function saveQueue(username: string, q: Omit<Queue, "tracks" | "upd
   const tracks = await tracksFor(q.keys.slice(0, 1000));
   const source = q.source && typeof q.source.kind === "string" && typeof q.source.id === "string" && typeof q.source.title === "string"
     ? { kind: q.source.kind.slice(0, 20), id: q.source.id.slice(0, 200), title: q.source.title.slice(0, 200) } : null;
-  const data: Omit<Queue, "updatedAt"> = { tracks, index: Math.max(0, Math.min(q.index, tracks.length - 1)), position: Math.max(0, q.position || 0), shuffle: Boolean(q.shuffle), repeat: q.repeat === "all" || q.repeat === "one" ? q.repeat : "off", source };
+  const data: Omit<Queue, "updatedAt"> = { tracks, index: Math.max(0, Math.min(q.index, tracks.length - 1)), position: Math.max(0, q.position || 0), shuffle: Boolean(q.shuffle), repeat: q.repeat === "all" || q.repeat === "one" ? q.repeat : "off", source, playing: Boolean(q.playing) };
   /* A device reporting late doesn't pull the queue back. */
   musicDb().prepare("INSERT INTO queues (username, data, updated_at) VALUES (?, ?, ?) ON CONFLICT (username) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at WHERE excluded.updated_at >= queues.updated_at")
     .run(user(username), JSON.stringify(data), at);

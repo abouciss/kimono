@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { stateDir } from "../state";
 import type { MusicConfig } from "./config";
 import { MusicProblem } from "./model";
+
 import { forgetSession, forgetStream, streamOf } from "./youtube";
 
 /*
@@ -249,6 +250,13 @@ export async function serveAudio(config: MusicConfig, videoId: string, range?: {
     cancel() { if (fd !== null) { try { closeSync(fd); } catch { /* closed */ } fd = null; } },
   });
   return { body, size, mime: got.mime, range: range ? { start, end } : null };
+}
+
+/** How far a song has got into the cache: kept, on its way (bytes so far of how many), or not started. */
+export function audioStatus(videoId: string): { ready: true } | { ready: false; got: number; size: number } | null {
+  if (kept(videoId)) return { ready: true };
+  const job = state().jobs.get(videoId);
+  return job ? { ready: false, got: job.got, size: job.size } : null;
 }
 
 /** How playback is getting songs now, for the admin page. */

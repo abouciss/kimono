@@ -92,7 +92,7 @@ function Line({ href, mark, title, detail }: { href: string; mark: ReactNode; ti
 /** A friend's latest: their portrait opens their profile, the rest the title. */
 function FriendLine({ activity: a }: { activity: ActivityView }) {
   const who = a.from.name.split(" ")[0] || a.from.username;
-  const what = { watching: "is watching", watched: "watched", reading: "is reading", read: "finished", recommended: "recommends" }[a.kind];
+  const what = { watching: "is watching", watched: "watched", reading: "is reading", read: "finished", listening: "listened to", recommended: "recommends" }[a.kind];
   const detail = [`${who} ${what}`, a.kind === "watching" ? a.label : a.kind === "reading" && a.progress ? `${Math.round(a.progress * 100)}%` : ago(a.at)].filter(Boolean).join(" · ");
   return <div className="home-line home-friend">
     <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(a.from.username)}`} className="home-line-mark" aria-label={a.from.name}>

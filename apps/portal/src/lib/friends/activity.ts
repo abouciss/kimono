@@ -16,7 +16,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { areFriends, hiddenAppsOf, isInvisible, isOffProfile, keptOf, offProfileOf } from "./model";
 
-export type ActivityKind = "watching" | "watched" | "reading" | "read" | "recommended";
+export type ActivityKind = "watching" | "watched" | "reading" | "read" | "listening" | "recommended";
 
 export type Activity = {
   kind: ActivityKind; app: string; from: string;
@@ -31,7 +31,7 @@ export type Activity = {
 
 /** The profile row each kind comes from: kept back, it isn't shown. */
 export const rowOfKind: Record<ActivityKind, string | null> = {
-  watching: "watch:watched", watched: "watch:watched", reading: "books:reading", read: "books:read", recommended: null,
+  watching: "watch:watched", watched: "watch:watched", reading: "books:reading", read: "books:read", listening: "music:playing", recommended: null,
 };
 
 /** Watch's own switches: whether someone shares what they watch, and the titles they watched invisibly. */

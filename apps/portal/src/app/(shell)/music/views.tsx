@@ -5,10 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppLockup, cx, InkPortraitFrame, Seal, type AppIdentity } from "@kimono/ui";
 import { useTabTitle } from "@/components/tab-title";
-import { clock, forget, hrefOf, length, musicApi, useMusic, type Album, type Track } from "./api";
+import { ago, byline, clock, forget, hrefOf, length, musicApi, useMusic, type Album, type FriendListening, type Track } from "./api";
 import { askName, askSure } from "./ask";
 import { Icon } from "./icons";
-import { AlbumCard, ArtistCard, Cover, Head, Loading, MoreButton, Mosaic, PlayActions, playlistItems, Problem, RateMarks, SetCard, Shelf, Songs } from "./parts";
+import { Portrait } from "@/components/portrait";
+import { AlbumCard, ArtistCard, Bars, Cover, Head, Loading, MoreButton, Mosaic, PlayActions, playlistItems, Problem, RateMarks, SetCard, Shelf, Songs } from "./parts";
 import { usePlayer } from "./player";
 
 /* ── Along the top of every page: search, and where you are ────────────── */
@@ -61,39 +62,45 @@ export function TopBar({ app }: { app: AppIdentity }) {
     </label>
     <nav className="km-tabs" aria-label="Music">
       <Crossing kind="kakejiku" href="/music" aria-current={path === "/music" ? "page" : undefined}>Home</Crossing>
-      <Crossing kind="kakejiku" href="/music/library" aria-current={path.startsWith("/music/library") ? "page" : undefined}>Library</Crossing>
+      <Crossing kind="kakejiku" href="/music/you" aria-current={path === "/music/you" ? "page" : undefined}>You</Crossing>
     </nav>
   </div>;
 }
 
 /* ── Home ──────────────────────────────────────────────────────────────── */
 
+const greeting = () => { const h = new Date().getHours(); return h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
+
 export function HomeView() {
   useTabTitle(undefined, "Kimono Music");
   const p = usePlayer();
   const { data: home, error, retry } = useMusic("home", musicApi.home);
+  const { data: friends } = useMusic("friends", () => musicApi.friends().then((r) => r.friends));
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!home) return <Loading />;
+  const first = p.you.name.split(/\s+/)[0];
   return <div className="km-page km-home">
-    {home.jumpBack.length ? <section className="km-jump">
-      <h2 className="k-heading">Jump back in</h2>
-      <div className="km-jump-grid">
-        {home.jumpBack.slice(0, 8).map((t, i) => <button key={t.key} type="button" className={cx("km-jump-tile", p.current?.key === t.key && "km-now")}
-          onClick={() => p.play(home.jumpBack, i, { kind: "history", id: "recent", title: "Recently played" })}>
-          <Cover src={t.album?.cover} size={56} />
-          <span className="km-jump-name"><span>{t.title}</span><span className="km-jump-by">{t.artists[0]?.name}</span></span>
-          <Icon name="play" className="km-jump-mark" />
-        </button>)}
-      </div>
-    </section> : null}
+    <header className="km-hello">
+      <Crossing kind="kakejiku" href="/music/you" className="km-hello-you" aria-label="Your music">
+        <InkPortraitFrame seed={p.you.username} weight={4}><Portrait name={p.you.name} username={p.you.username} picture={p.you.picture} size={56} /></InkPortraitFrame>
+      </Crossing>
+      <h1 className="km-hello-title">{greeting()}, {first}</h1>
+    </header>
+
+    <div className="km-quick">
+      <Crossing kind="kakejiku" href="/music/liked" className="km-quick-tile km-quick-liked"><span className="km-quick-art"><Icon name="love" /></span><span>Liked songs</span></Crossing>
+      {home.playlists.slice(0, 5).map((pl) => <Crossing kind="kakejiku" key={pl.id} href={hrefOf.playlist(pl.id)} className="km-quick-tile"><Mosaic covers={pl.covers} className="km-quick-art" /><span>{pl.name}</span></Crossing>)}
+      {home.jumpBack.slice(0, Math.max(0, 7 - home.playlists.length)).map((t, i) => <button key={t.key} type="button" className={cx("km-quick-tile", p.current?.key === t.key && "km-now")}
+        onClick={() => p.play(home.jumpBack, i, { kind: "history", id: "recent", title: "Recently played" })}>
+        <Cover src={t.album?.cover} className="km-quick-art" /><span>{t.title}</span>{p.current?.key === t.key && p.playing ? <Bars /> : null}
+      </button>)}
+    </div>
+
+    {friends?.length ? <FriendsListening friends={friends} /> : null}
 
     {home.mixes.length ? <Shelf title="Made for you">
       {home.mixes.map((m) => <SetCard key={m.id} title={m.title} sub={`${m.items.length} songs`} covers={[...new Set(m.items.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))]}
         href={hrefOf.mix(m.id)} onPlay={() => p.play(m.items, 0, { kind: "mix", id: m.id, title: m.title })} />)}
-    </Shelf> : null}
-
-    {home.playlists.length ? <Shelf title="Your playlists" href="/music/library">
-      {home.playlists.map((pl) => <SetCard key={pl.id} title={pl.name} sub={`${pl.count} songs`} covers={pl.covers} href={hrefOf.playlist(pl.id)} />)}
     </Shelf> : null}
 
     <section className="km-chart">
@@ -116,6 +123,26 @@ export function HomeView() {
       </div>
     </section> : null}
   </div>;
+}
+
+/** What friends are on: live first, each with the song (press it to play it) and when. */
+function FriendsListening({ friends }: { friends: FriendListening[] }) {
+  const p = usePlayer();
+  return <section className="km-friends">
+    <h2 className="k-heading">Friends</h2>
+    <div className="km-friends-row">
+      {friends.map((f) => <div key={f.username} className={cx("km-friend", f.live && "km-live")}>
+        <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(f.username)}`} className="km-friend-who">
+          <InkPortraitFrame seed={f.username} weight={3}><Portrait name={f.name} username={f.username} picture={f.picture} size={44} /></InkPortraitFrame>
+          <span className="km-friend-name"><b>{f.name.split(/\s+/)[0]}</b><small>{f.live ? <><span className="km-live-dot" />Listening now</> : ago(f.at)}</small></span>
+        </Crossing>
+        <button type="button" className="km-friend-song" onClick={() => p.play([f.track], 0, { kind: "friend", id: f.username, title: `${f.name.split(/\s+/)[0]}'s pick` })} aria-label={`Play ${f.track.title}`}>
+          <Cover src={f.track.album?.cover} size={44} />
+          <span><b>{f.track.title}</b><small>{byline(f.track)}</small></span>
+        </button>
+      </div>)}
+    </div>
+  </section>;
 }
 
 /* ── Search ────────────────────────────────────────────────────────────── */
@@ -223,13 +250,15 @@ export function PlaylistView({ id }: { id: string }) {
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!data) return <Loading />;
   const source = { kind: "playlist", id, title: data.name };
+  const mine = data.mine !== false;
   const covers = [...new Set(data.tracks.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))];
   const set = (keys: string[]) => musicApi.setPlaylist(id, keys).then((r) => { replace(r.playlist); forget("playlists"); forget("home"); }).catch(() => p.say("That change didn't save."));
   return <div className="km-page">
     <Head kind="Playlist" title={data.name} art={<Mosaic covers={covers} className="km-head-cover" />}
-      meta={data.tracks.length ? `${data.tracks.length} ${data.tracks.length === 1 ? "song" : "songs"}, ${length(data.tracks)}` : "No songs yet"}>
+      meta={<>{!mine && data.owner ? <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(data.owner.username)}`} className="km-owner"><Portrait name={data.owner.name} username={data.owner.username} picture={data.owner.picture} size={24} />{data.owner.name}</Crossing> : null}
+        {data.tracks.length ? `${data.tracks.length} ${data.tracks.length === 1 ? "song" : "songs"}, ${length(data.tracks)}` : "No songs yet"}</>}>
       <PlayActions tracks={data.tracks} source={source} />
-      <MoreButton label="More for this playlist" items={() => [
+      {mine ? <MoreButton label="More for this playlist" items={() => [
         { label: "Rename", icon: "edit", run: async () => {
           const name = await askName("Rename the playlist", "Rename", data.name);
           if (name && name !== data.name) musicApi.renamePlaylist(id, name).then((r) => { replace(r.playlist); forget("playlists"); forget("home"); }).catch(() => p.say("That name didn't save."));
@@ -237,13 +266,13 @@ export function PlaylistView({ id }: { id: string }) {
         { label: "Add to queue", icon: "queue", run: () => p.addToQueue(data.tracks) },
         { label: "Delete playlist", icon: "trash", danger: true, run: async () => {
           if (!await askSure(`Delete “${data.name}”?`, "The songs in it stay in Music.", "Delete")) return;
-          musicApi.deletePlaylist(id).then(() => { forget("playlists"); forget("home"); crossTo("kakejiku", "/music/library"); }).catch(() => p.say("It wasn't deleted."));
+          musicApi.deletePlaylist(id).then(() => { forget("playlists"); forget("home"); forget("me"); crossTo("kakejiku", "/music/you"); }).catch(() => p.say("It wasn't deleted."));
         } },
-      ]} />
+      ]} /> : null}
     </Head>
     {data.tracks.length
-      ? <Songs tracks={data.tracks} source={source} numbered rowExtra={(_t, i) => [{ label: "Remove from this playlist", icon: "trash", danger: true, run: () => set(data.tracks.filter((_, j) => j !== i).map((x) => x.key)) }]} />
-      : <p className="km-quiet">Add songs from any song’s menu.</p>}
+      ? <Songs tracks={data.tracks} source={source} numbered rowExtra={(_t, i) => !mine ? [] : [{ label: "Remove from this playlist", icon: "trash", danger: true, run: () => set(data.tracks.filter((_, j) => j !== i).map((x) => x.key)) }]} />
+      : <p className="km-quiet">{mine ? "Add songs from any song’s menu." : "Nothing in it yet."}</p>}
   </div>;
 }
 
@@ -282,59 +311,97 @@ export function MixView() {
   </div>;
 }
 
-/* ── Your library ──────────────────────────────────────────────────────── */
+/* ── Your space ─────────────────────────────────────────────────────────── */
 
-type Shelfname = "playlists" | "liked" | "history";
-
-export function LibraryView() {
+export function YouView() {
   useTabTitle("Your music", "Kimono Music");
-  const params = useSearchParams();
-  const router = useRouter();
-  const crossTo = useCrossTo();
   const p = usePlayer();
-  const tab = (["playlists", "liked", "history"] as Shelfname[]).find((t) => t === params.get("show")) ?? "playlists";
-  // eslint-disable-next-line no-restricted-syntax -- a tab within the library page, kept in its address
-  const go = (t: Shelfname) => router.replace(t === "playlists" ? "/music/library" : `/music/library?show=${t}`, { scroll: false });
-  return <div className="km-page">
-    <header className="km-lib-head">
-      <h1 className="km-page-title">Your music</h1>
-      <Seal tone="quiet" onClick={async () => {
-        const name = await askName("New playlist", "Make it");
-        if (!name) return;
-        musicApi.createPlaylist(name).then(({ playlist }) => { forget("playlists"); forget("home"); crossTo("kakejiku", hrefOf.playlist(playlist.id)); }).catch(() => p.say("That playlist wasn't made."));
-      }}><Icon name="add" />New playlist</Seal>
+  const crossTo = useCrossTo();
+  const { data: me, error, retry } = useMusic("me", musicApi.me);
+  const { data: friends } = useMusic("friends", () => musicApi.friends().then((r) => r.friends));
+  const newPlaylist = async () => {
+    const name = await askName("New playlist", "Make it");
+    if (!name) return;
+    musicApi.createPlaylist(name).then(({ playlist }) => { forget("me"); forget("playlists"); forget("home"); crossTo("kakejiku", hrefOf.playlist(playlist.id)); }).catch(() => p.say("That playlist wasn't made."));
+  };
+  if (error) return <Problem text={error} onRetry={retry} />;
+  if (!me) return <Loading />;
+  const hours = me.minutes >= 90 ? `${Math.round(me.minutes / 60)} hours` : `${me.minutes} minutes`;
+  return <div className="km-page km-you">
+    <header className="km-head km-you-head">
+      <div className="km-head-art km-you-portrait"><InkPortraitFrame seed={p.you.username} weight={5}><Portrait name={p.you.name} username={p.you.username} picture={p.you.picture} size={180} /></InkPortraitFrame></div>
+      <div className="km-head-text">
+        <span className="k-label">Your music</span>
+        <h1 className="km-head-title">{p.you.name}</h1>
+        <p className="km-head-meta">{me.plays ? `${me.plays} ${me.plays === 1 ? "song" : "songs"} and ${hours} this month` : "Play something and it starts here."}</p>
+        {me.tags.length ? <span className="km-tags">{me.tags.map((t) => <span key={t} className="km-tag">{t}</span>)}</span> : null}
+        <div className="km-head-actions">
+          <Seal onClick={newPlaylist}><Icon name="add" />New playlist</Seal>
+          <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(p.you.username)}`} className="km-textbtn km-you-profile">Your profile</Crossing>
+        </div>
+      </div>
     </header>
-    <div className="km-chips" role="tablist">
-      {([["playlists", "Playlists"], ["liked", "Liked songs"], ["history", "Recently played"]] as [Shelfname, string][]).map(([t, label]) =>
-        <button key={t} type="button" role="tab" aria-selected={tab === t} className={cx("km-chip", tab === t && "km-on")} onClick={() => go(t)}>{label}</button>)}
-    </div>
-    {tab === "playlists" ? <Playlists /> : tab === "liked" ? <Liked /> : <History />}
+
+    <section>
+      <h2 className="k-heading">Playlists</h2>
+      <div className="km-grid km-you-lists">
+        <Crossing kind="kakejiku" href="/music/liked" className="km-card km-card-link km-liked-card">
+          <span className="km-card-pic km-liked-art"><Icon name="love" /></span>
+          <span className="km-card-title">Liked songs</span>
+          <span className="km-card-sub">{me.liked} {me.liked === 1 ? "song" : "songs"}</span>
+        </Crossing>
+        {me.playlists.map((pl) => <SetCard key={pl.id} title={pl.name} sub={`${pl.count} ${pl.count === 1 ? "song" : "songs"}`} covers={pl.covers} href={hrefOf.playlist(pl.id)} />)}
+        <button type="button" className="km-card km-new-card" onClick={newPlaylist}>
+          <span className="km-card-pic km-new-art"><Icon name="add" /></span>
+          <span className="km-card-title">New playlist</span>
+        </button>
+      </div>
+    </section>
+
+    {me.onRepeat.length ? <section>
+      <h2 className="k-heading">On repeat</h2>
+      <Songs tracks={me.onRepeat.slice(0, 6)} source={{ kind: "repeat", id: "me", title: "On repeat" }} numbered album={false} className="km-chart-songs" />
+    </section> : null}
+
+    {me.artists.length ? <Shelf title="Your top artists">{me.artists.map((a) => <ArtistCard key={a.key} artist={a} />)}</Shelf> : null}
+
+    {me.recent.length ? <section>
+      <header className="km-section-head"><h2 className="k-heading">Recently played</h2><Crossing kind="kakejiku" className="km-shelf-all" href="/music/history">Show all</Crossing></header>
+      <Songs tracks={me.recent.slice(0, 6)} source={{ kind: "history", id: "recent", title: "Recently played" }} />
+    </section> : null}
+
+    {friends?.length ? <FriendsListening friends={friends} /> : <section className="km-friends-none">
+      <h2 className="k-heading">Friends</h2>
+      <p className="km-quiet">See what your friends are listening to.</p>
+      <Crossing kind="kakejiku" href="/account/friends" className="km-textbtn">Find friends</Crossing>
+    </section>}
   </div>;
 }
 
-function Playlists() {
-  const { data, error, retry } = useMusic("playlists", () => musicApi.playlists().then((r) => r.playlists));
-  if (error) return <Problem text={error} onRetry={retry} />;
-  if (!data) return <Loading />;
-  if (!data.length) return <p className="km-quiet">Your playlists will be here.</p>;
-  return <div className="km-grid">{data.map((pl) => <SetCard key={pl.id} title={pl.name} sub={`${pl.count} ${pl.count === 1 ? "song" : "songs"}`} covers={pl.covers} href={hrefOf.playlist(pl.id)} />)}</div>;
-}
-
-function Liked() {
+export function LikedView() {
+  useTabTitle("Liked songs", "Kimono Music");
   const { data, error, retry } = useMusic("liked", () => musicApi.liked().then((r) => r.tracks));
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!data) return <Loading />;
-  if (!data.length) return <p className="km-quiet">Songs you like or love will be here.</p>;
   const source = { kind: "liked", id: "liked", title: "Liked songs" };
-  return <><div className="km-lib-actions"><PlayActions tracks={data} source={source} /></div><Songs tracks={data} source={source} numbered /></>;
+  return <div className="km-page">
+    <Head kind="Playlist" title="Liked songs" art={<span className="km-head-cover km-liked-art"><Icon name="love" /></span>}
+      meta={data.length ? `${data.length} ${data.length === 1 ? "song" : "songs"}, ${length(data)}` : "Songs you like or love land here."}>
+      <PlayActions tracks={data} source={source} />
+    </Head>
+    {data.length ? <Songs tracks={data} source={source} numbered /> : null}
+  </div>;
 }
 
-function History() {
+export function HistoryView() {
+  useTabTitle("Recently played", "Kimono Music");
   const { data, error, retry } = useMusic("history", () => musicApi.history().then((r) => r.tracks));
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!data) return <Loading />;
-  if (!data.length) return <p className="km-quiet">What you play will be here.</p>;
-  return <Songs tracks={data as Track[]} source={{ kind: "history", id: "recent", title: "Recently played" }} />;
+  return <div className="km-page">
+    <h1 className="km-page-title">Recently played</h1>
+    {data.length ? <Songs tracks={data as Track[]} source={{ kind: "history", id: "recent", title: "Recently played" }} /> : <p className="km-quiet">What you play will be here.</p>}
+  </div>;
 }
 
 export { clock };

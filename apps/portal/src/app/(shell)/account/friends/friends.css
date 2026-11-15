@@ -227,27 +227,28 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 /* ───── Each app's rows in its own colour: Books in moss, Watch in suō ───── */
 .fr-app-books { --fr-base: #5c7150; }
 .fr-app-watch { --fr-base: #a84d63; }
-.fr-app-books, .fr-app-watch {
+.fr-app-music { --fr-base: #2e5e8a; }
+.fr-app-books, .fr-app-watch, .fr-app-music {
   --fr-accent: var(--fr-base);
   --fr-wash: color-mix(in srgb, var(--fr-base) 14%, var(--sc-high));
   --fr-ink: color-mix(in srgb, var(--fr-base) 72%, var(--on-surface));
   --primary: var(--fr-accent);
 }
-:root[data-theme="dark"] :is(.fr-app-books, .fr-app-watch) {
+:root[data-theme="dark"] :is(.fr-app-books, .fr-app-watch, .fr-app-music) {
   --fr-accent: oklch(from var(--fr-base) .76 .12 h);
   --fr-wash: oklch(from var(--fr-base) .32 .045 h);
   --fr-ink: oklch(from var(--fr-base) .88 .07 h);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) :is(.fr-app-books, .fr-app-watch) {
+  :root:not([data-theme="light"]) :is(.fr-app-books, .fr-app-watch, .fr-app-music) {
     --fr-accent: oklch(from var(--fr-base) .76 .12 h);
     --fr-wash: oklch(from var(--fr-base) .32 .045 h);
     --fr-ink: oklch(from var(--fr-base) .88 .07 h);
   }
 }
-:is(.fr-app-books, .fr-app-watch) .fr-cover { background: var(--fr-wash); }
-:is(.fr-app-books, .fr-app-watch) .fr-cover-none, :is(.fr-app-books, .fr-app-watch) .fr-away { color: var(--fr-ink); }
-:is(.fr-app-books, .fr-app-watch) .fr-progress i { background: var(--fr-accent); }
+:is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-cover { background: var(--fr-wash); }
+:is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-cover-none, :is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-away { color: var(--fr-ink); }
+:is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-progress i { background: var(--fr-accent); }
 
 /* How they rated it: a mark on the cover's lower corner. */
 .fr-cover-wrap { position: relative; display: block; }
