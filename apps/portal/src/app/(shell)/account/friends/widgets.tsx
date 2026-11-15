@@ -7,6 +7,7 @@ import { InkSheet } from "@/components/ink-sheet";
 import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { Book3D } from "../../books/book3d";
+import { LinkMark } from "./link-marks";
 
 /*
  * 庭 A profile's home screen: widgets someone arranges and sizes as they
@@ -34,7 +35,7 @@ export type BooksExtras = { reviews: (ReadBook & { review: string })[]; read: Re
 export type BoardData = {
   person: Person;
   sections: Section[];
-  links: { title: string; url: string }[];
+  links: { title: string; url: string; icon?: string }[];
   friends: Person[];
   music: MusicExtras;
   books?: BooksExtras;
@@ -418,7 +419,7 @@ function Links({ w, d, onEdit }: { w: Widget; d: BoardData; onEdit?: () => void 
     {list.slice(0, n).map((l, i) =>
       /* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */
       <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" className={i === 0 && list.length > 1 && w.size !== "m" ? "is-first" : undefined} style={{ "--i": i } as React.CSSProperties}>
-        <span className="wg-link-mark"><Favicon url={l.url} fallback="link" /></span>
+        <span className="wg-link-mark"><LinkMark url={l.url} icon={l.icon} /></span>
         <span className="wg-link-words"><b>{l.title}</b><small>{hostOf(l.url) || l.url.replace(/^mailto:/, "")}</small></span>
         <LineIcon name="out" className="wg-link-go" />
       </a>)}

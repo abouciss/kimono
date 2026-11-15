@@ -1,5 +1,6 @@
 import { apiError, apiJson, apiUser, crossSite, readJson, unauthorized } from "@/lib/api-v1";
-import { addToPlaylist, deletePlaylist, music, renamePlaylist, setPlaylistTracks } from "@/lib/music";
+import { addToPlaylist, deletePlaylist, dropFromPlaylist, invitePlaylist, joinPlaylist, leavePlaylist, music, renamePlaylist, setPlaylistPublic, setPlaylistTracks } from "@/lib/music";
+import { MusicProblem } from "@/lib/music/model";
 import { playlistFor } from "@/lib/music/social";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,11 @@ export async function GET(_request: Request, { params }: Params) {
   return music(async () => apiJson({ playlist: await playlistFor(user.username, id) }));
 }
 
-/** `{ name }` renames; `{ keys }` sets its songs in order; `{ add }` puts songs at the end (ones already in it stay where they are). */
+/**
+ * `{ name }` renames; `{ keys }` sets its songs in order; `{ add }` puts songs at the end (ones already in it stay where they are).
+ * Yours: `{ public }` shows it to friends or keeps it private; `{ invite: username }` asks a friend in; `{ drop: username }` takes them off.
+ * Asked in: `{ join: true }` says yes; `{ leave: true }` says no thanks, or leaves.
+ */
 export async function PATCH(request: Request, { params }: Params) {
   const refused = crossSite(request);
   if (refused) return refused;
@@ -23,14 +28,25 @@ export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params;
   const read = await readJson(request);
   if ("response" in read) return read.response;
-  const body = (read.body ?? {}) as { name?: unknown; keys?: unknown; add?: unknown };
+  const body = (read.body ?? {}) as { name?: unknown; keys?: unknown; add?: unknown; public?: unknown; invite?: unknown; drop?: unknown; join?: unknown; leave?: unknown };
   const strings = (v: unknown) => Array.isArray(v) && v.every((k) => typeof k === "string") ? v as string[] : null;
+  /* Every change answers the playlist as this person sees it, with its owner and who's in. */
+  const fresh = async () => apiJson({ playlist: await playlistFor(user.username, id) });
   return music(async () => {
-    if (typeof body.name === "string") return apiJson({ playlist: renamePlaylist(user.username, id, body.name) });
+    if (typeof body.public === "boolean") { setPlaylistPublic(user.username, id, body.public); return fresh(); }
+    if (typeof body.invite === "string") {
+      const { linkBetween } = await import("@/lib/friends");
+      if (linkBetween(user.username, body.invite) !== "friends") throw new MusicProblem("You can share playlists with friends.", 403);
+      { invitePlaylist(user.username, id, body.invite); return fresh(); }
+    }
+    if (typeof body.drop === "string") { dropFromPlaylist(user.username, id, body.drop); return fresh(); }
+    if (body.join === true) { joinPlaylist(user.username, id); return fresh(); }
+    if (body.leave === true) { leavePlaylist(user.username, id); return apiJson({ ok: true }); }
+    if (typeof body.name === "string") { renamePlaylist(user.username, id, body.name); return fresh(); }
     const keys = strings(body.keys);
-    if (keys) return apiJson({ playlist: await setPlaylistTracks(user.username, id, keys) });
+    if (keys) { await setPlaylistTracks(user.username, id, keys); return fresh(); }
     const add = strings(body.add);
-    if (add) return apiJson({ playlist: await addToPlaylist(user.username, id, add) });
+    if (add) { await addToPlaylist(user.username, id, add); return fresh(); }
     return apiError(400, "Rename it, set its songs, or add some.");
   });
 }

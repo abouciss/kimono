@@ -48,5 +48,6 @@ export function InkSheet({ title, icon, tint = "#a84d63", onClose, actions, chil
       {actions ? <div className="ink-sheet-actions">{actions}</div> : null}
     </div>
   </div>;
-  return typeof document === "undefined" ? sheet : createPortal(sheet, document.body);
+  /* Into the app's own frame where there is one, so the sheet wears the app's colour. */
+  return typeof document === "undefined" ? sheet : createPortal(sheet, document.querySelector(".app-frame") ?? document.body);
 }

@@ -52,13 +52,6 @@
 .fr-toast { position: fixed; left: 50%; bottom: 32px; translate: -50% 0; z-index: 70; padding: 12px 20px; border-radius: 16px; background: var(--on-surface); color: var(--surface); font-size: 15px; box-shadow: var(--raised); animation: rise .45s var(--spring); }
 
 /* ── 墨 the ink sheet: paper with a wash bled in from its top corner ── */
-.ink-sheet { position: relative; overflow: hidden; isolation: isolate; width: min(460px, 100%); }
-.ink-sheet-bleed { position: absolute; left: -70px; top: -70px; width: 380px; height: 380px; z-index: -1; pointer-events: none; overflow: visible; }
-.ink-sheet-head { display: flex; align-items: center; gap: 14px; }
-.ink-sheet-head .k-ink-blot { width: 44px; height: 44px; }
-.ink-sheet-head h3 { font-size: 24px; }
-.ink-sheet-body { display: grid; gap: 16px; }
-.ink-sheet-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .fr-note textarea { resize: vertical; min-height: 72px; }
 .fr-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; }
 
@@ -83,7 +76,6 @@
 }
 
 /* over Watch's title page too */
-.ink-scrim { z-index: 75; }
 
 /* a profile's apps: each one's rows together under its name */
 .fr-group { margin-top: 12px; transition: opacity .3s; }
@@ -516,8 +508,37 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 @media (max-width: 720px) { .le { min-width: 0; } .le-fields { grid-template-columns: 1fr; padding-left: 12px; } .le-grip { display: none; } }
 
 /* A sheet never runs off the screen: it stops short of the window, and its body scrolls under the title and actions. */
-.ink-sheet { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); }
-.ink-sheet > .ink-sheet-head, .ink-sheet > .ink-sheet-actions, .ink-sheet > .handle { flex: none; }
-.ink-sheet > .ink-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -10px; padding-right: 10px; scrollbar-width: thin; }
 .ink-sheet:has(.wg-gallery), .ink-sheet:has(.le) { width: min(720px, 100%); }
-@media (max-width: 720px) { .ink-sheet { max-height: calc(100dvh - 12px); } }
+
+/* Three ways to be seen, and the public address. */
+.fr-wsw-modes.is-three { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 640px) { .fr-wsw-modes.is-three { grid-template-columns: 1fr; } }
+.fr-wsw-link { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 8px 8px 14px; border-radius: var(--k-r-m); background: var(--k-container-highest); }
+.fr-wsw-link > .line-icon { width: 18px; height: 18px; flex: none; color: var(--k-accent, var(--k-suo)); }
+.fr-wsw-link code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13px/18px ui-monospace, Menlo, monospace; color: var(--k-on-surface); }
+
+/* ── A link's mark: the site's icon, a drawn one, or an emoji ─────────── */
+.lk-glyph { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.lk-emoji { font-size: 18px; line-height: 1; }
+.le-icons { grid-column: 1 / -1; display: grid; gap: 6px; }
+.le-icons > small { font: 600 12px/16px var(--k-sans); color: var(--k-on-surface-variant); }
+.le-icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+.le-icon { display: grid; place-items: center; height: 38px; padding: 0; border: 0; border-radius: 6px 12px 6px 12px; background: var(--k-container-highest); color: var(--k-on-surface-variant); cursor: pointer; transition: background var(--k-t-state), color var(--k-t-state), transform .3s var(--k-spring); }
+.le-icon:hover { color: var(--k-on-surface); transform: translateY(-1px) rotate(-3deg); }
+.le-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.le-icon[aria-checked="true"], .le-icon.is-on { background: color-mix(in srgb, var(--fr-color, var(--k-suo)) 18%, var(--k-surface)); color: var(--fr-color, var(--k-suo)); box-shadow: inset 0 0 0 2px var(--fr-color, var(--k-suo)); }
+.le-icon.is-site { grid-column: span 2; grid-auto-flow: column; gap: 6px; font: 600 12px/1 var(--k-sans); }
+.le-icon.is-site img, .le-icon.is-site .line-icon { width: 18px; height: 18px; }
+.le-icon-emoji input { width: 100%; height: 100%; border: 0; background: none; text-align: center; font-size: 18px; color: var(--k-on-surface); outline: none; }
+.le-icon-emoji input::placeholder { opacity: .45; }
+
+/* Your own: view as a friend, and Settings, top right. */
+.fr-top-end { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.fr-top-end .fr-settings { margin-left: 0; }
+@media (max-width: 560px) { .fr-top-end .fr-asfriend > span { display: none; } }
+/* Middling widths (by the hero's own width): the actions go under your name, so the name keeps its room. */
+.fr-profile-v2 .fr-hero { container: fr-hero / inline-size; }
+@container fr-hero (min-width: 460px) and (max-width: 940px) {
+  .fr-profile-v2 .fr-hero-body { grid-template-columns: auto minmax(0, 1fr); }
+  .fr-profile-v2 .fr-hero-body > .fr-actions { grid-column: 2; justify-content: flex-start; }
+}
