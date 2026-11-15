@@ -5,7 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppLockup, cx, InkPortraitFrame, Seal, type AppIdentity } from "@kimono/ui";
 import { useTabTitle } from "@/components/tab-title";
-import { ago, byline, clock, forget, hrefOf, length, musicApi, share, useMusic, type Album, type FriendListening, type Person, type Track } from "./api";
+import { ago, byline, clock, forget, hrefOf, length, musicApi, share, useMusic, type Album, type FriendListening, type Person, type PlaylistPage, type Track } from "./api";
+import { InkSheet } from "@/components/ink-sheet";
 import { askName, askSure } from "./ask";
 import { Icon } from "./icons";
 import { Portrait } from "@/components/portrait";
@@ -348,34 +349,82 @@ export function PlaylistView({ id }: { id: string }) {
   const p = usePlayer();
   const crossTo = useCrossTo();
   const { data, error, retry, replace } = useMusic(`playlist:${id}`, () => musicApi.playlist(id).then((r) => r.playlist));
+  const [sharing, setSharing] = useState(false);
   useTabTitle(data?.name, "Kimono Music");
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!data) return <Loading />;
   const source = { kind: "playlist", id, title: data.name };
-  const mine = data.mine !== false;
+  const role = data.role ?? (data.mine === false ? "listener" : "owner");
+  const owner = role === "owner";
+  const edits = owner || role === "member";
+  const joined = (data.members ?? []).filter((m) => m.joined);
   const covers = [...new Set(data.tracks.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))];
-  const set = (keys: string[]) => musicApi.setPlaylist(id, keys).then((r) => { replace(r.playlist); forget("playlists"); forget("home"); }).catch(() => p.say("That change didn't save."));
+  const changed = () => { forget("playlists"); forget("home"); forget("me"); };
+  const change = (body: Record<string, unknown>, failed: string) => musicApi.playlistChange(id, body).then((r) => { replace(r.playlist); changed(); }).catch(() => p.say(failed));
+  const set = (keys: string[]) => change({ keys }, "That change didn't save.");
+  const leave = () => musicApi.leavePlaylist(id).then(() => { changed(); crossTo("kakejiku", "/music/you"); }).catch(() => p.say("That didn't go through."));
   return <div className="km-page">
-    <Head kind="Playlist" title={data.name} art={<Mosaic covers={covers} className="km-head-cover" />}
-      meta={<>{!mine && data.owner ? <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(data.owner.username)}`} className="km-owner"><Portrait name={data.owner.name} username={data.owner.username} picture={data.owner.picture} size={24} />{data.owner.name}</Crossing> : null}
+    <Head kind={data.public ? "Public playlist" : joined.length ? "Shared playlist" : "Playlist"} title={data.name} art={<Mosaic covers={covers} className="km-head-cover" />}
+      meta={<>{!owner && data.owner ? <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(data.owner.username)}`} className="km-owner"><Portrait name={data.owner.name} username={data.owner.username} picture={data.owner.picture} size={24} />{data.owner.name}</Crossing> : null}
+        {joined.length ? <span className="km-pl-with"><Faces people={owner ? joined : [...(data.owner ? [data.owner] : []), ...joined]} />{owner ? `with ${joined.map((m) => m.name.split(" ")[0]).join(", ")}` : null}</span> : null}
         {data.tracks.length ? `${data.tracks.length} ${data.tracks.length === 1 ? "song" : "songs"}, ${length(data.tracks)}` : "No songs yet"}</>}>
       <PlayActions tracks={data.tracks} source={source} />
-      {mine ? <MoreButton label="More for this playlist" items={() => [
+      {owner ? <Seal tone="quiet" compact onClick={() => setSharing(true)}><Icon name="person" />Share</Seal> : null}
+      {edits ? <MoreButton label="More for this playlist" items={() => [
         { label: "Rename", icon: "edit", run: async () => {
           const name = await askName("Rename the playlist", "Rename", data.name);
-          if (name && name !== data.name) musicApi.renamePlaylist(id, name).then((r) => { replace(r.playlist); forget("playlists"); forget("home"); }).catch(() => p.say("That name didn't save."));
+          if (name && name !== data.name) change({ name }, "That name didn't save.");
         } },
         { label: "Add to queue", icon: "queue", run: () => p.addToQueue(data.tracks) },
-        { label: "Delete playlist", icon: "trash", danger: true, run: async () => {
-          if (!await askSure(`Delete “${data.name}”?`, "The songs in it stay in Music.", "Delete")) return;
-          musicApi.deletePlaylist(id).then(() => { forget("playlists"); forget("home"); forget("me"); crossTo("kakejiku", "/music/you"); }).catch(() => p.say("It wasn't deleted."));
-        } },
+        ...(owner ? [{ label: "Delete playlist", icon: "trash" as const, danger: true, run: async () => {
+          if (!await askSure(`Delete “${data.name}”?`, joined.length ? "It goes for everyone it's shared with. The songs stay in Music." : "The songs in it stay in Music.", "Delete")) return;
+          musicApi.deletePlaylist(id).then(() => { changed(); crossTo("kakejiku", "/music/you"); }).catch(() => p.say("It wasn't deleted."));
+        } }] : [{ label: "Leave playlist", icon: "trash" as const, danger: true, run: async () => {
+          if (await askSure(`Leave “${data.name}”?`, "You can be asked back in.", "Leave")) void leave();
+        } }]),
       ]} /> : null}
     </Head>
+    {role === "invited" ? <div className="km-pl-invite">
+      {data.owner ? <InkPortraitFrame seed={data.owner.username} weight={3}><Portrait name={data.owner.name} username={data.owner.username} picture={data.owner.picture} size={40} /></InkPortraitFrame> : null}
+      <p><b>{data.owner?.name.split(" ")[0] ?? "A friend"}</b> asked you onto this playlist: add, move and take out songs together.</p>
+      <Seal tone="quiet" compact onClick={() => void leave()}>No thanks</Seal>
+      <Seal compact onClick={() => void change({ join: true }, "That didn't go through.")}>Join</Seal>
+    </div> : null}
     {data.tracks.length
-      ? <Songs tracks={data.tracks} source={source} numbered rowExtra={(_t, i) => !mine ? [] : [{ label: "Remove from this playlist", icon: "trash", danger: true, run: () => set(data.tracks.filter((_, j) => j !== i).map((x) => x.key)) }]} />
-      : <p className="km-quiet">{mine ? "Add songs from any song’s menu." : "Nothing in it yet."}</p>}
+      ? <Songs tracks={data.tracks} source={source} numbered rowExtra={(_t, i) => !edits ? [] : [{ label: "Remove from this playlist", icon: "trash", danger: true, run: () => set(data.tracks.filter((_, j) => j !== i).map((x) => x.key)) }]} />
+      : <p className="km-quiet">{edits ? "Add songs from any song’s menu." : "Nothing in it yet."}</p>}
+    {sharing ? <ShareSheet data={data} onClose={() => setSharing(false)} onChange={(body, failed) => change(body, failed)} /> : null}
   </div>;
+}
+
+/** Who a playlist is for: public (friends see it on your profile) or private, and the friends you've asked onto it. */
+function ShareSheet({ data, onClose, onChange }: { data: PlaylistPage; onClose: () => void; onChange: (body: Record<string, unknown>, failed: string) => Promise<void> }) {
+  const [friends, setFriends] = useState<Person[] | null>(null);
+  useEffect(() => { fetch("/api/v1/friends").then((r) => r.json()).then((b: { friends?: Person[] }) => setFriends(b.friends ?? [])).catch(() => setFriends([])); }, []);
+  const members = new Map((data.members ?? []).map((m) => [m.username, m]));
+  return <InkSheet title="Share this playlist" icon="people" tint="#946c25" onClose={onClose} actions={<Seal compact onClick={onClose}>Done</Seal>}>
+    <div className="km-share">
+      <div className="km-share-modes" role="radiogroup" aria-label="Who sees it">
+        <button type="button" role="radio" aria-checked={!data.public} className={!data.public ? "is-on" : undefined} onClick={() => void onChange({ public: false }, "That didn't save.")}>
+          <b>Private</b><small>You, and who you ask on</small>
+        </button>
+        <button type="button" role="radio" aria-checked={Boolean(data.public)} className={data.public ? "is-on" : undefined} onClick={() => void onChange({ public: true }, "That didn't save.")}>
+          <b>Public</b><small>Friends see it on your profile and can play it</small>
+        </button>
+      </div>
+      <p className="km-share-head">Make it together</p>
+      {friends === null ? <p className="km-quiet">…</p> : !friends.length ? <p className="km-quiet">Add friends to make playlists together.</p>
+        : <ul className="km-share-list">{friends.map((f) => {
+          const m = members.get(f.username);
+          return <li key={f.username}>
+            <InkPortraitFrame seed={f.username} weight={3}><Portrait name={f.name} username={f.username} picture={f.picture} size={36} /></InkPortraitFrame>
+            <span><b>{f.name}</b><small>{m ? (m.joined ? "On it with you" : "Asked") : `@${f.username}`}</small></span>
+            {m ? <Seal tone="quiet" compact onClick={() => void onChange({ drop: f.username }, "That didn't go through.")}>{m.joined ? "Remove" : "Take back"}</Seal>
+              : <Seal compact onClick={() => void onChange({ invite: f.username }, "They weren't asked.")}>Ask</Seal>}
+          </li>;
+        })}</ul>}
+    </div>
+  </InkSheet>;
 }
 
 /* ── A genre, and a mix ────────────────────────────────────────────────── */
@@ -452,7 +501,7 @@ export function YouView() {
           <span className="km-card-title">Liked songs</span>
           <span className="km-card-sub">{me.liked} {me.liked === 1 ? "song" : "songs"}</span>
         </Crossing>
-        {me.playlists.map((pl) => <SetCard key={pl.id} title={pl.name} sub={`${pl.count} ${pl.count === 1 ? "song" : "songs"}`} covers={pl.covers} href={hrefOf.playlist(pl.id)} />)}
+        {me.playlists.map((pl) => <SetCard key={pl.id} title={pl.name} sub={pl.invited ? "You're asked on" : [`${pl.count} ${pl.count === 1 ? "song" : "songs"}`, pl.owner ? `with ${pl.owner}` : pl.shared ? `shared with ${pl.shared}` : pl.public ? "public" : null].filter(Boolean).join(" · ")} covers={pl.covers} href={hrefOf.playlist(pl.id)} />)}
         <button type="button" className="km-card km-new-card" onClick={newPlaylist}>
           <span className="km-card-pic km-new-art"><Icon name="add" /></span>
           <span className="km-card-title">New playlist</span>

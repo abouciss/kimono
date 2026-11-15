@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Section } from "../friends/model";
 import type { MusicConfig } from "./config";
-import { getArtist, musicDb, playlist, playlists, ratings, taste, tracksFor, type Queue } from "./index";
+import { getArtist, musicDb, playlistRow, playlists, playlistView, publicPlaylists, ratings, taste, tracksFor, type Queue } from "./index";
 import { MusicProblem, type Artist, type Playlist, type Track } from "./model";
 
 /*
@@ -167,16 +167,19 @@ export async function me(config: MusicConfig, username: string): Promise<Me> {
 
 /** A playlist for whoever asks: its owner, or a friend who may see their playlists (read only). */
 export async function playlistFor(viewer: string, id: string) {
-  const row = musicDb().prepare("SELECT username FROM playlists WHERE id = ?").get(id) as { username: string } | undefined;
-  if (!row || !(await sees(viewer, row.username, "playlists"))) throw new MusicProblem("No such playlist.", 404);
+  const row = playlistRow(id);
+  if (!row) throw new MusicProblem("No such playlist.", 404);
+  const view = playlistView(row, viewer);
+  /* Not yours or shared with you: only a public one, and only for friends who see your playlists. */
+  if (view.role === "listener" && !(row.public === 1 && await sees(viewer, row.username, "playlists"))) throw new MusicProblem("No such playlist.", 404);
   const { people, personIn } = await import("../friends");
-  const owner = personIn(await people(), row.username);
-  return { ...playlist(row.username, id), owner, mine: user(viewer) === row.username };
+  const everyone = await people();
+  return { ...view, owner: personIn(everyone, row.username), members: view.members.map((m) => ({ ...personIn(everyone, m.username), joined: m.joined })), mine: view.role === "owner" || view.role === "member" };
 }
 
 /** A friend's playlists, as their profile and their Music page show them. */
 export async function playlistsOf(viewer: string, username: string): Promise<Playlist[]> {
-  return (await sees(viewer, username, "playlists")) ? playlists(username) : [];
+  return (await sees(viewer, username, "playlists")) ? publicPlaylists(username) : [];
 }
 
 /* ── On a Kimono profile ───────────────────────────────────────────────── */
@@ -191,7 +194,7 @@ export async function musicSectionsFrom(username: string): Promise<Section[]> {
   const heardTracks = await tracksFor(heard.map((h) => h.track), 24);
   const at = new Map(heard.map((h) => [h.track, h.at]));
   const loved = ratings(u).filter((r) => r.kind === "track" && r.rating === "love").slice(0, 24);
-  const lists = playlists(u).filter((p) => p.count > 0).slice(0, 24);
+  const lists = publicPlaylists(u).filter((p) => p.count > 0).slice(0, 24);
   const item = (t: Track) => ({ app: "music", itemId: t.key, title: t.title, subtitle: t.artists.map((a) => a.name).join(", ") || null, cover: t.album?.cover ?? null, href: albumHref(t) });
   const sections: Section[] = [
     { app: "music", appName: "Music", kind: "playing", title: "Listening to", items: heardTracks.map((t) => ({ ...item(t), at: at.get(t.key) ?? null })) },

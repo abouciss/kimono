@@ -380,3 +380,23 @@ html, body, .app-frame { overflow-x: clip; }
 .impersonation-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--k-space-3); }
 .impersonation-list li { display: grid; gap: 2px; }
 .impersonation-list span { color: var(--k-ink-soft); }
+
+/* ── What your friends can see (components/sharing-ask.tsx) ───────────── */
+.share-ask { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.share-ask li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 2px; border-bottom: 1px solid color-mix(in srgb, var(--k-outline-variant, #ccc) 60%, transparent); font: 400 15px/20px var(--k-sans); color: var(--k-on-surface); }
+.share-ask li:last-child { border-bottom: 0; }
+
+/* ── InkSheet (components/ink-sheet.tsx): Kimono's dialog, on every page ── */
+.ink-sheet .k-ink-portrait .portrait { background: transparent; box-shadow: none; }
+.ink-sheet { position: relative; overflow: hidden; isolation: isolate; width: min(460px, 100%); }
+.ink-sheet-bleed { position: absolute; left: -70px; top: -70px; width: 380px; height: 380px; z-index: -1; pointer-events: none; overflow: visible; }
+.ink-sheet-head { display: flex; align-items: center; gap: 14px; }
+.ink-sheet-head .k-ink-blot { width: 44px; height: 44px; }
+.ink-sheet-head h3 { font-size: 24px; }
+.ink-sheet-body { display: grid; gap: 16px; }
+.ink-sheet-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.ink-scrim { z-index: 75; }
+.ink-sheet { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); }
+.ink-sheet > .ink-sheet-head, .ink-sheet > .ink-sheet-actions, .ink-sheet > .handle { flex: none; }
+.ink-sheet > .ink-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -10px; padding-right: 10px; scrollbar-width: thin; }
+@media (max-width: 720px) { .ink-sheet { max-height: calc(100dvh - 12px); } }

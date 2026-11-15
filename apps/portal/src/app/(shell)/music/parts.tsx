@@ -123,7 +123,7 @@ export function playlistItems(keys: string[], say: (t: string) => void): () => P
         if (!name) return;
         musicApi.createPlaylist(name, keys).then(() => { forget("playlists"); forget("home"); forget("me"); say(`Made “${name}”`); }).catch(() => say("That playlist wasn't made."));
       } },
-      ...playlists.map((pl): Item => ({ label: pl.name, icon: "playlist", run: () => {
+      ...playlists.filter((pl) => !pl.invited).map((pl): Item => ({ label: pl.name, icon: "playlist", run: () => {
         musicApi.addToPlaylist(pl.id, keys).then(() => { forget(`playlist:${pl.id}`); forget("playlists"); forget("me"); say(`Added to “${pl.name}”`); }).catch(() => say("That didn't go in."));
       } })),
     ];

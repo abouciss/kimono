@@ -651,3 +651,23 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .app-frame.in-app[data-app="kimono-music"] { --k-app-accent: oklch(.74 .11 80); --k-suo: oklch(.76 .11 80); --k-accent-pale: oklch(.46 .07 80); --k-primary-container: oklch(.54 .09 80); --k-secondary-container: oklch(.43 .05 78); --k-app-text: oklch(.86 .08 82); }
 }
+
+/* ── Shared playlists ─────────────────────────────────────────────────── */
+.km-pl-with { display: inline-flex; align-items: center; gap: 8px; margin-right: 10px; vertical-align: middle; }
+.km-pl-invite { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; padding: 14px 16px; border-radius: 10px 22px 10px 22px; background: color-mix(in srgb, var(--k-accent, #946c25) 12%, var(--k-surface)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--k-accent, #946c25) 35%, transparent); animation: km-rise .45s var(--k-spring, ease) both; }
+.km-pl-invite p { flex: 1; min-width: 180px; margin: 0; font: 400 15px/21px var(--k-sans); color: var(--k-on-surface); }
+.km-pl-invite .k-ink-portrait { width: 48px; height: 48px; flex: none; }
+@keyframes km-rise { from { opacity: 0; transform: translateY(8px); } }
+.km-share { display: grid; gap: 14px; }
+.km-share-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.km-share-modes button { display: grid; gap: 4px; justify-items: start; padding: 12px 14px; border: 0; border-radius: var(--k-r-l, 16px); background: var(--k-container-highest); color: var(--k-on-surface); text-align: left; cursor: pointer; transition: background .2s, box-shadow .2s; }
+.km-share-modes b { font: 700 15px/20px var(--k-sans); }
+.km-share-modes small { font-size: 12.5px; line-height: 17px; color: var(--k-on-surface-variant); }
+.km-share-modes button.is-on { background: var(--k-secondary-container); box-shadow: inset 0 0 0 2px var(--k-accent, #946c25); }
+.km-share-head { margin: 4px 0 0; font: 600 13px/18px var(--k-sans); letter-spacing: .04em; text-transform: uppercase; color: var(--k-on-surface-variant); }
+.km-share-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.km-share-list li { display: flex; align-items: center; gap: 12px; padding: 6px 2px; }
+.km-share-list .k-ink-portrait { width: 44px; height: 44px; flex: none; }
+.km-share-list span { flex: 1; min-width: 0; display: grid; }
+.km-share-list b { font: 600 15px/20px var(--k-sans); }
+.km-share-list small { font-size: 12.5px; color: var(--k-on-surface-variant); }

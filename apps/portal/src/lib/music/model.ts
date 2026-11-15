@@ -46,7 +46,8 @@ export type RatedKind = "track" | "album" | "artist";
 
 export type Lyrics = { synced: { at: number; line: string }[] | null; plain: string | null; instrumental: boolean };
 
-export type Playlist = { id: string; name: string; count: number; covers: string[]; updatedAt: string };
+/** `owner`: whose it is, when it isn't yours; `invited`: you've been asked in and haven't answered; `shared`: how many have joined. */
+export type Playlist = { id: string; name: string; count: number; covers: string[]; updatedAt: string; public?: boolean; shared?: number; owner?: string; invited?: boolean };
 
 export type Row<T = Track> = { id: string; title: string; items: T[] };
 
