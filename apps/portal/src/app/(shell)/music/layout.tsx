@@ -8,9 +8,11 @@ import { musicConfig, musicIdentity } from "@/lib/music/config";
 import { picturePathFor } from "@/lib/pictures";
 import { getPlatformSettings } from "@/lib/settings";
 import { PlayerChrome } from "./bar";
+import { PartyProvider } from "./party-ui";
 import { MusicProvider } from "./player";
 import { TopBar } from "./views";
 import "./music.css";
+import "./party.css";
 
 export const metadata: Metadata = { title: { absolute: "Kimono Music" }, icons: appIcons("music") };
 
@@ -32,11 +34,13 @@ export default async function MusicLayout({ children }: { children: ReactNode })
   const you = { username: session.user.username.toLowerCase(), name: session.user.name?.trim() || session.user.username, picture: picture ?? session.user.image ?? null };
   return <AppShell user={session.user}>
     <MusicProvider you={you}>
-      <div className="km">
-        <Suspense><TopBar app={app} /></Suspense>
-        {children}
-      </div>
-      <PlayerChrome />
+      <PartyProvider>
+        <div className="km">
+          <Suspense><TopBar app={app} /></Suspense>
+          {children}
+        </div>
+        <PlayerChrome />
+      </PartyProvider>
     </MusicProvider>
   </AppShell>;
 }

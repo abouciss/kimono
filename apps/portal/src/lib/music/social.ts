@@ -67,6 +67,26 @@ export async function friendsListening(viewer: string): Promise<FriendListening[
   return out.sort((a, b) => Number(b.live) - Number(a.live) || Date.parse(b.at) - Date.parse(a.at));
 }
 
+/* ── Friends on a song ─────────────────────────────────────────────────── */
+
+export type FriendOnSong = Person & { loved: boolean; playedAt: string | null };
+
+/** Which friends have played this song (the last half year) or love it, as each lets friends see. */
+export async function friendsOnSong(viewer: string, key: string): Promise<FriendOnSong[]> {
+  const friends = await visibleFriends(viewer);
+  if (!friends.length) return [];
+  const db = musicDb();
+  const out: FriendOnSong[] = [];
+  for (const f of friends) {
+    const played = f.kept.has("playing") ? undefined
+      : db.prepare("SELECT max(played_at) AS at FROM plays WHERE username = ? AND track = ? AND seconds >= 30 AND played_at > ?").get(f.username, key, Date.now() - 180 * DAY) as { at: number | null } | undefined;
+    const loved = !f.kept.has("loved") && ratings(f.username).some((r) => r.kind === "track" && r.key === key && r.rating === "love");
+    const { kept: _kept, ...person } = f; // eslint-disable-line @typescript-eslint/no-unused-vars
+    if (loved || played?.at) out.push({ ...person, loved, playedAt: played?.at ? new Date(played.at).toISOString() : null });
+  }
+  return out.sort((a, b) => Number(b.loved) - Number(a.loved) || Date.parse(b.playedAt ?? "0") - Date.parse(a.playedAt ?? "0"));
+}
+
 /* ── Your space ────────────────────────────────────────────────────────── */
 
 export type Me = {
