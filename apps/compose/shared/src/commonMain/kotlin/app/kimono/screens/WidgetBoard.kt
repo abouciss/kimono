@@ -153,6 +153,31 @@ private fun newId() = "w${nowMs().toString(36)}${(made++).toString(36)}"
 fun withFriends(ws: List<Widget>, d: BoardData): List<Widget> =
     if (ws.any { it.kind == "friends" } || (d.friends.isEmpty() && d.own == null)) ws else ws + Widget("friends", "friends", "m")
 
+/** The row of someone's activity a widget shows (lib/friends/model.ts rowsOf). */
+private val widgetRow = mapOf(
+    "listening" to "music:playing", "onrepeat" to "music:stats", "artists" to "music:stats", "stats" to "music:stats", "loved" to "music:loved",
+    "reading" to "books:reading", "review" to "books:reviews", "bookshelf" to "books:read", "yearbooks" to "books:read",
+    "watching" to "watch:watching", "watched" to "watch:watched",
+)
+
+/** Whether a widget of their activity has anything in it for whoever's looking; those that don't aren't drawn for others. */
+private fun hasData(w: Widget, d: BoardData): Boolean {
+    fun has(app: String, kind: String) = d.sections.any { it.app == app && it.kind == kind && it.items.isNotEmpty() }
+    return when (w.kind) {
+        "listening" -> d.music?.listening != null
+        "onrepeat" -> d.music?.onRepeat != null
+        "artists" -> d.music?.artists?.isNotEmpty() == true
+        "stats" -> (d.music?.plays ?: 0) > 0
+        "loved" -> has("music", "loved")
+        "reading" -> has("books", "reading")
+        "review" -> d.books?.reviews?.isNotEmpty() == true
+        "bookshelf" -> d.books?.read?.isNotEmpty() == true
+        "watching" -> has("watch", "watching")
+        "watched" -> has("watch", "watched")
+        else -> true
+    }
+}
+
 /** A home screen for someone who hasn't arranged one: what they have, at sensible sizes. */
 fun defaultWidgets(d: BoardData): List<Widget> {
     fun has(app: String, kind: String) = d.sections.any { it.app == app && it.kind == kind && it.items.isNotEmpty() }
@@ -211,7 +236,7 @@ fun WidgetBoard(
             save(draft.map { if (it.kind == "clock" && it.config?.get("zone").isNullOrBlank()) it.copy(config = mapOf("zone" to zone)) else it })
         }
     }
-    val list = if (arranging) draft else shown
+    val list = if (arranging) draft else if (editable) shown else shown.filter { hasData(it, d) }
     if (list.isEmpty() && !editable) return
     val still = LocalStill.current
     var dragging by remember { mutableStateOf<String?>(null) }
@@ -275,7 +300,19 @@ fun WidgetBoard(
                                 rotationZ = wiggle?.value ?: 0f
                             },
                     ) {
-                        androidx.compose.runtime.CompositionLocalProvider(LocalArranging provides arranging) { WidgetView(w, d, if (arranging) BoardActions() else act) }
+                        val row = widgetRow[w.kind]
+                        val own = d.own
+                        val mark = when {
+                            arranging || row == null || own == null -> null
+                            row in own.keptRows -> "me"
+                            row in own.friendsOnlyRows -> "friends"
+                            else -> null
+                        }
+                        Box(Modifier.matchParentSize().graphicsLayer { if (mark == "me") alpha = .62f }) {
+                            androidx.compose.runtime.CompositionLocalProvider(LocalArranging provides arranging) { WidgetView(w, d, if (arranging) BoardActions() else act) }
+                        }
+                        /* Kept to yourself, or for friends only: said on the widget, with the way to share it right there. */
+                        if (mark != null && row != null) KeptMark(mark == "me", Modifier.align(Alignment.TopStart).padding(10.dp), own?.onShare?.let { share -> { share(row, if (mark == "me") "friends" else "everyone") } })
                         if (arranging) {
                             /* While arranging, a widget is something to move: what's in it doesn't open. */
                             Box(Modifier.matchParentSize().pointerInput(Unit) {})
@@ -321,6 +358,23 @@ fun WidgetBoard(
         draft = (draft + w).take(16)
         adding = false
         if (!arranging) onArranging(true)
+    }
+}
+
+/** A quiet mark on a widget's corner: only you see it (Show), or only friends do (Everyone). */
+@Composable
+private fun KeptMark(onlyYou: Boolean, modifier: Modifier, share: (() -> Unit)?) {
+    val notch = RoundedCornerShape(10.dp, 4.dp, 10.dp, 4.dp)
+    Row(
+        modifier.height(28.dp).clip(notch).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, notch).padding(start = 8.dp, end = 3.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Icon(kimonoIcon(if (onlyYou) "lock" else "people"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+        Text(if (onlyYou) "Only you" else "Friends only", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        if (share != null) Text(
+            if (onlyYou) "Show" else "Everyone", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color.White, maxLines = 1,
+            modifier = Modifier.clip(RoundedCornerShape(7.dp, 3.dp, 7.dp, 3.dp)).background(LocalBoardColor.current).clickable(onClick = share).padding(horizontal = 8.dp, vertical = 5.dp),
+        ) else Spacer(Modifier.width(3.dp))
     }
 }
 
