@@ -98,4 +98,4 @@ export function length(tracks: Track[]) {
   return h ? `${h} hr ${m} min` : `${m} min`;
 }
 
-export const byline = (t: Pick<Track, "artists">) => t.artists.map((a) => a.name).join(", ");
+export const byline = (t: Pick<Track, "artists">) => [...new Set(t.artists.map((a) => a.name))].join(", ");

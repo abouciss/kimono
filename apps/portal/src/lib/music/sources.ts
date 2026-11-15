@@ -41,7 +41,8 @@ export function trackOf(t: Json, album?: Json): Track | null {
   const al = t.album ?? album;
   const contributors = Array.isArray(t.contributors) ? t.contributors.map(artistRef).filter(Boolean) as ArtistRef[] : [];
   const main = artistRef(t.artist);
-  const artists = contributors.length ? contributors : main ? [main] : [];
+  /* Deezer can name a featured artist twice. */
+  const artists = (contributors.length ? contributors : main ? [main] : []).filter((a, i, all) => all.findIndex((b) => b.key === a.key) === i);
   return {
     key: `dz:${t.id}`,
     title: String(t.title),

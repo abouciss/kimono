@@ -4,7 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { appIcons } from "@/lib/app-favicon";
-import { musicConfig } from "@/lib/music/config";
+import { musicConfig, musicIdentity } from "@/lib/music/config";
 import { getPlatformSettings } from "@/lib/settings";
 import { PlayerChrome } from "./bar";
 import { MusicProvider } from "./player";
@@ -22,14 +22,16 @@ export default async function MusicLayout({ children }: { children: ReactNode })
   const session = await auth();
   if (!session?.user) redirect("/login");
   const admin = session.user.role === "owner" || session.user.role === "admin";
-  if (!musicConfig(await getPlatformSettings()).enabled) {
+  const settings = await getPlatformSettings();
+  if (!musicConfig(settings).enabled) {
     if (admin) redirect("/admin/apps/kimono-music");
     return <AppShell user={session.user}><div className="km km-off"><h1 className="km-page-title">Music isn&rsquo;t switched on yet.</h1><p className="km-quiet">Ask whoever runs this Kimono.</p></div></AppShell>;
   }
+  const app = await musicIdentity(settings);
   return <AppShell user={session.user}>
     <MusicProvider>
       <div className="km">
-        <Suspense><TopBar /></Suspense>
+        <Suspense><TopBar app={app} /></Suspense>
         {children}
       </div>
       <PlayerChrome />

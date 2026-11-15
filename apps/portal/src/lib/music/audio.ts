@@ -117,8 +117,11 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
   const fd = openSync(part, "w", 0o600);
   try {
     let source: Source | null = null;
+    let triedFast = false;
     /* KIMONO_MUSIC_YOUTUBEJS=off sends every song through yt-dlp (to test it, or while YouTube.js misbehaves). */
-    if (process.env.KIMONO_MUSIC_YOUTUBEJS !== "off" && Date.now() >= s.fastOffUntil) {
+    const fastAllowed = process.env.KIMONO_MUSIC_YOUTUBEJS !== "off";
+    if (fastAllowed && Date.now() >= s.fastOffUntil) {
+      triedFast = true;
       try { source = await viaYoutubeJs(videoId); }
       catch (error) {
         /* Sits out ten minutes, then gets another go. */
@@ -128,7 +131,16 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
     }
     let skip = 0;
     for (let attempt = 0; ; attempt++) {
-      if (!source) { source = await viaYtDlp(config, videoId); job.via = "yt-dlp"; }
+      if (!source) {
+        try { source = await viaYtDlp(config, videoId); job.via = "yt-dlp"; }
+        catch (error) {
+          /* yt-dlp failing too: YouTube.js gets a go even while it's sitting out, rather than the song failing. */
+          if (!fastAllowed || triedFast || job.got) throw error;
+          triedFast = true;
+          source = await viaYoutubeJs(videoId);
+          job.via = "youtube.js";
+        }
+      }
       job.size = source.size; job.mime = source.mime;
       ready(true);
       try {

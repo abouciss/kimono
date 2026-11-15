@@ -2,7 +2,7 @@
 
 import { useTabTitle } from "@/components/tab-title";
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { InkWave, MorphLoader } from "@kimono/ui";
+import { AppLockup, InkWave, MorphLoader, type AppIdentity } from "@kimono/ui";
 import Markdown, { type Components } from "react-markdown";
 import { asBook, booksApi, BooksError, count, ratingLabel, stateLabel, verdictOf, type Book, type BookFileInfo, type FriendOnBook, type FriendReading, type Genre, type GenrePage as GenrePageData, type Home, type Page, type Rating, type ReadingFormat, type ShelfItem, type ShelfState } from "./api";
 import { Book3D } from "./book3d";
@@ -38,7 +38,7 @@ function writePlace(tab: Tab, book: string | null, q: string, push: boolean, gen
   if (push) history.pushState(null, "", url); else history.replaceState(null, "", url);
 }
 
-export function BooksApp({ accent, firstName, home: arrived }: { accent: string; firstName: string; home: Home | null }) {
+export function BooksApp({ app, accent, firstName, home: arrived }: { app: AppIdentity; accent: string; firstName: string; home: Home | null }) {
   const [tab, setTab] = useState<Tab>(() => readPlace().tab);
   const [open, setOpen] = useState<string | null>(() => readPlace().book);
   const [query, setQuery] = useState(() => readPlace().q);
@@ -98,13 +98,14 @@ export function BooksApp({ accent, firstName, home: arrived }: { accent: string;
 
   return <div ref={root} className="kb k-inkbar" style={{ "--kb-accent": accent } as React.CSSProperties} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 8)}>
     <header className={cx("kb-top", scrolled && "kb-solid")}>
-      <SearchField value={query} onChange={search} />
+      <button type="button" className="kb-brand" onClick={() => go("home")} aria-label="Kimono Books, home"><AppLockup identity={app} /></button>
       <Tabs at={query ? null : tab === "home" ? 0 : tab === "shelf" ? 1 : null}>
         <button aria-current={tab === "home" && !query ? "page" : undefined} onClick={() => go("home")}>Discover</button>
         <button aria-current={tab === "shelf" && !query ? "page" : undefined} onClick={() => go("shelf")}>
           My shelf{shelf?.length ? <span className="kb-count">{shelf.length}</span> : null}
         </button>
       </Tabs>
+      <SearchField value={query} onChange={search} />
     </header>
 
     <MyShelf.Provider value={mineOf}>
