@@ -285,6 +285,9 @@ export function widgetsFrom(raw: unknown): Widget[] {
       const emoji = text(c.emoji, 16), words = text(c.text, 61);
       if ([...words].length > 60) throw new FriendsProblem("Keep a status under 60 characters.");
       config = { emoji, text: words };
+    } else if (kind === "friends") {
+      /* Taken off the board: kept as a mark, so Friends aren't put back on their own. */
+      if (c.off === "1") config = { off: "1" };
     } else if (kind === "clock") {
       const zone = text(c.zone, 60);
       try { if (zone) new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { throw new FriendsProblem("That isn't a time zone."); }

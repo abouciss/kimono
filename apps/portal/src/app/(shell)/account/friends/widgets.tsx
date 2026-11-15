@@ -76,7 +76,7 @@ let made = 0;
 const newId = () => `w${Date.now().toString(36)}${(made++).toString(36)}`;
 
 /** A home screen for someone who hasn't arranged one: what they have, at sensible sizes. */
-/** Friends are always on the board (it's the whole profile now), wherever you've put them; never for a visitor when there are none. */
+/** Friends are on every board unless taken off (kept as an `off` mark); never for a visitor when there are none. */
 export function withFriends(ws: Widget[], d: BoardData): Widget[] {
   if (ws.some((w) => w.kind === "friends") || (!d.friends.length && !d.own)) return ws;
   return [...ws, { id: "friends", kind: "friends", size: "m" }];
@@ -123,11 +123,11 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
   const setArranging = onArranging;
   const [adding, setAdding] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
-  const list = arranging ? draft : shown;
+  const list = (arranging ? draft : shown).filter((w) => !(w.kind === "friends" && w.config?.off));
 
   const start = () => setArranging(true);
   const resize = (id: string, size: WidgetSize) => setDraft((ws) => ws.map((w) => (w.id === id ? { ...w, size } : w)));
-  const drop = (id: string) => setDraft((ws) => ws.filter((w) => w.id !== id));
+  const drop = (id: string) => setDraft((ws) => ws.flatMap((w) => (w.id !== id ? [w] : w.kind === "friends" ? [{ ...w, config: { off: "1" } }] : [])));
   const moveTo = (from: string, to: string) => setDraft((ws) => {
     const a = ws.findIndex((w) => w.id === from), b = ws.findIndex((w) => w.id === to);
     if (a < 0 || b < 0 || a === b) return ws;
@@ -143,7 +143,7 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
         onDragEnd={() => setDragging(null)}>
         <WidgetView w={w} d={data} onEditLinks={onEditLinks} />
         {arranging ? <div className="wg-edit">
-          {w.kind === "friends" ? null : <button type="button" className="wg-x" aria-label={`Remove ${kindOf(w.kind).name}`} onClick={() => drop(w.id)}><LineIcon name="close" /></button>}
+          <button type="button" className="wg-x" aria-label={`Remove ${kindOf(w.kind).name}`} onClick={() => drop(w.id)}><LineIcon name="close" /></button>
           <span className="wg-sizes" role="group" aria-label="Size">
             {kindOf(w.kind).sizes.map((s) => <button key={s} type="button" aria-pressed={w.size === s} title={sizeName[s]} onClick={() => resize(w.id, s)}><i className={`wg-size-glyph wg-glyph-${s}`} /></button>)}
           </span>
@@ -152,7 +152,7 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
       {arranging ? <button type="button" className="wg-cell wg-s wg-add" onClick={() => setAdding(true)}><LineIcon name="plus" /><span>Add widget</span></button> : null}
       {!list.length && editable && !arranging ? <button type="button" className="wg-cell wg-m wg-add" onClick={() => { start(); setAdding(true); }}><LineIcon name="plus" /><span>Make this yours: add widgets</span></button> : null}
     </div>
-    {adding ? <Gallery data={data} onClose={() => setAdding(false)} onPick={(w) => { setDraft((ws) => [...ws, w].slice(0, 16)); setAdding(false); if (!arranging) setArranging(true); }} /> : null}
+    {adding ? <Gallery data={data} hidden={list.some((x) => x.kind === "friends") ? ["friends"] : []} onClose={() => setAdding(false)} onPick={(w) => { setDraft((ws) => [...ws.filter((x) => !(w.kind === "friends" && x.kind === "friends")), w].slice(0, 16)); setAdding(false); if (!arranging) setArranging(true); }} /> : null}
   </section>;
 }
 
@@ -621,7 +621,7 @@ const shelves: { title: string; tint: string; kinds: WidgetKind[] }[] = [
   { title: "Music", tint: "#946c25", kinds: ["listening", "song", "album", "onrepeat", "playlist", "loved", "artists"] },
   { title: "Books", tint: "#5c7150", kinds: ["reading", "review", "bookshelf", "book", "yearbooks"] },
   { title: "Watch", tint: "#a84d63", kinds: ["watching", "watched", "show"] },
-  { title: "About you", tint: "#74565c", kinds: ["status", "note", "quote", "countdown", "clock", "stats", "links"] },
+  { title: "About you", tint: "#74565c", kinds: ["friends", "status", "note", "quote", "countdown", "clock", "stats", "links"] },
 ];
 
 /* What a preview shows for a widget that's made from your choices. */
@@ -657,7 +657,7 @@ function previewData(d: BoardData): BoardData {
   };
 }
 
-function Gallery({ data: real, onClose, onPick }: { data: BoardData; onClose: () => void; onPick: (w: Widget) => void }) {
+function Gallery({ data: real, hidden, onClose, onPick }: { data: BoardData; hidden: WidgetKind[]; onClose: () => void; onPick: (w: Widget) => void }) {
   const [data] = useState(() => previewData(real));
   const [kind, setKind] = useState<WidgetKind | null>(null);
   const k = kind ? kindOf(kind) : null;
@@ -665,7 +665,7 @@ function Gallery({ data: real, onClose, onPick }: { data: BoardData; onClose: ()
   return <InkSheet title={k ? k.name : "Add a widget"} icon="plus" onClose={onClose} actions={<Seal tone="quiet" compact onClick={k ? () => setKind(null) : onClose}>{k ? "Back" : "Cancel"}</Seal>}>
     {!k ? <div className="wg-gallery">{shelves.map((shelf) => <section key={shelf.title} className="wg-shelf" style={{ "--wg-shelf": shelf.tint } as React.CSSProperties}>
       <h3>{shelf.title}</h3>
-      <div className="wg-shelf-row">{shelf.kinds.map((kd) => { const x = kindOf(kd); return <button key={kd} type="button" className="wg-pick"
+      <div className="wg-shelf-row">{shelf.kinds.filter((kd) => !hidden.includes(kd)).map((kd) => { const x = kindOf(kd); return <button key={kd} type="button" className="wg-pick"
         onClick={() => (needsChoosing.includes(kd) ? setKind(kd) : plain(kd))}>
         {/* The widget itself, small, made from your own things. */}
         <span className="wg-preview" aria-hidden="true" inert><span className={`wg-cell wg-${previewSize(kd)} wg-k-${kd}`}><WidgetView w={{ id: "p", kind: kd, size: previewSize(kd), config: samples[kd] }} d={data} /></span></span>
