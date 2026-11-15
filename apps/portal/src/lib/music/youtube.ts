@@ -24,7 +24,17 @@ Platform.shim.eval = async (data: { output: string }, env: Record<string, string
  * and the listener's player gets it from the Portal (./audio.ts).
  */
 
-const g = globalThis as unknown as { kimonoMusicYt?: { yt: Promise<Innertube>; until: number } };
+const g = globalThis as unknown as { kimonoMusicYt?: { yt: Promise<Innertube>; until: number }; kimonoMusicSearch?: { yt: Promise<Innertube>; until: number } };
+
+/* Finding a song needs no proof of a real player: a plain session, so a search never waits on (or fails with) BotGuard. */
+async function searchSession(): Promise<Innertube> {
+  const now = Date.now();
+  if (g.kimonoMusicSearch && now < g.kimonoMusicSearch.until) return g.kimonoMusicSearch.yt;
+  const made = Innertube.create({ retrieve_player: false, generate_session_locally: true });
+  g.kimonoMusicSearch = { yt: made, until: now + 6 * 3600_000 };
+  made.catch(() => { if (g.kimonoMusicSearch?.yt === made) g.kimonoMusicSearch = undefined; });
+  return made;
+}
 
 async function session(): Promise<Innertube> {
   const now = Date.now();
@@ -64,7 +74,7 @@ async function candidates(yt: Innertube, query: string, type: "song" | "video"):
 
 /** The YouTube video id of this recording, or null when nothing matches well enough. */
 export async function findRecording(track: Track): Promise<string | null> {
-  const yt = await session();
+  const yt = await searchSession();
   const artist = track.artists[0]?.name ?? "";
   /* YouTube Music's search is fuzzy about ISRCs (it finds look-alike strings), so it's asked by name. */
   const query = `${artist} ${track.title.replace(/\s*[([](feat|ft|with)\.?\s[^)\]]*[)\]]/gi, "")}`;

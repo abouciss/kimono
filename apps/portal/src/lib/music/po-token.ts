@@ -16,8 +16,12 @@ import { Worker } from "node:worker_threads";
  * and whenever it fails.
  */
 
-/* These run in the worker, which finds them by path: named here so the standalone build keeps them. */
-export const keptForTheWorker = () => [import("jsdom"), import("bgutils-js/botguard"), import("bgutils-js/webpo"), import("bgutils-js/utils")];
+/*
+ * These run in the worker, which finds them by path, so the build never sees them used. They're named
+ * here, behind a switch that's never set, so the standalone build traces and ships them (and all they
+ * need): an export nobody calls is shaken out of the bundle, and then production has no jsdom.
+ */
+if (process.env.KIMONO_TRACE_WORKER_PACKAGES === "never") void Promise.all([import("jsdom"), import("bgutils-js/botguard"), import("bgutils-js/webpo"), import("bgutils-js/utils")]);
 
 /* Where the packages are: the Portal's folder in development, apps/portal in the standalone image. */
 function resolver() {
