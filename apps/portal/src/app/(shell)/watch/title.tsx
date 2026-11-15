@@ -1,5 +1,6 @@
 "use client";
 
+import { InkWave } from "@kimono/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { airText, labelOf, languageName, languages, minutesText, watchApi, type Episode, type TitleView } from "./api";
 import { alike, cx, Img, ListButton, RateButton, TitleMark, Top10, useTabTitle, useWatch } from "./bits";
@@ -193,7 +194,7 @@ function Resume({ view }: { view: TitleView }) {
     return <div className="kw-resume">
       <button className="kw-btn kw-primary" onClick={() => watch.play(t.id)}><Icon name="play" />{r ? "Resume" : "Play"}</button>
       <button className="kw-btn kw-tonal" onClick={() => watch.together(t.id, { season: 0, episode: 0, position: r?.position ?? 0 })}><Icon name="group" />Watch together</button>
-      {r ? <small><span className="kw-bar"><i style={{ width: `${r.fraction * 100}%` }} /></span>{left ? `${left}m left` : null}</small> : null}
+      {r ? <small><InkWave className="kw-bar" value={r.fraction} label="Watched" />{left ? `${left}m left` : null}</small> : null}
     </div>;
   }
   const r = view.resume && "season" in view.resume ? view.resume : null;
@@ -204,7 +205,7 @@ function Resume({ view }: { view: TitleView }) {
   return <div className="kw-resume">
     <button className="kw-btn kw-primary" onClick={() => watch.play(t.id, at)}><Icon name="play" />{r?.started ? "Resume" : `Play ${label}`}</button>
     <button className="kw-btn kw-tonal" onClick={() => watch.together(t.id, { season: r?.season ?? 1, episode: r?.episode ?? 1, position: r?.started ? r.position : 0 })}><Icon name="group" />Watch together</button>
-    {r?.started && ep ? <small>{label} “{ep.name}” {fraction > 0 ? <span className="kw-bar"><i style={{ width: `${fraction * 100}%` }} /></span> : null}{ep.runtime ? ` ${Math.max(1, Math.round(ep.runtime * (1 - fraction)))}m left` : ""}</small> : null}
+    {r?.started && ep ? <small>{label} “{ep.name}” {fraction > 0 ? <InkWave className="kw-bar" value={fraction} label="Watched" /> : null}{ep.runtime ? ` ${Math.max(1, Math.round(ep.runtime * (1 - fraction)))}m left` : ""}</small> : null}
   </div>;
 }
 
@@ -274,7 +275,7 @@ function Episodes({ view, loading, pickSeason, setLayout }: { view: TitleView; l
         <span className="kw-no">{numberOf(e)}</span>
         <div className="kw-th">
           <Img src={e.still ?? view.title.backdrop} />
-          {e.fraction > 0 ? <div className="kw-bar"><i style={{ width: `${e.fraction * 100}%` }} /></div> : null}
+          {e.fraction > 0 ? <InkWave className="kw-bar" value={e.fraction} label="Watched" /> : null}
           {out ? <span className="kw-pl"><Icon name="play" /></span> : null}
         </div>
         <div className="kw-tx">

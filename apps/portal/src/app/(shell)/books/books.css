@@ -207,8 +207,7 @@
 }
 
 .kb .kb-progress{position:relative;display:flex;align-items:center;gap:12px;margin-top:20px;max-width:360px}
-.kb .kb-progress::before{content:"";flex:1;height:8px;border-radius:4px;background:color-mix(in srgb,currentColor 18%,transparent)}
-.kb .kb-progress span{position:absolute;left:0;height:8px;border-radius:4px;background:currentColor;max-width:calc(100% - 52px)}
+.kb .kb-progress .k-wave{flex:1;height:12px}
 .kb .kb-progress em{font-style:normal;font-weight:700;font-size:14px;min-width:40px;text-align:right}
 
 /* ───── Grids: search and my shelf ───── */
@@ -519,8 +518,7 @@
 .kb .kb-missing-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 
 /* ───── Reading progress on tiles, and your place on a book's page ───── */
-.kb .kb-cap-progress{display:block;height:4px;border-radius:2px;background:var(--surface-3);overflow:hidden;margin-bottom:6px}
-.kb .kb-cap-progress > span{display:block;height:100%;border-radius:2px;background:var(--primary)}
+.kb .kb-cap-progress{display:block;height:10px;margin-bottom:6px;color:var(--primary)}
 .kb .kb-cap-continue{color:var(--primary);font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kb .kb-place{display:flex;align-items:center;gap:16px;margin-top:18px;max-width:520px}
 .kb .kb-place-now{flex:1;display:grid;gap:8px}
