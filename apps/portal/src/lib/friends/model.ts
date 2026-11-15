@@ -40,6 +40,10 @@ export function migrateSocial(db: DatabaseSync) {
   /* Rows of a profile someone keeps to themselves ("watch:listed", "friends"), comma-separated; and whether they've gone invisible. */
   if (!columns.includes("kept")) db.exec("ALTER TABLE profiles ADD COLUMN kept TEXT NOT NULL DEFAULT ''");
   if (!columns.includes("invisible")) db.exec("ALTER TABLE profiles ADD COLUMN invisible INTEGER NOT NULL DEFAULT 0");
+  /* What makes a profile someone's own: pronouns, a colour, and their links (JSON). */
+  if (!columns.includes("pronouns")) db.exec("ALTER TABLE profiles ADD COLUMN pronouns TEXT NOT NULL DEFAULT ''");
+  if (!columns.includes("color")) db.exec("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT ''");
+  if (!columns.includes("links")) db.exec("ALTER TABLE profiles ADD COLUMN links TEXT NOT NULL DEFAULT '[]'");
   /* What a title taken off a profile is called, so it can be put back from a list. */
   const off = (db.prepare("PRAGMA table_info(profile_off)").all() as { name: string }[]).map((c) => c.name);
   for (const c of ["title", "subtitle", "cover"]) if (!off.includes(c)) db.exec(`ALTER TABLE profile_off ADD COLUMN ${c} TEXT`);
@@ -180,6 +184,59 @@ export function setBio(db: DatabaseSync, username: string, bio: unknown, now = D
   return clean;
 }
 
+/* ── A profile of one's own: pronouns, a colour, links ─────────────────── */
+
+/** The colours a profile can wear: Kimono's own pigments, so every profile still sits in the house. */
+export const profileColors = ["suo", "plum", "moss", "ai", "kuchiba", "sakura", "sumi"] as const;
+export type ProfileColor = (typeof profileColors)[number];
+export type ProfileLink = { title: string; url: string };
+export const linksLimit = 8;
+
+/** Links as typed, checked: a web address (or mail), a short title (the site's name when left out). */
+export function linksFrom(raw: unknown): ProfileLink[] {
+  if (!Array.isArray(raw)) throw new FriendsProblem("Links come as a list.");
+  if (raw.length > linksLimit) throw new FriendsProblem(`Up to ${linksLimit} links.`);
+  return raw.map((l) => {
+    const r = (l ?? {}) as Record<string, unknown>;
+    let url = text(r.url, 400);
+    if (!url) throw new FriendsProblem("Each link needs an address.");
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = url.includes("@") && !url.includes("/") ? `mailto:${url}` : `https://${url}`;
+    let parsed: URL;
+    try { parsed = new URL(url); } catch { throw new FriendsProblem(`“${url}” isn't a web address.`); }
+    if (!["https:", "http:", "mailto:"].includes(parsed.protocol) || (parsed.protocol !== "mailto:" && !parsed.hostname.includes("."))) throw new FriendsProblem(`“${url}” isn't a web address.`);
+    const title = text(r.title, 40) || (parsed.protocol === "mailto:" ? "Email" : parsed.hostname.replace(/^www\./, ""));
+    return { title, url: parsed.toString() };
+  });
+}
+
+export type ProfileLook = { pronouns: string; color: ProfileColor | null; links: ProfileLink[] };
+
+export function lookOf(db: DatabaseSync, username: string): ProfileLook {
+  const row = db.prepare("SELECT pronouns, color, links FROM profiles WHERE username = ?").get(username.toLowerCase()) as { pronouns?: string; color?: string; links?: string } | undefined;
+  let links: ProfileLink[] = [];
+  try { links = JSON.parse(row?.links || "[]") as ProfileLink[]; } catch { /* none */ }
+  const color = (profileColors as readonly string[]).includes(row?.color ?? "") ? row!.color as ProfileColor : null;
+  return { pronouns: row?.pronouns ?? "", color, links };
+}
+
+/** Changes what's given: `{ pronouns?, color?, links? }`. Answers the look as it now is. */
+export function setLook(db: DatabaseSync, username: string, raw: Record<string, unknown>, now = Date.now()): ProfileLook {
+  const u = username.toLowerCase();
+  db.prepare("INSERT OR IGNORE INTO profiles (username, bio, updated_at) VALUES (?, '', ?)").run(u, now);
+  if ("pronouns" in raw) {
+    const pronouns = text(raw.pronouns, 31);
+    if ([...pronouns].length > 30) throw new FriendsProblem("Keep pronouns short.");
+    db.prepare("UPDATE profiles SET pronouns = ?, updated_at = ? WHERE username = ?").run(pronouns, now, u);
+  }
+  if ("color" in raw) {
+    const color = raw.color === null || raw.color === "" ? "" : String(raw.color);
+    if (color && !(profileColors as readonly string[]).includes(color)) throw new FriendsProblem("Pick one of the colours.");
+    db.prepare("UPDATE profiles SET color = ?, updated_at = ? WHERE username = ?").run(color, now, u);
+  }
+  if ("links" in raw) db.prepare("UPDATE profiles SET links = ?, updated_at = ? WHERE username = ?").run(JSON.stringify(linksFrom(raw.links)), now, u);
+  return lookOf(db, u);
+}
+
 /** A title from one app, as a profile or a recommendation shows it. */
 export type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null };
 
@@ -306,6 +363,7 @@ export function profileFor<P extends { username: string }>(db: DatabaseSync, vie
   return {
     ...person, you, link, open: true as const,
     bio: bioOf(db, u),
+    ...lookOf(db, u),
     sections: sections().filter((s) => you || (!hidden.includes(s.app) && !kept.includes(`${s.app}:${s.kind}`))),
     recommendations: onProfile(db, u),
     friends: friends.length,
