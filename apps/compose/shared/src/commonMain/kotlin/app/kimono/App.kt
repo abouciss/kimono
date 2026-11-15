@@ -182,7 +182,8 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     player.me = me?.username
     val inMusic = route?.startsWith("music") == true
     LaunchedEffect(inMusic) { if (inMusic) player.restore() }
-    val musicBar = inMusic && player.current != null
+    /* The song's bar stays at the bottom wherever you go in Kimono, except over a full-screen reader or a built app. */
+    val musicBar = player.current != null && route !in setOf("kimono-read", "code/{id}/app")
     /*
      * Where you were: every screen on the way there is kept as you move, and the app
      * opens on them again, so Back still leads where it did. A notification's screen wins.
