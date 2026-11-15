@@ -325,7 +325,23 @@ function Status({ w }: { w: Widget }) {
   </div>;
 }
 
-/** Their time of day: an ink clock face, and the hour in words. */
+/** Minutes a zone is ahead of UTC at `when` ("GMT+5:30" → 330). */
+function zoneOffset(zone: string | undefined, when: Date): number {
+  if (!zone) return -when.getTimezoneOffset();
+  const name = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "longOffset" }).formatToParts(when).find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+  const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(name);
+  return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0)) : 0;
+}
+
+/** How their time sits against yours: "5h ahead of you", "2h 30m behind you", "Same time as you". */
+export function apart(zone: string | undefined, when = new Date()): string {
+  const diff = zoneOffset(zone, when) - (-when.getTimezoneOffset());
+  if (!diff) return "Same time as you";
+  const h = Math.floor(Math.abs(diff) / 60), m = Math.abs(diff) % 60;
+  return `${h ? `${h}h` : ""}${h && m ? " " : ""}${m ? `${m}m` : ""} ${diff > 0 ? "ahead of" : "behind"} you`;
+}
+
+/** Their time of day: an ink clock face, the hour in words, and how far it is from yours. */
 function Clock({ w, d }: { w: Widget; d: BoardData }) {
   const zone = w.config?.zone || undefined;
   const [now, setNow] = useState(() => new Date());
@@ -344,8 +360,9 @@ function Clock({ w, d }: { w: Widget; d: BoardData }) {
       <line x1="50" y1="56" x2="50" y2="14" className="wg-sec" style={{ "--sec": `-${now.getSeconds()}s` } as React.CSSProperties} />
       <circle cx="50" cy="50" r="3" className="wg-pin" />
     </svg>
-    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{night ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"} for {first(d.person.name)}</small><b>{said}</b>{zone ? <em>{zone.split("/").pop()?.replace(/_/g, " ")}</em> : null}</span>
-      : <small className="wg-clock-says">{said}</small>}
+    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{night ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"} for {first(d.person.name)}</small><b>{said}</b>
+      <em className="wg-apart">{apart(zone, now)}{zone ? ` · ${zone.split("/").pop()?.replace(/_/g, " ")}` : ""}</em></span>
+      : <span className="wg-clock-says"><b>{said}</b><small className="wg-apart">{apart(zone, now)}</small></span>}
   </div>;
 }
 
