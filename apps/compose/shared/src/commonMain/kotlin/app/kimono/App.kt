@@ -345,6 +345,8 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             composable("books") {
                 AppAccentTheme(booksAccent()) {
                     app.kimono.screens.BooksHomeScreen(books, platform, me?.name?.substringBefore(' ')?.takeIf { it.isNotBlank() }, openSearch = { goTab("books/search") }, openShelf = { goTab("books/shelf") })
+                    /* The first time, with friends: does Books show on your profile? */
+                    app.kimono.screens.SharingAsk(friends, "books")
                 }
             }
             composable("books/shelf") {
