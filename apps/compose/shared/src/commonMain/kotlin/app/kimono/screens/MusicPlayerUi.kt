@@ -102,7 +102,7 @@ fun MusicBar(player: MusicPlayer, hem: Boolean) {
 /* ── Now Playing ────────────────────────────────────────────────────────── */
 
 /**
- * The song in full, over everything: the record on its turntable (tap it to
+ * The song in full, over everything: the cover (tap it to
  * play or pause), the song's marks, its place, the controls; and under them
  * its lyrics, the queue, and listening together.
  */
@@ -148,11 +148,11 @@ fun NowPlaying(player: MusicPlayer, go: MusicGo) {
                     val titleShared = Modifier.sharedBounds(rememberSharedContentState("np-title"), this@AnimatedContent, boundsTransform = { _, _ -> spring(dampingRatio = .85f, stiffness = 340f) })
                     Column(Modifier.fillMaxSize()) {
                     if (full) {
-                        /* The song in full: its sleeve with the record sliding out, playing. */
+                        /* The song in full: its cover, big; tap it to play or pause. */
                         Box(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
                             BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                val side = minOf(maxWidth / 1.36f, maxHeight)
-                                Sleeve(t.cover, player.playing, side, still = player.reduceMotion, coverModifier = coverShared, onClick = { player.toggle() })
+                                val side = minOf(maxWidth, maxHeight)
+                                Cover(t.cover, side, coverShared.clickable(onClickLabel = if (player.playing) "Pause" else "Play") { player.toggle() }, corner = 16.dp)
                             }
                         }
                         SongTitle(player, t, go, Modifier.padding(horizontal = 24.dp), titleModifier = titleShared)
