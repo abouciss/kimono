@@ -144,15 +144,18 @@ data class KimonoRead(val since: String)
 data class Privacy(
     /** Who sees your profile: "friends", "public" (anyone with the link) or "private" (only you). */
     val visibility: String? = null,
-    val invisible: Boolean = false, val friends: Boolean = true, val apps: List<PrivacyApp> = emptyList()) {
+    val invisible: Boolean = false, val friends: Boolean = true,
+    /** On a public profile, whether anyone with the link sees your friends list too (null from an older server). */
+    val friendsEveryone: Boolean? = null,
+    val apps: List<PrivacyApp> = emptyList()) {
     val kept: List<String> get() = (if (friends) emptyList() else listOf("friends")) + apps.flatMap { a -> a.rows.filter { !it.shown }.map { "${a.app}:${it.kind}" } }
 }
 
 @Serializable
-data class PrivacyApp(val app: String, val name: String, val shown: Boolean = true, val rows: List<PrivacyRow> = emptyList())
+data class PrivacyApp(val app: String, val name: String, val shown: Boolean = true, val everyone: Boolean? = null, val rows: List<PrivacyRow> = emptyList())
 
 @Serializable
-data class PrivacyRow(val kind: String, val title: String, val shown: Boolean = true)
+data class PrivacyRow(val kind: String, val title: String, val shown: Boolean = true, val everyone: Boolean? = null)
 
 @Serializable
 data class PrivacyNow(val privacy: Privacy, val hidden: List<String> = emptyList())
@@ -217,6 +220,8 @@ class Friends(private val session: Session) {
     suspend fun showAppOf(app: String, shown: Boolean): PrivacyNow = privacy(buildJsonObject { put("app", app); put("shown", shown) }.toString())
     /** Shows or keeps one row ("watch:listed") or your friends list ("friends") from friends. */
     suspend fun showPart(key: String, shown: Boolean): PrivacyNow = privacy(buildJsonObject { put("keep", key); put("shown", shown) }.toString())
+    /** Who sees one app, row ("watch:listed") or your friends list ("friends"): "me", "friends" or "everyone" (anyone with a public profile's link). */
+    suspend fun setAudience(key: String, to: String): PrivacyNow = privacy(buildJsonObject { put("audience", key); put("to", to) }.toString())
     /** Takes one title off one row of your own profile ("listed", "read"…) until you put it back; answers all you've taken off. */
     suspend fun removeFromRow(kind: String, item: ShareItem): List<OffProfile> = offCall("remove", buildJsonObject {
         put("app", item.app); put("kind", kind); put("itemId", item.itemId); put("title", item.title)

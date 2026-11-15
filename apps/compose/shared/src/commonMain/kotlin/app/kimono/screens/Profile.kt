@@ -5,6 +5,7 @@ package app.kimono.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -78,6 +79,7 @@ import app.kimono.data.Friends
 import app.kimono.data.KimonoProblem
 import app.kimono.data.KimonoProfile
 import app.kimono.data.Privacy
+import app.kimono.data.PrivacyApp
 import app.kimono.data.PrivacyNow
 import app.kimono.data.ProfileLink
 import app.kimono.data.Recommendation
@@ -133,7 +135,7 @@ private val rowWords = mapOf(
     "music:loved" to "Songs you love",
     "music:playlists" to "Your public playlists",
 )
-internal fun appTint(app: String) = when (app) { "books" -> Color(0xFF5C7150); "music" -> Color(0xFF2E5E8A); else -> Color(0xFFA84D63) }
+internal fun appTint(app: String) = when (app) { "books" -> Color(0xFF5C7150); "music" -> Color(0xFF946C25); else -> Color(0xFFA84D63) }
 internal fun appIcon(app: String) = when (app) { "books" -> "book"; "music" -> "music"; else -> "film" }
 
 /**
@@ -182,6 +184,17 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
     LaunchedEffect(mine) { if (mine) runCatching { asked = friends.list().asked.size } }
     LaunchedEffect(toast) { if (toast != null) { delay(2600); toast = null } }
     fun change(type: String) = scope.launch { try { friends.change(type, username); load() } catch (p: KimonoProblem) { problem = p.message } }
+    /* Shares one row as far as asked from its widget: its app first if the whole app was kept back. */
+    fun shareRow(row: String, to: String) = scope.launch {
+        val app = row.substringBefore(':')
+        val a = profile?.privacy?.apps?.firstOrNull { it.app == app }
+        try {
+            if (a != null && (!a.shown || (to == "everyone" && a.everyone == false))) friends.setAudience(app, to)
+            friends.setAudience(row, to)
+            toast = if (to == "everyone") "Everyone sees it" else "Friends see it"
+            load()
+        } catch (e: KimonoProblem) { problem = e.message }
+    }
     val toSettings: () -> Unit = { own?.settings?.invoke() ?: open("settings") }
     val server = friends.server?.trimEnd('/')
     val act = BoardActions(
@@ -244,7 +257,12 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
                             val data = remember(p, preview, sections, friendList, asked, color) {
                                 BoardData(
                                     FriendPerson(p.username, p.name, p.picture), sections, p.links, friendList, p.music, p.books, color,
-                                    own = if (p.you && !preview) OwnBoard(asked, friendsKept) else null, server = server,
+                                    own = if (p.you && !preview) OwnBoard(
+                                        asked, friendsKept,
+                                        keptRows = privacy?.apps.orEmpty().flatMap { a -> a.rows.filter { !a.shown || !it.shown }.map { "${a.app}:${it.kind}" } }.toSet(),
+                                        friendsOnlyRows = if (visibility == "public") privacy?.apps.orEmpty().flatMap { a -> a.rows.filter { a.shown && it.shown && (a.everyone == false || it.everyone == false) }.map { "${a.app}:${it.kind}" } }.toSet() else emptySet(),
+                                        onShare = { row, to -> shareRow(row, to) },
+                                    ) else null, server = server,
                                 )
                             }
                             Spacer(Modifier.height(8.dp))
@@ -469,41 +487,72 @@ private fun Band(color: Color, still: Boolean, banner: String? = null) {
 
 /* ── Who sees what ────────────────────────────────────────────────────── */
 
-/** Friends or Only me, as two words side by side: what's chosen is filled. */
+/** Who sees one thing: only me, friends and, on a public profile, everyone with the link; side by side, what's chosen filled. */
 @Composable
-private fun Who(friends: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+private fun Who(value: String, everyone: Boolean, enabled: Boolean = true, onChange: (String) -> Unit) {
+    val shown = if (!everyone && value == "everyone") "friends" else value
+    val options = listOf("me" to ("lock" to "Only me"), "friends" to ("people" to "Friends")) + if (everyone) listOf("everyone" to ("link" to "Everyone")) else emptyList()
     Row(Modifier.alpha(if (enabled) 1f else .5f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        listOf(true to ("people" to "Friends"), false to ("lock" to "Only me")).forEach { (value, mark) ->
-            val on = value == friends
+        options.forEach { (v, mark) ->
+            val on = v == shown
             Row(
-                Modifier.clip(RoundedCornerShape(11.dp)).background(if (on) (if (value) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primary.copy(alpha = .2f)) else Color.Transparent)
-                    .clickable(enabled = enabled) { if (!on) onChange(value) }.padding(horizontal = 10.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
+                Modifier.clip(RoundedCornerShape(11.dp)).background(if (on) (if (v == "me") MaterialTheme.colorScheme.primary.copy(alpha = .2f) else MaterialTheme.colorScheme.secondaryContainer) else Color.Transparent)
+                    .clickable(enabled = enabled) { if (!on) onChange(v) }.padding(horizontal = if (everyone) 7.dp else 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Icon(kimonoIcon(mark.first), null, tint = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
-                Text(mark.second, style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium), color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(kimonoIcon(mark.first), null, tint = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+                Text(mark.second, style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (on) FontWeight.Bold else FontWeight.Medium), color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
         }
     }
 }
 
+private fun audience(shown: Boolean, everyone: Boolean?) = if (!shown) "me" else if (everyone == false) "friends" else "everyone"
+
+/** [now] as it is once [key] ("friends", an app, or "app:row") is set [to] who sees it: what's shown at once, before the server answers. */
+private fun Privacy.withAudience(key: String, to: String): Privacy {
+    val shown = to != "me"; val wide = to == "everyone"
+    if (key == "friends") return copy(friends = shown, friendsEveryone = wide)
+    val (app, kind) = key.split(":").let { it[0] to it.getOrNull(1) }
+    return copy(apps = apps.map { a ->
+        if (a.app != app) a
+        else if (kind == null) a.copy(shown = shown, everyone = wide)
+        else a.copy(rows = a.rows.map { r -> if (r.kind == kind) r.copy(shown = shown, everyone = wide) else r })
+    })
+}
+
+/** What an app's rows come to, folded: who sees how many. */
+private fun summaryOf(a: PrivacyApp, pub: Boolean): String {
+    if (!a.shown) return "Only you"
+    val seen = a.rows.filter { it.shown }
+    if (seen.isEmpty()) return "Only you"
+    val all = if (seen.size == a.rows.size) "All" else "${seen.size} of ${a.rows.size}"
+    if (!pub) return "$all shown to friends"
+    val wide = if (a.everyone == false) 0 else seen.count { it.everyone != false }
+    return when (wide) { seen.size -> "$all shown to everyone"; 0 -> "$all shown to friends"; else -> "$all shown · $wide to everyone" }
+}
+
 /**
  * Every privacy choice in one place: who sees your profile at all (friends,
  * anyone with the link, only you), your friends list, and each app and each
- * of its rows. Each choice saves as it's made.
+ * of its rows, folded until you open the app. On a public profile each can be
+ * Only me, Friends or Everyone. Each choice saves as it's made.
  */
 @Composable
 private fun WhoSeesWhat(friends: Friends, privacy: Privacy, username: String?, offCount: Int, onDismiss: () -> Unit, onOff: () -> Unit, onChanged: (PrivacyNow) -> Unit) {
     val scope = rememberCoroutineScope()
     var now by remember { mutableStateOf(privacy) }
+    var open by remember { mutableStateOf<String?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
     fun save(optimistic: Privacy, call: suspend () -> PrivacyNow) {
         val was = now
         now = optimistic
         scope.launch { try { val r = call(); now = r.privacy; onChanged(r); problem = null } catch (e: KimonoProblem) { now = was; problem = e.message } }
     }
+    fun set(key: String, to: String) = save(now.withAudience(key, to)) { friends.setAudience(key, to) }
     val visibility = visibilityOf(now)
     val closed = visibility == "private"
+    val pub = visibility == "public"
     InkSheet(onDismissRequest = onDismiss, seed = "who sees what") {
         Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { InkTitle("Who sees what", "eye") }
@@ -513,7 +562,7 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, username: String?, o
             Text("Your profile", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             listOf(
                 Triple("friends", "people", "Friends" to "Your friends see what you choose below"),
-                Triple("public", "link", "Anyone with the link" to "Like friends do, even without an account"),
+                Triple("public", "link", "Anyone with the link" to "You choose what's for friends and what's for everyone"),
                 Triple("private", "lock", "Only me" to "Friends see your name and picture"),
             ).forEach { (id, icon, words) ->
                 val on = visibility == id
@@ -532,20 +581,40 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, username: String?, o
                 }
             }
             val server = friends.server
-            if (visibility == "public" && server != null && username != null) PublicLink("${server.trimEnd('/')}/p/$username")
+            if (pub && server != null && username != null) PublicLink("${server.trimEnd('/')}/p/$username")
             Column(Modifier.alpha(if (closed) .45f else 1f).padding(top = 10.dp)) {
-                PrivacyLine("Your friends list", "Who you're friends with", now.friends, !closed) { f -> save(now.copy(friends = f)) { friends.showPart("friends", f) } }
+                PrivacyLine("Your friends list", "Who you're friends with", audience(now.friends, now.friendsEveryone), pub, !closed) { set("friends", it) }
                 now.apps.forEach { a ->
+                    val unfolded = open == a.app
+                    val turn by animateFloatAsState(if (unfolded) 180f else 0f, label = "fold")
                     Box(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        InkBlot("app:${a.app}", tint = appTint(a.app), size = 34.dp) { Icon(kimonoIcon(appIcon(a.app)), null, tint = Kata.plum, modifier = Modifier.size(18.dp)) }
-                        Text(a.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        Who(a.shown, !closed) { f -> save(now.copy(apps = now.apps.map { if (it.app == a.app) it.copy(shown = f) else it })) { friends.showAppOf(a.app, f) } }
+                    /* The app's head opens its rows; the choice beside it sets the whole app. */
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp, 4.dp, 14.dp, 4.dp)).clickable { open = if (unfolded) null else a.app }
+                                .semantics { contentDescription = "${a.name}, ${if (unfolded) "fold" else "open"}" }.padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            InkBlot("app:${a.app}", tint = appTint(a.app), size = 34.dp) { Icon(kimonoIcon(appIcon(a.app)), null, tint = Kata.plum, modifier = Modifier.size(18.dp)) }
+                            Column(Modifier.weight(1f)) {
+                                Text(a.name, style = MaterialTheme.typography.titleMedium)
+                                Text(summaryOf(a, pub), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                            Icon(kimonoIcon("down"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = turn })
+                            if (!pub) Who(audience(a.shown, a.everyone), false, !closed) { set(a.app, it) }
+                        }
+                        /* Three choices don't fit beside the name on a phone: they sit under it. */
+                        if (pub) Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.CenterEnd) {
+                            Who(audience(a.shown, a.everyone), true, !closed) { set(a.app, it) }
+                        }
                     }
-                    a.rows.forEach { r ->
-                        Box(Modifier.padding(start = 12.dp).alpha(if (a.shown) 1f else .5f)) {
-                            PrivacyLine(rowWords["${a.app}:${r.kind}"] ?: r.title, null, r.shown && a.shown, !closed && a.shown) { f ->
-                                save(now.copy(apps = now.apps.map { if (it.app == a.app) it.copy(rows = it.rows.map { x -> if (x.kind == r.kind) x.copy(shown = f) else x }) else it })) { friends.showPart("${a.app}:${r.kind}", f) }
+                    androidx.compose.animation.AnimatedVisibility(unfolded) {
+                        Column {
+                            a.rows.forEach { r ->
+                                Box(Modifier.padding(start = 12.dp).alpha(if (a.shown) 1f else .5f)) {
+                                    val value = if (a.shown) audience(r.shown, if (r.everyone != false && a.everyone != false) true else false) else "me"
+                                    PrivacyLine(rowWords["${a.app}:${r.kind}"] ?: r.title, null, value, pub, !closed && a.shown) { set("${a.app}:${r.kind}", it) }
+                                }
                             }
                         }
                     }
@@ -584,13 +653,18 @@ private fun PublicLink(href: String) {
 }
 
 @Composable
-private fun PrivacyLine(label: String, note: String?, friendsSee: Boolean, enabled: Boolean, change: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+private fun PrivacyLine(label: String, note: String?, value: String, everyone: Boolean, enabled: Boolean, change: (String) -> Unit) {
+    /* Three choices take the line under the words; two sit beside them. */
+    if (everyone) Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { Who(value, true, enabled, change) }
+    } else Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
             note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Who(friendsSee, enabled, change)
+        Who(value, false, enabled, change)
     }
 }
 

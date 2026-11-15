@@ -123,7 +123,15 @@ class BoardData(
     val server: String? = null,
 )
 
-class OwnBoard(val asking: Int, val kept: Boolean)
+class OwnBoard(
+    val asking: Int, val kept: Boolean,
+    /** The rows you keep to yourself ("watch:watching"); a whole app kept keeps all its rows. */
+    val keptRows: Set<String> = emptySet(),
+    /** On a public profile: rows friends see and the link doesn't. */
+    val friendsOnlyRows: Set<String> = emptySet(),
+    /** Shares one row with "friends" or "everyone". */
+    val onShare: ((String, String) -> Unit)? = null,
+)
 
 /** Where a widget's taps go. */
 class BoardActions(
