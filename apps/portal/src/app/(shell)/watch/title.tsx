@@ -131,7 +131,7 @@ export function TitleSheet({ id, onClose, refreshKey, leaving = false }: { id: s
       </div>
     </div>
     {recommending && view ? createPortal(<RecommendSheet onClose={() => setRecommending(false)} onSent={watch.toast}
-      item={{ app: "watch", itemId: view.title.id, title: view.title.name, subtitle: view.title.year ? String(view.title.year) : null, cover: view.title.poster }} />, document.body) : null}
+      item={{ app: "watch", itemId: view.title.id, title: view.title.name, subtitle: view.title.year ? String(view.title.year) : null, cover: view.title.poster ?? view.title.backdrop }} />, document.body) : null}
   </div>;
 }
 

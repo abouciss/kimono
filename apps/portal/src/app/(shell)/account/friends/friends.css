@@ -542,3 +542,4 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
   .fr-profile-v2 .fr-hero-body { grid-template-columns: auto minmax(0, 1fr); }
   .fr-profile-v2 .fr-hero-body > .fr-actions { grid-column: 2; justify-content: flex-start; }
 }
+.fr-tile > .fr-from { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
