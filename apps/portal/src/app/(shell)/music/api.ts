@@ -7,7 +7,9 @@ import type { FriendListening, Me, Person } from "@/lib/music/social";
 
 export type { Album, Artist, FriendListening, Home, Lyrics, Me, Person, Playlist, Queue, RatedItem, RatedKind, Rating, Row, Track };
 export type ArtistPage = { artist: Artist; top: Track[]; albums: Album[]; related: Artist[]; rating: Rating | null };
-export type PlaylistPage = { id: string; name: string; updatedAt: string; tracks: Track[]; owner?: Person; mine?: boolean };
+export type PlaylistMember = Person & { joined: boolean };
+/** `role`: yours, joined, asked in (not answered), or a friend's public one you can only play. */
+export type PlaylistPage = { id: string; name: string; updatedAt: string; tracks: Track[]; owner?: Person; mine?: boolean; public?: boolean; members?: PlaylistMember[]; role?: "owner" | "member" | "invited" | "listener" };
 export type SongStatus = { stage: "finding" } | { stage: "fetching"; fraction: number } | { stage: "ready" };
 export type Genre = { id: number; name: string; picture: string | null };
 export type Results = { tracks: Track[]; albums: Album[]; artists: Artist[] };
@@ -53,6 +55,8 @@ export const musicApi = {
   renamePlaylist: (id: string, name: string) => call<{ playlist: PlaylistPage }>(`playlists/${q(id)}`, send("PATCH", { name })),
   setPlaylist: (id: string, keys: string[]) => call<{ playlist: PlaylistPage }>(`playlists/${q(id)}`, send("PATCH", { keys })),
   addToPlaylist: (id: string, keys: string[]) => call<{ playlist: PlaylistPage }>(`playlists/${q(id)}`, send("PATCH", { add: keys })),
+  playlistChange: (id: string, body: Record<string, unknown>) => call<{ playlist: PlaylistPage }>(`playlists/${q(id)}`, send("PATCH", body)),
+  leavePlaylist: (id: string) => call<{ ok: true }>(`playlists/${q(id)}`, send("PATCH", { leave: true })),
   deletePlaylist: (id: string) => call<{ ok: true }>(`playlists/${q(id)}`, { method: "DELETE" }),
 };
 

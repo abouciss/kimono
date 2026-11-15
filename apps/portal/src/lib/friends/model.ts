@@ -46,6 +46,10 @@ export function migrateSocial(db: DatabaseSync) {
   if (!columns.includes("links")) db.exec("ALTER TABLE profiles ADD COLUMN links TEXT NOT NULL DEFAULT '[]'");
   /* A profile's home screen: its widgets, in order, each with a size (JSON; empty means the default set). */
   if (!columns.includes("widgets")) db.exec("ALTER TABLE profiles ADD COLUMN widgets TEXT");
+  /* Public: anyone with the address sees the profile as a friend would. */
+  if (!columns.includes("public")) db.exec("ALTER TABLE profiles ADD COLUMN public INTEGER NOT NULL DEFAULT 0");
+  /* Apps whose sharing someone has chosen (comma-separated); until then, everything in that app stays theirs. */
+  if (!columns.includes("decided")) db.exec("ALTER TABLE profiles ADD COLUMN decided TEXT NOT NULL DEFAULT ''");
   /* What a title taken off a profile is called, so it can be put back from a list. */
   const off = (db.prepare("PRAGMA table_info(profile_off)").all() as { name: string }[]).map((c) => c.name);
   for (const c of ["title", "subtitle", "cover"]) if (!off.includes(c)) db.exec(`ALTER TABLE profile_off ADD COLUMN ${c} TEXT`);
@@ -191,7 +195,7 @@ export function setBio(db: DatabaseSync, username: string, bio: unknown, now = D
 /** The colours a profile can wear: Kimono's own pigments, so every profile still sits in the house. */
 export const profileColors = ["suo", "plum", "moss", "ai", "kuchiba", "sakura", "sumi"] as const;
 export type ProfileColor = (typeof profileColors)[number];
-export type ProfileLink = { title: string; url: string };
+export type ProfileLink = { title: string; url: string; icon?: string };
 export const linksLimit = 8;
 
 /** Links as typed, checked: a web address (or mail), a short title (the site's name when left out). */
@@ -207,7 +211,10 @@ export function linksFrom(raw: unknown): ProfileLink[] {
     try { parsed = new URL(url); } catch { throw new FriendsProblem(`“${url}” isn't a web address.`); }
     if (!["https:", "http:", "mailto:"].includes(parsed.protocol) || (parsed.protocol !== "mailto:" && !parsed.hostname.includes("."))) throw new FriendsProblem(`“${url}” isn't a web address.`);
     const title = text(r.title, 40) || (parsed.protocol === "mailto:" ? "Email" : parsed.hostname.replace(/^www\./, ""));
-    return { title, url: parsed.toString() };
+    /* Its mark: a drawn one by name, or an emoji; none is the site's own icon. */
+    const icon = text(r.icon, 24);
+    const mark = /^[a-z]{2,12}$/.test(icon) || (/^emoji:\S/u.test(icon) && [...icon.slice(6)].length <= 4) ? icon : "";
+    return { title, url: parsed.toString(), ...(mark ? { icon: mark } : {}) };
   });
 }
 
@@ -359,14 +366,65 @@ const itemFrom = (r: { app: string; item_id: string; title: string; subtitle: st
 
 /** The rows each app puts on a profile, by kind, so any of them can be kept back before it has anything in it. */
 export const rowsOf: Record<string, [kind: string, title: string][]> = {
-  watch: [["watching", "Watching"], ["watched", "Watched"], ["listed", "Watchlist"]],
-  books: [["reading", "Reading now"], ["want", "Want to read"], ["read", "Read"]],
-  music: [["playing", "Listening to"], ["loved", "Loved"], ["playlists", "Playlists"]],
+  watch: [["watching", "Watching"], ["watched", "Watched"], ["listed", "Watchlist"], ["rated", "Ratings"]],
+  books: [["reading", "Reading now"], ["want", "Want to read"], ["read", "Read"], ["reviews", "Reviews"]],
+  music: [["playing", "Listening to"], ["stats", "Top artists and plays"], ["loved", "Loved"], ["playlists", "Playlists"]],
 };
 
-type PrivacyRow = { hidden?: string; kept?: string; invisible?: number };
+/**
+ * What each app asks the first time you open it (with a friend to share with): a few plain choices, each
+ * one or more rows, and whether it starts on. Until you answer, nothing of that app is shared.
+ */
+export const sharingAsks: Record<string, { key: string; says: string; rows: string[]; on: boolean }[]> = {
+  watch: [
+    { key: "watching", says: "What you're watching right now", rows: ["watching"], on: false },
+    { key: "watched", says: "Shows and films you've watched", rows: ["watched", "listed"], on: false },
+    { key: "rated", says: "How you rated them", rows: ["rated"], on: true },
+  ],
+  books: [
+    { key: "reading", says: "What you're reading right now", rows: ["reading"], on: true },
+    { key: "read", says: "What you've read", rows: ["read", "want"], on: true },
+    { key: "reviews", says: "Your reviews", rows: ["reviews"], on: true },
+  ],
+  music: [
+    { key: "playing", says: "What you're listening to right now", rows: ["playing"], on: false },
+    { key: "stats", says: "Your top artists and how much you listen", rows: ["stats"], on: false },
+    { key: "loved", says: "Songs you love", rows: ["loved"], on: false },
+  ],
+};
+
+type PrivacyRow = { hidden?: string; kept?: string; invisible?: number; public?: number; decided?: string };
 const privacyRow = (db: DatabaseSync, username: string) =>
-  db.prepare("SELECT hidden, kept, invisible FROM profiles WHERE username = ?").get(username.toLowerCase()) as PrivacyRow | undefined;
+  db.prepare("SELECT hidden, kept, invisible, public, decided FROM profiles WHERE username = ?").get(username.toLowerCase()) as PrivacyRow | undefined;
+
+/** The apps whose sharing someone has chosen. */
+export const decidedOf = (db: DatabaseSync, username: string) => (privacyRow(db, username)?.decided ?? "").split(",").filter((a) => rowsOf[a]);
+
+/** Who sees a profile: friends (the default), anyone with its address, or only its owner (friends get a name and portrait). */
+export type Visibility = "friends" | "public" | "private";
+export function visibilityOf(db: DatabaseSync, username: string): Visibility {
+  const row = privacyRow(db, username);
+  return Number(row?.invisible ?? 0) === 1 ? "private" : Number(row?.public ?? 0) === 1 ? "public" : "friends";
+}
+export function setVisibility(db: DatabaseSync, username: string, to: Visibility, now = Date.now()): Visibility {
+  if (!["friends", "public", "private"].includes(to)) throw new FriendsProblem("Pick friends, public or private.");
+  const u = username.toLowerCase();
+  saveProfile(db, u, "invisible", to === "private" ? 1 : 0, now);
+  saveProfile(db, u, "public", to === "public" ? 1 : 0, now);
+  return to;
+}
+
+/** An app's sharing, chosen: the asks that are on are shared, the rest kept; the app counts as decided from now. */
+export function decideSharing(db: DatabaseSync, username: string, app: string, on: string[], now = Date.now()) {
+  const asks = sharingAsks[app];
+  if (!asks) throw new FriendsProblem("That app has nothing to share.");
+  const u = username.toLowerCase();
+  const row = privacyRow(db, u);
+  const explicit = (row?.kept ?? "").split(",").filter((k) => k && !k.startsWith(`${app}:`));
+  const keep = asks.filter((a) => !on.includes(a.key)).flatMap((a) => a.rows.map((r) => `${app}:${r}`));
+  saveProfile(db, u, "kept", [...new Set([...explicit, ...keep])].sort().join(","), now);
+  saveProfile(db, u, "decided", [...new Set([...decidedOf(db, u), app])].sort().join(","), now);
+}
 
 /** Whether someone has gone invisible: friends see their name and portrait, and no app shows them what they do. */
 export const isInvisible = (db: DatabaseSync, username: string) => Number(privacyRow(db, username)?.invisible ?? 0) === 1;
@@ -380,10 +438,14 @@ export function hiddenAppsOf(db: DatabaseSync, username: string): string[] {
 
 /** The app rows ("watch:listed") and parts ("friends") someone keeps to themselves, with their apps still shown. */
 export function keptOf(db: DatabaseSync, username: string): string[] {
-  return (privacyRow(db, username)?.kept ?? "").split(",").filter((k) => k === "friends" || (k.includes(":") && rowsOf[k.split(":")[0]]?.some(([kind]) => kind === k.split(":")[1])));
+  const row = privacyRow(db, username);
+  const decided = (row?.decided ?? "").split(",");
+  /* An app not chosen yet keeps all of its rows. */
+  const undecided = Object.keys(rowsOf).filter((a) => !decided.includes(a)).flatMap((a) => rowsOf[a].map(([kind]) => `${a}:${kind}`));
+  return [...new Set([...(row?.kept ?? "").split(","), ...undecided])].filter((k) => k === "friends" || (k.includes(":") && rowsOf[k.split(":")[0]]?.some(([kind]) => kind === k.split(":")[1])));
 }
 
-const saveProfile = (db: DatabaseSync, u: string, column: "hidden" | "kept" | "invisible", value: string | number, now: number) =>
+const saveProfile = (db: DatabaseSync, u: string, column: "hidden" | "kept" | "invisible" | "public" | "decided", value: string | number, now: number) =>
   db.prepare(`INSERT INTO profiles (username, bio, updated_at, ${column}) VALUES (?, '', ?, ?) ON CONFLICT (username) DO UPDATE SET ${column} = excluded.${column}, updated_at = excluded.updated_at`).run(u, now, value);
 
 /** Shows or keeps one app's activity off your profile. Answers the apps kept off as you set them (going invisible doesn't change these). */
@@ -402,8 +464,11 @@ export function setKept(db: DatabaseSync, username: string, key: string, kept: b
   if (key !== "friends" && !rowsOf[app]?.some(([k]) => k === kind)) throw new FriendsProblem("That isn't on profiles.");
   const u = username.toLowerCase();
   const next = [...new Set([...keptOf(db, u).filter((k) => k !== key), ...(kept ? [key] : [])])].sort();
-  saveProfile(db, u, "kept", next.join(","), now);
-  return next;
+  /* Choosing one row of an app is choosing that app's sharing: what's kept is now written down. */
+  const decided = rowsOf[app] && !decidedOf(db, u).includes(app);
+  saveProfile(db, u, "kept", next.filter((k) => decidedOf(db, u).includes(k.split(":")[0]) || k.split(":")[0] === app || k === "friends").join(","), now);
+  if (decided) saveProfile(db, u, "decided", [...decidedOf(db, u), app].sort().join(","), now);
+  return keptOf(db, u);
 }
 
 export function setInvisible(db: DatabaseSync, username: string, invisible: boolean, now = Date.now()): boolean {
@@ -418,6 +483,7 @@ export function privacyOf(db: DatabaseSync, username: string) {
   const kept = keptOf(db, username);
   return {
     invisible: Number(row?.invisible ?? 0) === 1,
+    visibility: visibilityOf(db, username),
     friends: !kept.includes("friends"),
     apps: Object.entries(apps).map(([app, { name }]) => ({
       app, name, shown: !hidden.includes(app),
@@ -429,7 +495,9 @@ export type Privacy = ReturnType<typeof privacyOf>;
 
 /** Whether [viewer] sees [username]'s whole profile: their own, or a friend's who isn't invisible. */
 export const seesProfile = (db: DatabaseSync, viewer: string, username: string) =>
-  viewer.toLowerCase() === username.toLowerCase() || (areFriends(db, viewer, username) && !isInvisible(db, username));
+  (viewer !== "" && viewer.toLowerCase() === username.toLowerCase())
+  || (visibilityOf(db, username) === "public")
+  || (viewer !== "" && areFriends(db, viewer, username) && !isInvisible(db, username));
 
 /**
  * Someone's profile as [viewer] sees it. Not friends (or they're invisible): their name and portrait and how you're linked, nothing more.
@@ -439,14 +507,16 @@ export const seesProfile = (db: DatabaseSync, viewer: string, username: string) 
  */
 export function profileFor<P extends { username: string }>(db: DatabaseSync, viewer: string, person: P, sections: () => Section[]) {
   const v = viewer.toLowerCase(), u = person.username.toLowerCase();
-  const you = v === u;
-  const link = you ? null : linkOf(db, v, u);
-  if (!seesProfile(db, v, u)) return { ...person, you, link, open: false as const };
+  const you = v !== "" && v === u;
+  const link = you || !v ? null : linkOf(db, v, u);
+  /* Signed out, at a public profile's address. */
+  const visitor = v === "";
+  if (!seesProfile(db, v, u)) return { ...person, you, link, ...(visitor ? { visitor } : {}), open: false as const };
   const hidden = hiddenAppsOf(db, u);
   const kept = keptOf(db, u);
   const friends = friendsOf(db, u);
   return {
-    ...person, you, link, open: true as const,
+    ...person, you, link, ...(visitor ? { visitor } : {}), open: true as const,
     bio: bioOf(db, u),
     ...lookOf(db, u),
     widgets: widgetsOf(db, u),
