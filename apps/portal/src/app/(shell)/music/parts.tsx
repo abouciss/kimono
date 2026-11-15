@@ -133,7 +133,8 @@ function trackItems(t: Track, p: ReturnType<typeof usePlayer>, extra: Item[] = [
 /* ── Songs ─────────────────────────────────────────────────────────────── */
 
 export function ArtistLinks({ artists }: { artists: Track["artists"] }) {
-  return <>{artists.map((a, i) => <span key={a.key}>{i ? ", " : ""}<Crossing kind="kakejiku" href={hrefOf.artist(a.key)} onClick={(e) => e.stopPropagation()}>{a.name}</Crossing></span>)}</>;
+  /* Songs kept before Deezer's repeated names were dropped may still carry one. */
+  return <>{artists.filter((a, i, all) => all.findIndex((b) => b.key === a.key) === i).map((a, i) => <span key={a.key}>{i ? ", " : ""}<Crossing kind="kakejiku" href={hrefOf.artist(a.key)} onClick={(e) => e.stopPropagation()}>{a.name}</Crossing></span>)}</>;
 }
 
 /**

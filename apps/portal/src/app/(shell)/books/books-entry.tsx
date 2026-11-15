@@ -1,12 +1,13 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { AppIdentity } from "@kimono/ui";
 import type { Home } from "./api";
 import { BooksApp } from "./books-app";
 
 /* Books reads where you are from the address, so it draws in the browser only. */
 const never = () => () => {};
-export function BooksEntry(props: { accent: string; firstName: string; home: Home | null }) {
+export function BooksEntry(props: { app: AppIdentity; accent: string; firstName: string; home: Home | null }) {
   const here = useSyncExternalStore(never, () => true, () => false);
   if (!here) return <div className="kb" aria-busy="true" />;
   return <BooksApp {...props} />;

@@ -3,7 +3,7 @@
 import { Crossing, useCrossTo } from "@/components/crossing";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { cx, InkPortraitFrame, Seal } from "@kimono/ui";
+import { AppLockup, cx, InkPortraitFrame, Seal, type AppIdentity } from "@kimono/ui";
 import { useTabTitle } from "@/components/tab-title";
 import { clock, forget, hrefOf, length, musicApi, useMusic, type Album, type Track } from "./api";
 import { askName, askSure } from "./ask";
@@ -13,9 +13,13 @@ import { usePlayer } from "./player";
 
 /* ── Along the top of every page: search, and where you are ────────────── */
 
-export function TopBar() {
+export function TopBar({ app }: { app: AppIdentity }) {
   const router = useRouter();
   const path = usePathname();
+  const home = path === "/music";
+  /* Pages opened inside Music this visit: back goes to the last of them, else up to Music's home. */
+  const steps = useRef(-1);
+  useEffect(() => { steps.current += 1; }, [path]);
   const params = useSearchParams();
   const onSearch = path === "/music/search";
   const crossTo = useCrossTo();
@@ -45,6 +49,11 @@ export function TopBar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on what's typed
   }, [text]);
   return <div className="km-top">
+    <div className="km-top-start">
+      {home ? null : <button type="button" className="km-iconbtn km-back" data-nav-back aria-label="Back"
+        onClick={() => { if (steps.current > 0) { steps.current -= 2; history.back(); } else crossTo("kakejiku", "/music"); }}><Icon name="back" /></button>}
+      <Crossing kind="kakejiku" href="/music" className="km-brand" aria-label="Kimono Music, home"><AppLockup identity={app} /></Crossing>
+    </div>
     <label className="km-search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
       <input ref={input} type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Songs, albums, artists" aria-label="Search Music"

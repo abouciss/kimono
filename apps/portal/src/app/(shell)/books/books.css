@@ -36,7 +36,10 @@
 .kb .kb-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;
   padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gutter) 12px;transition:background .3s var(--ease),box-shadow .3s var(--ease)}
 .kb .kb-top.kb-solid{background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);box-shadow:0 1px 0 var(--line)}
-.kb .kb-brand{flex:none;border-radius:16px;padding:4px 6px 4px 2px;transition:background .2s}
+.kb .kb-brand{flex:none;border:0;background:none;color:inherit;cursor:pointer;border-radius:16px;padding:4px 10px 4px 4px;transition:background .2s}
+/* The lockup and the tabs on the left; search on the right. */
+.kb .kb-top{justify-content:flex-start}
+.kb .kb-top .kb-search{margin-left:auto}
 .kb .kb-brand:hover{background:var(--surface-2)}
 .kb .kb-tabs{display:none;gap:4px;flex:none;padding:4px;border-radius:999px;background:var(--surface-2);position:relative;isolation:isolate}
 .kb .kb-tabs button{position:relative;display:flex;align-items:center;gap:8px;height:40px;padding:0 18px;border-radius:999px;font-size:15px;font-weight:500;color:var(--fg-2);background:none;transition:color .25s}
@@ -69,7 +72,7 @@
 /* Phone: the tabs move under the bar. */
 @media (max-width:759px){
   .kb .kb-top{flex-wrap:wrap;gap:10px}
-  .kb .kb-search{order:3;flex-basis:100%;max-width:none}
+  .kb .kb-search{order:3;flex-basis:100%;max-width:none;margin-left:0}
   .kb .kb-tabs{display:flex;order:4;width:100%;background:none;padding:0;gap:8px}
   .kb .kb-tabs button{height:36px;padding:0 14px;font-size:14px;background:var(--surface-2)}
   .kb .kb-tabs button[aria-current]{background:var(--secondary-container)}

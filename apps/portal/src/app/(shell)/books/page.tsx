@@ -25,6 +25,6 @@ export default async function BooksPage() {
   const [app, home] = await Promise.all([booksIdentity(settings), enabled ? inTime(homeFor(session.user.username), 1500) : null]);
   const firstName = (session.user.name?.trim() || session.user.username).split(/\s+/)[0];
   return <AppShell user={session.user} brandColors={settings.brand.colors} app={app}>
-    {enabled ? <BooksEntry accent={app.accent} firstName={firstName} home={home as Home | null} /> : <BooksOff />}
+    {enabled ? <BooksEntry app={app} accent={app.accent} firstName={firstName} home={home as Home | null} /> : <BooksOff />}
   </AppShell>;
 }
