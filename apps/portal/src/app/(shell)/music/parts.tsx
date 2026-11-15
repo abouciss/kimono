@@ -5,6 +5,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode 
 import { createPortal } from "react-dom";
 import { blotPath, cx, inkRandom, MorphLoader, ringPath, Seal } from "@kimono/ui";
 import { byline, clock, forget, hrefOf, musicApi, share, type Album, type Artist, type Playlist, type RatedKind, type Rating, type Track } from "./api";
+import { musicGold } from "@/lib/music/model";
 import { askName } from "./ask";
 import { Icon } from "./icons";
 import { usePlayer, type Source } from "./player";
@@ -33,7 +34,7 @@ export function Mosaic({ covers, className }: { covers: string[]; className?: st
 /* ── Waiting and failing ───────────────────────────────────────────────── */
 
 export function Loading() {
-  return <div className="km-loading"><MorphLoader label="Loading" className="ink-loader" /></div>;
+  return <div className="km-loading"><MorphLoader ink={musicGold} label="Loading" className="ink-loader" /></div>;
 }
 
 export function Problem({ text, onRetry }: { text: string; onRetry?: () => void }) {
@@ -102,7 +103,7 @@ export function Menu({ anchor, items, head, onClose }: { anchor: HTMLElement; it
     box.current?.querySelector<HTMLElement>("button, a")?.focus();
     return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", esc, true); removeEventListener("scroll", onClose); };
   }, [anchor, onClose]);
-  return createPortal(<div ref={box} className="km-menu" role="menu" style={at ? { left: at.left, top: at.top } : { visibility: "hidden" }}>
+  return createPortal(<div ref={box} className="km-menu k-inkbar" role="menu" style={at ? { left: at.left, top: at.top } : { visibility: "hidden" }}>
     {title ? <div className="km-menu-title">{title}</div> : head ? <>{head}<div className="km-menu-sep" role="separator" /></> : null}
     {list.map((item, i) => <Fragment key={item.label}>{item.divide && i > 0 ? <div className="km-menu-sep" role="separator" /> : null}<button type="button" role="menuitem" className={cx(item.danger && "km-danger")} onClick={async () => {
       if (item.sub) { setTitle(item.label); setList(await item.sub()); return; }

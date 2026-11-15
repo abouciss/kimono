@@ -2,6 +2,7 @@ import type { AppIdentity } from "@kimono/ui";
 import { accentOf } from "../apps";
 import { getAppDefinition } from "../definitions";
 import type { PlatformSettings } from "../settings";
+import { musicGold } from "./model";
 
 export const musicAppId = "kimono-music";
 
@@ -29,5 +30,5 @@ export type MusicConfig = ReturnType<typeof musicConfig>;
 export async function musicIdentity(settings: PlatformSettings): Promise<AppIdentity> {
   const definition = await getAppDefinition(musicAppId);
   const colors = settings.apps[musicAppId]?.colors || definition?.metadata.colors;
-  return { id: musicAppId, name: "Music", accent: colors ? accentOf(colors) : "#946c25", glyph: "music" };
+  return { id: musicAppId, name: "Music", accent: colors ? accentOf(colors) : musicGold, glyph: "music" };
 }

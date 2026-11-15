@@ -9,6 +9,9 @@
  * (no key, so no page), and its album is only there to carry the thumbnail.
  */
 
+/** Music's gilt: its accent, and the wash its loader is painted in. */
+export const musicGold = "#946c25";
+
 export type ArtistRef = { key: string; name: string };
 
 export type Track = {
