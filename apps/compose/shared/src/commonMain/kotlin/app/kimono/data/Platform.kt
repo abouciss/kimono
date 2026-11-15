@@ -28,6 +28,8 @@ interface Platform {
     val musicAudio: app.kimono.music.MusicAudio? get() = null
     /** A directory the OS keeps (Music's downloads); the cache where there's no other. */
     fun keepDir(): String = cacheDir()
+    /** Room left on the phone, in bytes; null where it won't say. */
+    fun freeBytes(): Long? = null
     /** A directory for files opened from Drive; the OS may clear it. */
     fun cacheDir(): String
     /** Shows a downloaded file in the system's own viewer (Quick Look, or the app that opens it). */

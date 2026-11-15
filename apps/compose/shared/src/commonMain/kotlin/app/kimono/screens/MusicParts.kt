@@ -240,9 +240,11 @@ fun Bars(color: Color = MaterialTheme.colorScheme.primary, moving: Boolean = tru
 fun SongRow(player: MusicPlayer, track: Track, onPlay: () -> Unit, go: MusicGo, number: Int? = null, art: Boolean = true) {
     var menu by remember { mutableStateOf(false) }
     val now = player.current?.key == track.key
-    val kept = player.downloads.kept.collectAsState().value.containsKey(track.key)
+    val keep = rememberKeep(player, track.key)
+    /* Offline, a song that isn't here can't play: it stands back. */
+    val reachable = !player.offline || keep == app.kimono.music.SongKeep.Kept
     Row(
-        Modifier.fillMaxWidth().combinedClickable(onClick = onPlay, onLongClick = { menu = true }).padding(horizontal = 16.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().graphicsLayer { alpha = if (reachable) 1f else .42f }.combinedClickable(onClick = onPlay, onLongClick = { menu = true }).padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (number != null) Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
@@ -253,7 +255,7 @@ fun SongRow(player: MusicPlayer, track: Track, onPlay: () -> Unit, go: MusicGo, 
             Text(track.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (now) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, fontWeight = if (now) FontWeight.SemiBold else null)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (track.explicit) Text("E", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.surface, modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.onSurfaceVariant).padding(horizontal = 4.dp))
-                if (kept) MusicGlyph("downloaded", MaterialTheme.colorScheme.primary, 14.dp)
+                KeepMark(keep)
                 Text(track.byline, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
@@ -329,8 +331,7 @@ fun PlaylistTile(player: MusicPlayer, pl: Playlist, go: MusicGo, width: Dp = 148
 @Composable
 fun SongMenu(player: MusicPlayer, track: Track, go: MusicGo, onDismiss: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
-    val kept = player.downloads.kept.collectAsState().value.containsKey(track.key)
-    val getting = player.downloads.getting.collectAsState().value[track.key]
+    val (keepLabel, keepIcon, keepDo) = keepChoice(player, rememberKeep(player, track.key), track)
     InkSheet(onDismissRequest = onDismiss, seed = "song:${track.key}") {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Cover(track.cover, 56.dp)
@@ -344,10 +345,7 @@ fun SongMenu(player: MusicPlayer, track: Track, go: MusicGo, onDismiss: () -> Un
         InkMenuItem("Play next", { player.playNext(listOf(track)); onDismiss() }, icon = "play")
         InkMenuItem("Add to queue", { player.addToQueue(listOf(track)); onDismiss() }, icon = "plus")
         InkMenuItem("Add to playlist", { adding = true }, icon = "list")
-        InkMenuItem(
-            when { kept -> "Remove download"; getting != null -> "Downloading ${(getting * 100).toInt()}%"; else -> "Download" },
-            { if (kept) player.downloads.remove(listOf(track)) else player.downloads.download(listOf(track)); onDismiss() }, icon = if (kept) "trash" else "download",
-        )
+        InkMenuItem(keepLabel, { keepDo(); onDismiss() }, icon = keepIcon)
         HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
         InkMenuItem("Go to song", { onDismiss(); go(MusicRoutes.song(track.key)) }, icon = "go")
         track.artists.firstOrNull()?.let { a -> InkMenuItem("Go to ${a.name}", { onDismiss(); go(MusicRoutes.artist(a.key)) }, icon = "person") }
@@ -405,23 +403,14 @@ fun AddToPlaylist(player: MusicPlayer, tracks: List<Track>, onDone: () -> Unit) 
 
 /** Play and shuffle, and download, for a whole album or playlist. */
 @Composable
-fun PlayAll(player: MusicPlayer, tracks: List<Track>, source: QueueSource, modifier: Modifier = Modifier, extra: @Composable RowScope.() -> Unit = {}) {
-    val kept = player.downloads.kept.collectAsState().value
-    val getting = player.downloads.getting.collectAsState().value
-    val all = tracks.isNotEmpty() && tracks.all { kept.containsKey(it.key) }
-    val busy = tracks.count { getting.containsKey(it.key) }
+fun PlayAll(player: MusicPlayer, tracks: List<Track>, source: QueueSource, modifier: Modifier = Modifier, download: Boolean = true, extra: @Composable RowScope.() -> Unit = {}) {
     val playingThis = player.source?.kind == source.kind && player.source?.id == source.id
     Row(modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilledIconButtonBig(if (playingThis && player.playing) "pause" else "play", "Play") {
             if (playingThis) player.toggle() else player.play(tracks, 0, source, shuffled = false)
         }
         IconButton(onClick = { player.play(tracks, (tracks.indices).random(), source, shuffled = true) }) { MusicGlyph("shuffle", MaterialTheme.colorScheme.onSurface) }
-        IconButton(onClick = { if (all) player.downloads.remove(tracks) else player.downloads.download(tracks) }) {
-            Box(contentAlignment = Alignment.Center) {
-                if (busy > 0) CircularProgressIndicator(progress = { 1f - busy.toFloat() / tracks.size }, modifier = Modifier.size(34.dp), strokeWidth = 2.dp)
-                MusicGlyph("downloaded", if (all) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, 22.dp)
-            }
-        }
+        if (download) CollectionKeep(player, tracks)
         extra()
         Spacer(Modifier.weight(1f))
         Text(listOf(if (tracks.size == 1) "1 song" else "${tracks.size} songs", Music.length(tracks)).joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

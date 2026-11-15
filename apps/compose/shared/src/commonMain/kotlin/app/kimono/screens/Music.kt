@@ -69,8 +69,12 @@ fun MusicHomeScreen(player: MusicPlayer, firstName: String?, go: MusicGo, openSe
     var problem by remember { mutableStateOf<String?>(null) }
     var tries by remember { mutableIntStateOf(0) }
     LaunchedEffect(tries) {
-        runCatching { music.home() }.onSuccess { home = it; problem = null }.onFailure { if (home == null) problem = it.message ?: "Music couldn't load." }
+        runCatching { music.home() }
+            .onSuccess { home = it; problem = null; player.connected(true) }
+            .onFailure { if (it.message == app.kimono.data.OFFLINE) player.connected(false); if (home == null) problem = it.message ?: "Music couldn't load." }
     }
+    /* Offline: look again now and then, and say so once it's back. */
+    if (player.offline) WhileShown(Unit) { while (true) { delay(15_000); runCatching { music.home() }.onSuccess { home = it; problem = null; player.connected(true) } ; if (!player.offline) break } }
     WhileShown(Unit) { while (true) { runCatching { music.friends() }.onSuccess { friends = it }; delay(30_000) } }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { MusicHead("Music", openSearch) }
@@ -85,8 +89,10 @@ fun MusicHomeScreen(player: MusicPlayer, firstName: String?, go: MusicGo, openSe
                 items(friends, key = { it.username }) { f -> FriendRecord(player, f, go) }
             }
         }
+        /* No connection: what's downloaded comes first, ready to play. */
+        if (player.offline) item(key = "offline") { OfflineDeck(player, go) { tries++ } }
         val h = home
-        if (h == null) item { if (problem != null) MusicProblem(problem!!) { tries++ } else MusicLoading() }
+        if (h == null) item { if (player.offline) Unit else if (problem != null) MusicProblem(problem!!) { tries++ } else MusicLoading() }
         else {
             if (h.jumpBack.size > 1) item {
                 Shelf("Jump back in") { items(h.jumpBack.take(12), key = { "jb" + it.key }) { t -> SleeveTile(t.title, t.byline, t.cover, player.current?.key == t.key && player.playing) { player.play(h.jumpBack, h.jumpBack.indexOf(t), QueueSource("history", "recent", "Played lately")) } } }
@@ -238,7 +244,14 @@ fun MusicYouScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go:
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Crate("Liked", "${mine?.liked ?: 0} songs", "love", Modifier.weight(1f)) { go("music/liked") }
                 Crate("History", "Lately", "restart", Modifier.weight(1f)) { go("music/history") }
-                Crate("Downloads", if (kept.isEmpty()) "None yet" else "${kept.size} · ${megabytes(kept.values.sumOf { it.size })}", "downloaded", Modifier.weight(1f)) { go("music/downloads") }
+                val coming = player.downloads.waiting.collectAsState().value.size
+                val lost = player.downloads.failed.collectAsState().value.size
+                Crate("Downloads", when {
+                    coming > 0 -> "Getting $coming…"
+                    lost > 0 -> "$lost didn't download"
+                    kept.isEmpty() -> "None yet"
+                    else -> "${kept.size} · ${megabytes(kept.values.sumOf { it.size })}"
+                }, "downloaded", Modifier.weight(1f)) { go("music/downloads") }
             }
         }
         val m = mine
@@ -350,26 +363,4 @@ fun MusicHistoryScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
     SongList(player, "History", tracks, problem, QueueSource("history", "all", "History"), go, back, "What you play shows up here.") { tries++ }
 }
 
-@Composable
-fun MusicDownloadsScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
-    val kept = player.downloads.kept.collectAsState().value
-    val getting = player.downloads.getting.collectAsState().value
-    val tracks = kept.values.sortedByDescending { it.at }.map { it.track }
-    Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = { KimonoTopBar("Downloads", onBack = back) }) { pad ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 24.dp)) {
-            item {
-                Text(if (kept.isEmpty()) "Download a song, album or playlist from its menu, and it plays with no connection." else "${kept.size} songs · ${megabytes(kept.values.sumOf { it.size })} on this phone",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-            }
-            if (getting.isNotEmpty()) item {
-                Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularWavyProgressIndicator(progress = { getting.values.firstOrNull() ?: 0f }, modifier = Modifier.size(28.dp))
-                    Text("Downloading ${getting.size} ${if (getting.size == 1) "song" else "songs"}", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            if (tracks.isNotEmpty()) item { PlayAll(player, tracks, QueueSource("downloads", "downloads", "Downloads"), Modifier.padding(vertical = 8.dp)) }
-            itemsIndexed(tracks, key = { _, t -> t.key }) { i, t -> SongRow(player, t, { player.play(tracks, i, QueueSource("downloads", "downloads", "Downloads")) }, go) }
-        }
-    }
-}
 

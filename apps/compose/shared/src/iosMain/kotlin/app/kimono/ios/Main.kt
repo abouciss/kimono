@@ -138,6 +138,10 @@ private class IosPlatform(private val host: IosHost) : Platform {
         platform.Foundation.NSFileManager.defaultManager.createDirectoryAtPath(path, true, null, null)
         return path
     }
+    @OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+    override fun freeBytes(): Long? = runCatching {
+        (platform.Foundation.NSFileManager.defaultManager.attributesOfFileSystemForPath(keepDir(), null)?.get(platform.Foundation.NSFileSystemFreeSize) as? platform.Foundation.NSNumber)?.longLongValue
+    }.getOrNull()
     override fun openFile(path: String, mimeType: String?) = host.openFile(path)
     override fun share(text: String) = host.share(text)
     override fun driveAvailable(on: Boolean) = host.driveAvailable(on)
