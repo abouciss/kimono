@@ -28,6 +28,8 @@ export * from "./model";
 
 const root = join(stateDir, "music");
 const g = globalThis as unknown as { kimonoMusic?: DatabaseSync };
+/* A hot reload keeps the connection but brings new code: bring the tables along. */
+let migrated = false;
 
 const HOUR = 3600_000, DAY = 24 * HOUR;
 
@@ -50,15 +52,20 @@ CREATE TABLE IF NOT EXISTS playlists (id TEXT PRIMARY KEY, username TEXT NOT NUL
 CREATE INDEX IF NOT EXISTS playlists_mine ON playlists (username, updated_at DESC);
 CREATE TABLE IF NOT EXISTS playlist_tracks (playlist TEXT NOT NULL, position INTEGER NOT NULL, track TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY (playlist, position));
 CREATE TABLE IF NOT EXISTS queues (username TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS playlist_members (playlist TEXT NOT NULL, username TEXT NOT NULL, invited_by TEXT NOT NULL, joined INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, PRIMARY KEY (playlist, username));
+CREATE INDEX IF NOT EXISTS playlist_members_user ON playlist_members (username);
 `);
+  /* Public: friends see it on your profile and can play it. Private (the default): you and whoever you've shared it with. */
+  const columns = (db.prepare("PRAGMA table_info(playlists)").all() as { name: string }[]).map((c) => c.name);
+  if (!columns.includes("public")) db.exec("ALTER TABLE playlists ADD COLUMN public INTEGER NOT NULL DEFAULT 0");
 }
 
 export function musicDb(): DatabaseSync {
   if (!g.kimonoMusic) {
     mkdirSync(root, { recursive: true, mode: 0o700 });
     g.kimonoMusic = new DatabaseSync(join(root, "music.db"));
-    migrate(g.kimonoMusic);
   }
+  if (!migrated) { migrate(g.kimonoMusic); migrated = true; }
   return g.kimonoMusic;
 }
 
@@ -295,28 +302,110 @@ export async function liked(username: string): Promise<Track[]> {
 
 /* ── Playlists ─────────────────────────────────────────────────────────── */
 
+type PlaylistRow = { id: string; username: string; name: string; updated_at: number; public: number };
+const rowOf = (id: string) => musicDb().prepare("SELECT id, username, name, updated_at, public FROM playlists WHERE id = ?").get(id) as PlaylistRow | undefined;
+const memberOf = (id: string, username: string) =>
+  musicDb().prepare("SELECT joined, invited_by FROM playlist_members WHERE playlist = ? AND username = ?").get(id, user(username)) as { joined: number; invited_by: string } | undefined;
+
+/** Yours alone: renaming, deleting, sharing. */
 function ownPlaylist(username: string, id: string) {
-  const row = musicDb().prepare("SELECT id, name, updated_at FROM playlists WHERE id = ? AND username = ?").get(id, user(username)) as { id: string; name: string; updated_at: number } | undefined;
-  if (!row) throw new MusicProblem("No such playlist.", 404);
+  const row = rowOf(id);
+  if (!row || row.username !== user(username)) throw new MusicProblem("No such playlist.", 404);
   return row;
 }
 
-export function playlists(username: string): Playlist[] {
-  const db = musicDb();
-  const rows = db.prepare("SELECT id, name, updated_at FROM playlists WHERE username = ? ORDER BY updated_at DESC").all(user(username)) as { id: string; name: string; updated_at: number }[];
-  return rows.map((p) => {
-    const keys = (db.prepare("SELECT track FROM playlist_tracks WHERE playlist = ? ORDER BY position").all(p.id) as { track: string }[]).map((r) => r.track);
-    const tracks = keptTracks(keys.slice(0, 12));
-    const covers = [...new Set(keys.slice(0, 12).map((k) => tracks.get(k)?.album?.cover).filter((c): c is string => Boolean(c)))].slice(0, 4);
-    return { id: p.id, name: p.name, count: keys.length, covers, updatedAt: new Date(p.updated_at).toISOString() };
-  });
+/** Yours, or one you've joined: its songs are yours to change too. */
+function editablePlaylist(username: string, id: string) {
+  const row = rowOf(id);
+  if (!row || (row.username !== user(username) && !memberOf(id, username)?.joined)) throw new MusicProblem("No such playlist.", 404);
+  return row;
 }
 
+/** Who a playlist is shared with: who's in, and who's been asked. */
+export function membersOf(id: string) {
+  return (musicDb().prepare("SELECT username, joined, invited_by FROM playlist_members WHERE playlist = ? ORDER BY at").all(id) as { username: string; joined: number; invited_by: string }[])
+    .map((m) => ({ username: m.username, joined: m.joined === 1, invitedBy: m.invited_by }));
+}
+
+function summary(p: PlaylistRow, viewer: string): Playlist {
+  const db = musicDb();
+  const keys = (db.prepare("SELECT track FROM playlist_tracks WHERE playlist = ? ORDER BY position").all(p.id) as { track: string }[]).map((r) => r.track);
+  const tracks = keptTracks(keys.slice(0, 12));
+  const covers = [...new Set(keys.slice(0, 12).map((k) => tracks.get(k)?.album?.cover).filter((c): c is string => Boolean(c)))].slice(0, 4);
+  const members = membersOf(p.id);
+  const me = members.find((m) => m.username === user(viewer));
+  return {
+    id: p.id, name: p.name, count: keys.length, covers, updatedAt: new Date(p.updated_at).toISOString(),
+    public: p.public === 1, shared: members.filter((m) => m.joined).length,
+    ...(p.username !== user(viewer) ? { owner: p.username } : {}),
+    ...(me && !me.joined ? { invited: true } : {}),
+  };
+}
+
+/** Your playlists: your own, the ones you've joined, and the ones you've been asked into. */
+export function playlists(username: string): Playlist[] {
+  const db = musicDb();
+  const rows = db.prepare(`SELECT p.id, p.username, p.name, p.updated_at, p.public FROM playlists p
+    WHERE p.username = ? OR p.id IN (SELECT playlist FROM playlist_members WHERE username = ?) ORDER BY p.updated_at DESC`).all(user(username), user(username)) as PlaylistRow[];
+  return rows.map((p) => summary(p, username));
+}
+
+/** Only the public ones: what friends see. */
+export const publicPlaylists = (username: string) => playlists(username).filter((p) => p.public && !p.owner);
+
+/** A playlist's songs, for its owner or anyone it's shared with (asked in or joined). */
 export function playlist(username: string, id: string) {
-  const p = ownPlaylist(username, id);
-  const keys = (musicDb().prepare("SELECT track FROM playlist_tracks WHERE playlist = ? ORDER BY position").all(id) as { track: string }[]).map((r) => r.track);
+  const p = rowOf(id);
+  if (!p || (p.username !== user(username) && !memberOf(id, username))) throw new MusicProblem("No such playlist.", 404);
+  return playlistView(p, username);
+}
+
+export function playlistView(p: PlaylistRow, viewer: string) {
+  const keys = (musicDb().prepare("SELECT track FROM playlist_tracks WHERE playlist = ? ORDER BY position").all(p.id) as { track: string }[]).map((r) => r.track);
   const tracks = keptTracks(keys);
-  return { id: p.id, name: p.name, updatedAt: new Date(p.updated_at).toISOString(), tracks: keys.flatMap((k) => tracks.get(k) ? [tracks.get(k)!] : []) };
+  const me = memberOf(p.id, viewer);
+  return {
+    id: p.id, name: p.name, updatedAt: new Date(p.updated_at).toISOString(), tracks: keys.flatMap((k) => tracks.get(k) ? [tracks.get(k)!] : []),
+    public: p.public === 1, ownerName: p.username, members: membersOf(p.id),
+    /* What this viewer may do with it. */
+    role: p.username === user(viewer) ? "owner" as const : me?.joined ? "member" as const : me ? "invited" as const : "listener" as const,
+  };
+}
+export const playlistRow = rowOf;
+
+/** Public (friends see it) or private (you and who you shared it with). */
+export function setPlaylistPublic(username: string, id: string, shown: boolean) {
+  ownPlaylist(username, id);
+  musicDb().prepare("UPDATE playlists SET public = ?, updated_at = ? WHERE id = ?").run(shown ? 1 : 0, Date.now(), id);
+  return playlist(username, id);
+}
+
+/** Asks a friend in: once they join, they add, remove and move songs too. The caller checks they're friends. */
+export function invitePlaylist(username: string, id: string, friend: string, now = Date.now()) {
+  const row = ownPlaylist(username, id);
+  if (user(friend) === row.username) throw new MusicProblem("It's already yours.", 400);
+  if (membersOf(id).length >= 20) throw new MusicProblem("Up to 20 people on one playlist.", 400);
+  musicDb().prepare("INSERT OR IGNORE INTO playlist_members (playlist, username, invited_by, joined, at) VALUES (?, ?, ?, 0, ?)").run(id, user(friend), row.username, now);
+  return playlist(username, id);
+}
+
+/** The owner takes someone off it. */
+export function dropFromPlaylist(username: string, id: string, friend: string) {
+  ownPlaylist(username, id);
+  musicDb().prepare("DELETE FROM playlist_members WHERE playlist = ? AND username = ?").run(id, user(friend));
+  return playlist(username, id);
+}
+
+/** Yes to being asked in. */
+export function joinPlaylist(username: string, id: string) {
+  if (!memberOf(id, username)) throw new MusicProblem("No such playlist.", 404);
+  musicDb().prepare("UPDATE playlist_members SET joined = 1 WHERE playlist = ? AND username = ?").run(id, user(username));
+  return playlist(username, id);
+}
+
+/** No thanks, or leaving one you'd joined. */
+export function leavePlaylist(username: string, id: string) {
+  musicDb().prepare("DELETE FROM playlist_members WHERE playlist = ? AND username = ?").run(id, user(username));
 }
 
 export async function createPlaylist(username: string, name: string, keys: string[] = []) {
@@ -330,7 +419,7 @@ export async function createPlaylist(username: string, name: string, keys: strin
 }
 
 export function renamePlaylist(username: string, id: string, name: string) {
-  ownPlaylist(username, id);
+  editablePlaylist(username, id);
   const clean = name.trim().slice(0, 120);
   if (!clean) throw new MusicProblem("A playlist needs a name.", 400);
   musicDb().prepare("UPDATE playlists SET name = ?, updated_at = ? WHERE id = ?").run(clean, Date.now(), id);
@@ -341,12 +430,13 @@ export function deletePlaylist(username: string, id: string) {
   ownPlaylist(username, id);
   const db = musicDb();
   db.prepare("DELETE FROM playlist_tracks WHERE playlist = ?").run(id);
+  db.prepare("DELETE FROM playlist_members WHERE playlist = ?").run(id);
   db.prepare("DELETE FROM playlists WHERE id = ?").run(id);
 }
 
 /** A playlist's songs, in order, as the person left them (added, removed, moved). */
 export async function setPlaylistTracks(username: string, id: string, keys: string[]) {
-  ownPlaylist(username, id);
+  editablePlaylist(username, id);
   if (keys.length > 5000) throw new MusicProblem("A playlist holds up to 5,000 songs.", 400);
   const tracks = await tracksFor(keys, 5000);
   const db = musicDb();

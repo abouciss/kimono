@@ -5,6 +5,7 @@ import { Seal } from "@kimono/ui";
 import { InkSheet } from "@/components/ink-sheet";
 import { LineIcon } from "@/components/line-icon";
 import { Favicon, hostOf, isSocial } from "./widgets";
+import { isEmojiIcon, LinkMark, linkGlyphs } from "./link-marks";
 
 /*
  * 鎖 Your links, edited as they'll look: paste an address and it's there,
@@ -13,7 +14,10 @@ import { Favicon, hostOf, isSocial } from "./widgets";
  * name; the rest are the buttons in your Links widget. Each change saves.
  */
 
-export type Link = { title: string; url: string };
+export type Link = { title: string; url: string; icon?: string };
+
+/** The last character typed, whole (an emoji with its joins and skin tone counts as one). */
+const lastGrapheme = (v: string) => { const all = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(v.trim())]; return all.length ? all[all.length - 1].segment : ""; };
 
 /* What well-known sites are called, so a pasted address arrives named. */
 const siteNames: [RegExp, string][] = [
@@ -104,7 +108,7 @@ export function LinksEditor({ links: start, onClose, onSave }: { links: Link[]; 
             onDragEnd={() => setDragging(null)} style={{ "--i": i } as React.CSSProperties}>
             <div className="le-row">
               <span className="le-grip" aria-hidden="true"><i /><i /><i /></span>
-              <span className="le-mark">{ok ? <Favicon url={whole(l.url)!} fallback="link" /> : <LineIcon name="link" />}</span>
+              <span className="le-mark">{ok ? <LinkMark url={whole(l.url)!} icon={l.icon} /> : <LineIcon name="link" />}</span>
               <button type="button" className="le-words" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
                 <b>{l.title || nameFor(whole(l.url) ?? l.url)}</b>
                 <small>{ok ? (social ? "Under your name" : i === featured ? "Featured button" : "Button") + " · " + (hostOf(whole(l.url)!) || l.url.replace(/^mailto:/, "")) : "Not a web address"}</small>
@@ -122,6 +126,21 @@ export function LinksEditor({ links: start, onClose, onSave }: { links: Link[]; 
             {open === i ? <div className="le-fields">
               <label className="field"><small>Title</small><input value={l.title} maxLength={40} onChange={(e) => set(i, { title: e.target.value })} autoFocus /></label>
               <label className="field"><small>Address</small><input value={l.url.replace(/^mailto:/, "")} inputMode="url" onChange={(e) => set(i, { url: e.target.value })} /></label>
+              <div className="le-icons" role="radiogroup" aria-label="Icon">
+                <small>Icon</small>
+                <div className="le-icon-grid">
+                  <button type="button" role="radio" aria-checked={!l.icon} className="le-icon is-site" title="The site's own" onClick={() => set(i, { icon: undefined })}>
+                    {ok ? <Favicon url={whole(l.url)!} fallback="link" /> : <LineIcon name="link" />}<span>Site</span>
+                  </button>
+                  {Object.entries(linkGlyphs).map(([key, g]) => <button key={key} type="button" role="radio" aria-checked={l.icon === key} className="le-icon" title={g.name} aria-label={g.name} onClick={() => set(i, { icon: key })}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d={g.d} /></svg>
+                  </button>)}
+                  <label className={`le-icon le-icon-emoji${isEmojiIcon(l.icon) ? " is-on" : ""}`} title="Any emoji">
+                    <input value={isEmojiIcon(l.icon) ? l.icon!.slice(6) : ""} placeholder="🙂" aria-label="An emoji instead"
+                      onChange={(e) => { const v = lastGrapheme(e.target.value); set(i, { icon: v ? `emoji:${v}` : undefined }); }} />
+                  </label>
+                </div>
+              </div>
             </div> : null}
           </li>;
         })}
