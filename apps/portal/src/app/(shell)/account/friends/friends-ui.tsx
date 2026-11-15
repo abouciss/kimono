@@ -10,7 +10,7 @@ import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
 import { Book3D } from "../../books/book3d";
-import { Favicon, isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
+import { defaultWidgets, Favicon, isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
 import { LinksEditor } from "./links-editor";
 
 /*
@@ -250,7 +250,6 @@ export function ProfileView({ username, home = false }: { username: string; home
   const [asked, setAsked] = useState(0);
   const [removing, setRemoving] = useState(false);
   /* What the × is about to take off, waiting on a yes. */
-  const [dropping, setDropping] = useState<{ s: Section; i: Item } | null>(null);
   const [unrecommending, setUnrecommending] = useState<Recommendation | null>(null);
   const [recommending, setRecommending] = useState<Item | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -287,18 +286,12 @@ export function ProfileView({ username, home = false }: { username: string; home
   /* Seen as a friend: only what friends see is drawn. */
   const preview = p.you && asFriend;
   const sections = p.open ? p.sections.filter((s) => !preview || (!invisible && !rowKept(s.app, s.kind))) : [];
-  const groups = Object.values(sections.reduce<Record<string, Section[]>>((by, s) => { (by[s.app] ??= []).push(s); return by; }, {}));
-  /* Your own: one title off one row, for good until you put it back (lib/friends removeFromRow); it leaves at once and comes back if that fails. */
-  const drop = (s: Section, i: Item) => {
-    if (!p.open) return;
-    const left = { ...p, sections: p.sections.map((x) => (x === s ? { ...x, items: x.items.filter((y) => y.itemId !== i.itemId) } : x)).filter((x) => x.items.length > 0) };
-    setProfile(left);
-    return call<{ off: Off[] }>("/api/v1/profile", "PATCH", { remove: { app: s.app, kind: s.kind, itemId: i.itemId, title: i.title, subtitle: i.subtitle, cover: i.cover } })
-      .then((r) => { setProfile({ ...left, off: r.off }); setToast(`Off ${s.title}`); }, (e) => { setProblem(message(e)); void load(); });
-  };
   const off = p.open ? p.off ?? [] : [];
   const friendList = p.open && !(preview && friendsKept) ? p.friendList ?? [] : [];
   const color = colorOf(p.open ? p.color : null);
+  /* The widgets are the profile: what each app shows lives in them, and friends only get their own section when there's no Friends widget. */
+  const board = p.open ? { person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex } : null;
+  const friendsOnBoard = board ? (p.open && p.widgets ? p.widgets : defaultWidgets(board)).some((w) => w.kind === "friends") : false;
   const onlyYou = <button type="button" className="fr-only" onClick={() => setPrivacyOpen(true)} title="Friends don't see this"><LineIcon name="lock" />Only you</button>;
   /* Invisible, seen as a friend: what they get is your name and portrait. */
   const closedToFriends = preview && invisible;
@@ -340,7 +333,7 @@ export function ProfileView({ username, home = false }: { username: string; home
       </div>
     </header>
     {p.open && !closedToFriends ? <WidgetBoard
-      data={{ person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex }}
+      data={board!}
       widgets={p.widgets ?? null} editable={p.you && !preview} arranging={arranging && p.you && !preview} onArranging={setArranging} onEditLinks={p.you && !preview ? () => setEditingLinks(true) : undefined}
       onSave={(widgets) => call<{ widgets?: Widget[] }>("/api/v1/profile", "PATCH", { widgets }).then(() => { setProfile({ ...p, widgets }); setToast("Saved"); }, (e) => setProblem(message(e)))} /> : null}
     {problem ? <p className="fr-problem" role="alert">{problem}</p> : null}
@@ -358,29 +351,7 @@ export function ProfileView({ username, home = false }: { username: string; home
         </Tile>)}</div>
       </section> : null}
 
-      {groups.map((rows) => {
-        const app = rows[0].app;
-        const kept = appKept(app) || invisible;
-        return <section key={app} className={`fr-group fr-card fr-app-${app}${kept && p.you && !preview ? " is-kept" : ""}`}>
-          <div className="fr-app-head">
-            <InkBlot tint={appTint(app)} seed={`app:${app}`}><LineIcon name={appIcon(app)} /></InkBlot>
-            <h2>{rows[0].appName}</h2>
-            {p.you && !preview && kept ? onlyYou : null}
-          </div>
-          {rows.map((s) => {
-            const only = p.you && !preview && !kept && rowKept(app, s.kind);
-            return <div key={`${s.app}:${s.kind}`} className={only ? "is-kept" : undefined}>
-              <div className="label fr-label">{s.title}{only ? onlyYou : null}</div>
-              <div className="fr-shelf k-inkbar">{s.items.map((i) => <Tile key={i.itemId} item={i}>
-                {p.you && !preview ? <button type="button" className="fr-away" aria-label={`Take ${i.title} off ${s.title}`} title="Take it off your profile" onClick={() => setDropping({ s, i })}><LineIcon name="close" /></button>
-                  : p.you ? null : <button type="button" className="fr-away" aria-label={`Recommend ${i.title}`} onClick={() => setRecommending(i)}><LineIcon name="send" /></button>}
-              </Tile>)}</div>
-            </div>;
-          })}
-        </section>;
-      })}
-
-      {friendList.length || (p.you && !preview) ? <section className={`fr-group fr-card fr-friends${friendsKept && !preview ? " is-kept" : ""}`}>
+      {!friendsOnBoard && (friendList.length || (p.you && !preview)) ? <section className={`fr-group fr-card fr-friends${friendsKept && !preview ? " is-kept" : ""}`}>
         <div className="fr-app-head">
           <InkBlot tint="#74565c" seed="friends"><LineIcon name="people" /></InkBlot>
           <h2>Friends</h2>
@@ -407,10 +378,6 @@ export function ProfileView({ username, home = false }: { username: string; home
       <Seal tone="quiet" compact onClick={() => setRemoving(false)}>Keep</Seal>
       <Seal tone="danger" compact onClick={() => { setRemoving(false); void change("remove"); }}>Remove</Seal>
     </>}><p className="fr-quiet">You&rsquo;ll stop seeing each other&rsquo;s profiles and what you watch, read and listen to.</p></InkSheet> : null}
-    {dropping ? <InkSheet title={`Take ${dropping.i.title} off ${dropping.s.title}?`} icon="trash" onClose={() => setDropping(null)} actions={<>
-      <Seal tone="quiet" compact onClick={() => setDropping(null)}>Keep</Seal>
-      <Seal tone="danger" compact onClick={() => { const d = dropping; setDropping(null); void drop(d.s, d.i); }}>Take off</Seal>
-    </>}><p className="fr-quiet">{dropLoses(dropping.s)}</p></InkSheet> : null}
     {unrecommending ? <InkSheet title={`Take ${unrecommending.title} off your profile?`} icon="trash" onClose={() => setUnrecommending(null)} actions={<>
       <Seal tone="quiet" compact onClick={() => setUnrecommending(null)}>Keep</Seal>
       <Seal tone="danger" compact onClick={() => { const r = unrecommending; setUnrecommending(null); void takeBack(r); }}>Take off</Seal>
@@ -526,9 +493,6 @@ function EditProfileSheet({ profile, onClose, onSaved, onLinks }: { profile: Pro
 }
 
 /** What taking a title off a row means, said before it's done (lib/friends removeFromRow): only the profile forgets it. */
-const dropLoses = (s: Section) =>
-  s.app === "books" && s.kind === "reading" ? "Your progress stays. Put it back from Taken off."
-      : `It stays in ${s.appName}. Put it back from Taken off.`;
 
 /** What you took off your profile, each with the row it came off; Put back returns it there. */
 function OffSheet({ off, onClose, onBack, onProblem }: { off: Off[]; onClose: () => void; onBack: (left: Off[], back: Off) => void; onProblem: (problem: string) => void }) {
