@@ -682,3 +682,10 @@
   .km-duo:not(.is-single) > .km-shelf .km-card-art { width: 240px; height: 240px; }
 }
 .km-duo > section > .k-heading, .km-duo > section > header { margin-bottom: var(--k-space-3); }
+
+/* The song's place, as on the phone: Material's wavy media bar in ink, flat while paused; the knob is a short upright stroke. */
+.km-slider-is-wave { height: 24px; }
+.km-slider-wave { display: block; }
+.km-slider-wave .k-wave { height: 14px; color: var(--k-accent); }
+.km-slider-is-wave .km-slider-knob { width: 5px; height: 22px; margin-left: -2.5px; border-radius: 3px; background: var(--k-accent); opacity: 1; transform: none; box-shadow: 0 0 0 3px var(--k-surface-container, var(--k-surface)); }
+.km-slider-is-wave:hover .km-slider-knob, .km-slider-is-wave.km-dragging .km-slider-knob { transform: scaleY(1.15); }

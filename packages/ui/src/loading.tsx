@@ -103,7 +103,7 @@ const trackBrush = (points: InkPoint[], origin: number, extent: number, weight: 
 const flatTrack = (from: number, to: number, mid: number, weight: number, start: number, end: number) => to - from < weight ? "" : trackBrush([[from, mid], [to, mid]], from - start, end - start, weight);
 
 /** One frame of the bar in a w×h box: the waves, the track, the dot. */
-function frame(w: number, h: number, t: number, value: number | undefined) {
+function frame(w: number, h: number, t: number, value: number | undefined, calm = 1) {
   const bar = Math.min(h, Math.max(8, w / 3));
   const weight = Math.max(1.5, bar * .3), pad = weight / 2 + 1, mid = h / 2;
   const amp = Math.max(0, (bar - weight) / 2 * .85);
@@ -116,7 +116,7 @@ function frame(w: number, h: number, t: number, value: number | undefined) {
   if (value !== undefined) {
     const reach = start + span * value;
     /* Flat where it starts and where it lands, wavy between. */
-    const swing = amp * Math.min(1, value / .1) * Math.max(0, Math.min(1, (1 - value) / .05));
+    const swing = calm * amp * Math.min(1, value / .1) * Math.max(0, Math.min(1, (1 - value) / .05));
     if (value > 0) { const points = wavePoints(start, reach, mid, swing, length, phase); bleed = bleedBrush(points, 0, weight); wave = waveBrush(points, 0, weight); }
     track = flatTrack(value > 0 ? reach + gap : start, end - weight * 1.2, mid, weight, start, end);
     dot = end - weight * .3;
@@ -137,7 +137,7 @@ function frame(w: number, h: number, t: number, value: number | undefined) {
 }
 
 /** The bar, drawn every frame into whatever box CSS gives it. */
-function Wave({ value, colour, label, className }: { value?: number; colour?: string; label: string; className: string }) {
+function Wave({ value, colour, label, className, still = false, glide = true }: { value?: number; colour?: string; label: string; className: string; still?: boolean; glide?: boolean }) {
   const box = useRef<HTMLSpanElement>(null);
   const [size, setSize] = useState<[number, number]>([0, 0]);
   const now = useClock();
@@ -148,9 +148,12 @@ function Wave({ value, colour, label, className }: { value?: number; colour?: st
     const observer = new ResizeObserver(measure); observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const known = useGlide(typeof value === "number" ? Math.min(1, Math.max(0, value)) : undefined, now);
+  const target = typeof value === "number" ? Math.min(1, Math.max(0, value)) : undefined;
+  const glided = useGlide(target, now);
+  const known = glide ? glided : target;
+  const calm = useCalm(still, now);
   const [w, h] = size;
-  const f = w && h ? frame(w, h, now, known) : null;
+  const f = w && h ? frame(w, h, now, known, calm) : null;
   return <span ref={box} className={className} style={colour ? { color: colour } : undefined} role="progressbar" aria-label={label || undefined}
     aria-valuemin={known !== undefined ? 0 : undefined} aria-valuemax={known !== undefined ? 100 : undefined} aria-valuenow={known !== undefined ? Math.round(known * 100) : undefined}>
     {f ? <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
@@ -176,6 +179,21 @@ function useGlide(target: number | undefined, now: number) {
   if (!h || target < h.shown) held.current = { shown: target, at: now };
   else { h.shown += (target - h.shown) * (1 - Math.exp(-Math.max(0, now - h.at) / 140)); if (Math.abs(target - h.shown) < .001) h.shown = target; h.at = now; }
   return held.current!.shown;
+}
+
+/**
+ * How wavy the bar is, 0 to 1: it settles flat while `still` (paused, as Material's media
+ * bar does) and swells back when it moves again, over about a third of a second.
+ */
+function useCalm(still: boolean, now: number) {
+  const held = useRef<{ v: number; at: number } | null>(null);
+  const goal = still ? 0 : 1;
+  if (!held.current) held.current = { v: goal, at: now };
+  const h = held.current;
+  h.v += (goal - h.v) * (1 - Math.exp(-Math.max(0, now - h.at) / 110));
+  if (Math.abs(goal - h.v) < .01) h.v = goal;
+  h.at = now;
+  return h.v;
 }
 
 /** Milliseconds since mount, every frame; held at 500 for reduced motion (a known bar still fills, an unknown one shows one wave). */
@@ -207,8 +225,14 @@ export function BusyFace({ busy, label = "Working", children }: { busy: boolean;
 }
 
 /** The wavy bar for a real progress. `value` 0–1 fills it; leave it out while how long is unknown. */
-export function InkWave({ value, label = "Loading", className }: { value?: number; label?: string; className?: string }) {
-  return <Wave value={value} label={label} className={cx("k-wave", className)}/>;
+export function InkWave({ value, label = "Loading", className, still, glide }: {
+  value?: number; label?: string; className?: string;
+  /** Flat while true: a paused song or film (the wave settles, and swells back on play). */
+  still?: boolean;
+  /** false: follow the value at once (a bar being dragged), instead of easing after it. */
+  glide?: boolean;
+}) {
+  return <Wave value={value} label={label} className={cx("k-wave", className)} still={still} glide={glide}/>;
 }
 
 /** One frame of the ring in a 100×100 box: the filled wave from the top, clockwise, then the track, brushed as the bar is. */
