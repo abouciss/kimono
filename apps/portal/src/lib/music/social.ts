@@ -67,6 +67,40 @@ export async function friendsListening(viewer: string): Promise<FriendListening[
   return out.sort((a, b) => Number(b.live) - Number(a.live) || Date.parse(b.at) - Date.parse(a.at));
 }
 
+/* ── For a profile's widgets ───────────────────────────────────────────── */
+
+/**
+ * What a profile's Music widgets show: the song on now (or the last one
+ * heard properly), the artists played most this month, and the month's count.
+ * The profile asks only when friends may see this person's listening.
+ */
+export async function musicExtras(username: string) {
+  const db = musicDb();
+  const u = user(username);
+  const now = Date.now();
+  const q = db.prepare("SELECT data, updated_at FROM queues WHERE username = ?").get(u) as { data: string; updated_at: number } | undefined;
+  const queue = q ? JSON.parse(q.data) as Omit<Queue, "updatedAt"> : null;
+  let listening: { track: Track; at: string; live: boolean } | null = null;
+  if (q && queue?.playing && now - q.updated_at < 2 * 60_000 && queue.tracks[queue.index]) listening = { track: queue.tracks[queue.index], at: new Date(q.updated_at).toISOString(), live: true };
+  else {
+    const last = db.prepare("SELECT track, played_at FROM plays WHERE username = ? AND seconds >= 30 ORDER BY played_at DESC LIMIT 1").get(u) as { track: string; played_at: number } | undefined;
+    const [t] = last ? await tracksFor([last.track], 1) : [];
+    if (t && last) listening = { track: t, at: new Date(last.played_at).toISOString(), live: false };
+  }
+  const month = db.prepare("SELECT count(*) AS n, coalesce(sum(seconds), 0) AS s FROM plays WHERE username = ? AND played_at > ? AND seconds >= 30").get(u, now - 30 * DAY) as { n: number; s: number };
+  const top = db.prepare("SELECT artists, count(*) AS n FROM plays WHERE username = ? AND played_at > ? AND seconds >= 30 GROUP BY artists ORDER BY n DESC LIMIT 12").all(u, now - 30 * DAY) as { artists: string }[];
+  const seen = new Set<string>();
+  const artists: { key: string; name: string; picture: string | null }[] = [];
+  for (const row of top) for (const a of JSON.parse(row.artists) as { key: string; name: string }[]) {
+    if (seen.has(a.key) || artists.length >= 6) continue;
+    seen.add(a.key);
+    const kept = db.prepare("SELECT data FROM lookups WHERE kind = 'artist' AND id = ?").get(a.key) as { data: string | null } | undefined;
+    const picture = kept?.data ? (JSON.parse(kept.data) as { artist?: { picture?: string | null } }).artist?.picture ?? null : null;
+    artists.push({ key: a.key, name: a.name, picture });
+  }
+  return { listening, plays: month.n, minutes: Math.round(month.s / 60), artists };
+}
+
 /* ── Friends on a song ─────────────────────────────────────────────────── */
 
 export type FriendOnSong = Person & { loved: boolean; playedAt: string | null };

@@ -1,5 +1,6 @@
 import { ProfileView } from "../../friends/friends-ui";
 import "../../friends/friends.css";
+import "../../friends/widgets.css";
 
 export const metadata = { title: "Profile" };
 

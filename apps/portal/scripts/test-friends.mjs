@@ -306,3 +306,18 @@ test('profile look: pronouns, a house colour, links; anything else refused', () 
   assert.throws(() => friends.setLook(db, 'ana', { color: 'neon' }), /colours/);
   assert.equal(friends.lookOf(db, 'ana').color, 'moss');
 });
+
+test('profile widgets: known kinds and sizes, each keeping only what it should', () => {
+  const ws = friends.widgetsFrom([
+    { id: 'a', kind: 'listening', size: 'l' },
+    { id: 'b', kind: 'song', size: 'm', config: { key: 'dz:123', title: 'Plastic Love', subtitle: 'Mariya Takeuchi', cover: 'https://cdn.example/x.jpg', extra: 'no' } },
+    { id: 'c', kind: 'note', size: 's', config: { text: 'hi', tint: 'moss' } },
+    { id: 'd', kind: 'clock', size: 's', config: { zone: 'America/Toronto' } },
+  ]);
+  assert.deepEqual(ws[1].config, { key: 'dz:123', title: 'Plastic Love', subtitle: 'Mariya Takeuchi', cover: 'https://cdn.example/x.jpg' });
+  assert.equal(ws[0].config, undefined);
+  assert.throws(() => friends.widgetsFrom([{ kind: 'iframe', size: 's' }]), /widget/);
+  assert.throws(() => friends.widgetsFrom([{ kind: 'note', size: 'huge' }]), /size/);
+  assert.throws(() => friends.widgetsFrom([{ kind: 'clock', size: 's', config: { zone: 'Mars/Olympus' } }]), /time zone/);
+  assert.equal(friends.widgetsFrom([{ kind: 'song', size: 's', config: { key: 'dz:1', cover: 'javascript:alert(1)' } }])[0].config.cover, '');
+});

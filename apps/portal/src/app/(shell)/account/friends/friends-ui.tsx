@@ -10,6 +10,7 @@ import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
 import { Book3D } from "../../books/book3d";
+import { WidgetBoard, type MusicExtras, type Widget } from "./widgets";
 
 /*
  * 友 Friends, profiles and recommendations on the web (lib/friends has the
@@ -30,7 +31,7 @@ export type Section = { app: string; appName: string; kind: string; title: strin
 /** Private until you're friends: then only `open: false` and who they are comes back (lib/friends/model.ts profileFor). */
 export type Profile = Person & { you: boolean; link: "friends" | "asked" | "asking" | null } & (
   | { open: false }
-  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string }[]; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
+  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string }[]; widgets?: Widget[] | null; music?: MusicExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
 );
 /** What you let friends see (your own profile only): lib/friends/model.ts privacyOf. */
 export type Privacy = { invisible: boolean; friends: boolean; apps: { app: string; name: string; shown: boolean; rows: { kind: string; title: string; shown: boolean }[] }[] };
@@ -228,7 +229,6 @@ function linkMark(url: string): LineIconName {
   if (/twitter|x\.com|bsky|mastodon|threads|facebook|linkedin|discord/.test(host)) return "people";
   return "link";
 }
-const linkHost = (url: string) => { try { const u = new URL(url); return u.protocol === "mailto:" ? u.pathname : u.hostname.replace(/^www\./, ""); } catch { return url; } };
 
 /* What each row of a profile says, in plain words, for Who sees what. */
 const rowWords: Record<string, string> = {
@@ -242,19 +242,6 @@ const rowWords: Record<string, string> = {
   "music:loved": "Songs you love",
   "music:playlists": "Your playlists (friends can open and play them)",
 };
-
-/* What someone's up to right now, from their rows: the song on (in the last half hour), the book, the show. */
-function rightNow(sections: Section[]) {
-  const first = (app: string, kind: string) => sections.find((s) => s.app === app && s.kind === kind)?.items[0];
-  const song = first("music", "playing") as (Item & { at?: number | null }) | undefined;
-  const out: { app: string; verb: string; item: Item }[] = [];
-  if (song && song.at && Date.now() - song.at < 30 * 60_000) out.push({ app: "music", verb: "Listening to", item: song });
-  const book = first("books", "reading");
-  if (book) out.push({ app: "books", verb: "Reading", item: book });
-  const show = first("watch", "watching");
-  if (show) out.push({ app: "watch", verb: "Watching", item: show });
-  return out;
-}
 
 export function ProfileView({ username, home = false }: { username: string; home?: boolean }) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -308,7 +295,6 @@ export function ProfileView({ username, home = false }: { username: string; home
   const off = p.open ? p.off ?? [] : [];
   const friendList = p.open && !(preview && friendsKept) ? p.friendList ?? [] : [];
   const color = colorOf(p.open ? p.color : null);
-  const now = p.open ? rightNow(sections) : [];
   const onlyYou = <button type="button" className="fr-only" onClick={() => setPrivacyOpen(true)} title="Friends don't see this"><LineIcon name="lock" />Only you</button>;
   /* Invisible, seen as a friend: what they get is your name and portrait. */
   const closedToFriends = preview && invisible;
@@ -339,18 +325,10 @@ export function ProfileView({ username, home = false }: { username: string; home
           {closedToFriends ? <p className="fr-quiet">You&rsquo;re invisible, so this is all friends see.</p> : null}
         </div>
       </div>
-      {p.open && !closedToFriends && p.links.length ? <nav className="fr-links" aria-label="Links">
-        {/* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab: there's no page change to make. */}
-        {p.links.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" className="fr-link">
-          <span className="fr-link-mark"><LineIcon name={linkMark(l.url)} /></span>
-          <span className="fr-link-words"><b>{l.title}</b><small>{linkHost(l.url)}</small></span>
-          <LineIcon name="out" className="fr-link-out" />
-        </a>)}
-      </nav> : null}
-      {now.length && !closedToFriends ? <div className="fr-now" aria-label="Right now">
-        {now.map((n) => { const href = hrefOf(n.item); const inner = <><Cover item={n.item} /><span><small><i className={n.app === "music" ? "fr-live" : undefined} />{n.verb}</small><b>{n.item.title}</b>{n.item.subtitle ? <em>{n.item.subtitle}</em> : null}</span></>;
-          return href ? <Crossing key={n.app} kind="kakejiku" href={href} className={`fr-now-one fr-app-${n.app}`}>{inner}</Crossing> : <span key={n.app} className={`fr-now-one fr-app-${n.app}`}>{inner}</span>; })}
-      </div> : null}
+      {p.open && !closedToFriends ? <WidgetBoard
+        data={{ person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, color: color.hex }}
+        widgets={p.widgets ?? null} editable={p.you && !preview}
+        onSave={(widgets) => call<{ widgets?: Widget[] }>("/api/v1/profile", "PATCH", { widgets }).then(() => { setProfile({ ...p, widgets }); setToast("Saved"); }, (e) => setProblem(message(e)))} /> : null}
     </header>
     {problem ? <p className="fr-problem" role="alert">{problem}</p> : null}
 
