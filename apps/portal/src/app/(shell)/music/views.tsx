@@ -40,15 +40,19 @@ export function TopBar({ app }: { app: AppIdentity }) {
     addEventListener("keydown", slash);
     return () => removeEventListener("keydown", slash);
   }, []);
-  /* Typing searches as you go; the address follows, so back returns to the results. */
+  /*
+   * Typing searches as you go. The first letter elsewhere opens the results at once, without a page's
+   * crossing; after that only the address changes (no reload, no animation), so back still returns to them.
+   */
   useEffect(() => {
     if (!onSearch && !text.trim()) return;
-    const t = setTimeout(() => {
-      const url = text.trim() ? `/music/search?q=${encodeURIComponent(text.trim())}` : "/music/search";
-      /* Results change in place as you type: the same page, so no crossing for each letter. */
-      // eslint-disable-next-line no-restricted-syntax -- the search page replacing its own query, not a move between pages
-      if (onSearch) router.replace(url, { scroll: false }); else if (text.trim()) crossTo("kakejiku", url);
-    }, 250);
+    const url = text.trim() ? `/music/search?q=${encodeURIComponent(text.trim())}` : "/music/search";
+    if (!onSearch) {
+      // eslint-disable-next-line no-restricted-syntax -- opening search from the field itself: the field stays put, so there's no crossing
+      router.push(url, { scroll: false });
+      return;
+    }
+    const t = setTimeout(() => { window.history.replaceState(null, "", url); }, 200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on what's typed
   }, [text]);
@@ -195,13 +199,14 @@ function SentToYou() {
 export function SearchView() {
   const q = useSearchParams().get("q")?.trim() ?? "";
   useTabTitle(q ? `“${q}”` : "Search", "Kimono Music");
-  const { data, error, retry } = useMusic(q ? `search:${q.toLowerCase()}` : null, () => musicApi.search(q));
+  /* As you type, the last results stay until the new ones come, rather than blanking for each letter. */
+  const { data, error, retry, stale } = useMusic(q ? `search:${q.toLowerCase()}` : null, () => musicApi.search(q), true);
   if (!q) return <div className="km-page"><p className="km-quiet">Find any song, album or artist.</p></div>;
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!data) return <Loading />;
   if (!data.tracks.length && !data.albums.length && !data.artists.length) return <div className="km-page"><p className="km-quiet">Nothing found for “{q}”.</p></div>;
   const top = data.artists[0];
-  return <div className="km-page km-results">
+  return <div className={cx("km-page km-results", stale && "is-stale")} aria-busy={stale || undefined}>
     <div className="km-results-top">
       {top ? <section className="km-best">
         <h2 className="k-heading">Top result</h2>
