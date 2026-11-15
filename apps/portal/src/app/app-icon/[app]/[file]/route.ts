@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { appFaviconSvg, faviconApps, type FaviconApp, type FaviconSize } from "@/lib/app-favicon";
 import { appIdentity, appRegistry } from "@/lib/apps";
 import { booksIdentity } from "@/lib/books/config";
+import { musicIdentity } from "@/lib/music/config";
 import { codeIdentity } from "@/lib/code/config";
 import { getAppDefinition } from "@/lib/definitions";
 import { driveIdentity } from "@/lib/drive/config";
@@ -22,6 +23,7 @@ const identities: Record<FaviconApp, (settings: PlatformSettings) => Promise<App
   drive: driveIdentity,
   notes: notesIdentity,
   books: booksIdentity,
+  music: musicIdentity,
   ai: codeIdentity,
   watch: watchIdentity,
   vpn: async () => identityOf(ownApp("kimono-vpn")),

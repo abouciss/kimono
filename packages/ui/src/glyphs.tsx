@@ -6,7 +6,7 @@
  * between them. Strokes are round and even: these are read at 20px, where a
  * thin line and a sharp corner both disappear.
  */
-export type GlyphName = "mesh" | "notes" | "play" | "image" | "shield" | "bloom" | "git" | "server" | "tools" | "file" | "code" | "book";
+export type GlyphName = "mesh" | "notes" | "play" | "image" | "shield" | "bloom" | "git" | "server" | "tools" | "file" | "code" | "book" | "music";
 
 /**
  * Each glyph as SVG markup, so the website's bloom and the one the Portal
@@ -30,6 +30,8 @@ export const glyphMarkup: Record<GlyphName, string> = {
   code: '<path d="M43 40 L34 50 L43 60"></path><path d="M57 40 L66 50 L57 60"></path><path d="M53 37 L47 63"></path>',
   /* An open book, its two pages meeting at the spine: Books. */
   book: '<path d="M50 41 C44 37 38 36 33 37 V62 C38 61 44 62 50 66 C56 62 62 61 67 62 V37 C62 36 56 37 50 41 Z"></path><path d="M50 41 V66"></path>',
+  /* An eighth note, its flag lifting off the stem: Music. */
+  music: '<ellipse cx="44" cy="60" rx="7" ry="5.5" transform="rotate(-18 44 60)"></ellipse><path d="M50.5 58 V35 C54 40 61 41 63 49"></path>',
 };
 
 /** The glyph as markup, in the group <Glyph> draws it in. */

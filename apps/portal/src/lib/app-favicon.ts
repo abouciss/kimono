@@ -25,7 +25,7 @@ export function appFaviconSvg(app: Pick<AppIdentity, "id" | "accent" | "glyph">,
 }
 
 /** The apps with a tab icon of their own, by the name in /app-icon/<name>/. */
-export const faviconApps = ["drive", "notes", "books", "ai", "watch", "vpn", "tools"] as const;
+export const faviconApps = ["drive", "notes", "books", "music", "ai", "watch", "vpn", "tools"] as const;
 export type FaviconApp = (typeof faviconApps)[number];
 
 /** A page's `icons`, pointing at its app's icon (app/app-icon/[app]/[file]/route.ts). */

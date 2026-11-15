@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  /* Music's YouTube.js, and the jsdom BotGuard runs in to mint its PO token, load from node_modules as they are. */
+  serverExternalPackages: ["youtubei.js", "bgutils-js", "jsdom"],
   transpilePackages: ["@kimono/ui", "@kimono/app-sdk", "@kimono/account", "@kimono/artifacts"],
   /* The artifact engine is served from its package, and three.js and KaTeX from here (app/ai/lib).
      Those two are named where pnpm keeps them: the build doesn't follow the links in node_modules.
