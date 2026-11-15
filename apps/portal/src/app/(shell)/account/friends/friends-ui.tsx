@@ -281,9 +281,9 @@ export function ProfileView({ username, home = false }: { username: string; home
         </span> : null}
       </div>}
       <div className="fr-hero-body">
-        {p.you && !preview ? <Crossing kind="kakejiku" className="you-picture fr-hero-face" href="/account?sheet=picture" aria-label="Change your picture">
+        {p.you && !preview ? <Crossing kind="kakejiku" className="you-picture fr-hero-face" href="/account?sheet=picture" aria-label="Change your picture" data-named="">
           <Face person={p} size={148} /><span className="you-camera"><LineIcon name="camera" /></span></Crossing>
-          : <span className="you-picture fr-hero-face"><Face person={p} size={148} /></span>}
+          : <span className="you-picture fr-hero-face" data-named=""><Face person={p} size={148} /></span>}
         <div className="fr-hero-words">
           <h1 className="fr-name">{p.name}{p.open && p.pronouns && !closedToFriends ? <small className="fr-pronouns">{p.pronouns}</small> : null}</h1>
           <p className="fr-handle">@{p.username}{p.open && !closedToFriends ? ` · ${p.friends === 1 ? "1 friend" : `${p.friends} friends`}` : ""}</p>
