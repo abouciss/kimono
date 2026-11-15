@@ -2,7 +2,9 @@
 
 import { useTabTitle } from "@/components/tab-title";
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AppLockup, InkWave, MorphLoader, type AppIdentity } from "@kimono/ui";
+import { AppLockup, InkPortraitFrame, InkWave, MorphLoader, type AppIdentity } from "@kimono/ui";
+import { Crossing } from "@/components/crossing";
+import { Portrait } from "@/components/portrait";
 import Markdown, { type Components } from "react-markdown";
 import { asBook, booksApi, BooksError, count, ratingLabel, stateLabel, verdictOf, type Book, type BookFileInfo, type FriendOnBook, type FriendReading, type Genre, type GenrePage as GenrePageData, type Home, type Page, type Rating, type ReadingFormat, type ShelfItem, type ShelfState } from "./api";
 import { Book3D } from "./book3d";
@@ -38,7 +40,9 @@ function writePlace(tab: Tab, book: string | null, q: string, push: boolean, gen
   if (push) history.pushState(null, "", url); else history.replaceState(null, "", url);
 }
 
-export function BooksApp({ app, accent, firstName, home: arrived }: { app: AppIdentity; accent: string; firstName: string; home: Home | null }) {
+type You = { username: string; name: string; picture: string | null };
+
+export function BooksApp({ app, you, accent, firstName, home: arrived }: { app: AppIdentity; you: You; accent: string; firstName: string; home: Home | null }) {
   const [tab, setTab] = useState<Tab>(() => readPlace().tab);
   const [open, setOpen] = useState<string | null>(() => readPlace().book);
   const [query, setQuery] = useState(() => readPlace().q);
@@ -102,7 +106,7 @@ export function BooksApp({ app, accent, firstName, home: arrived }: { app: AppId
       <Tabs at={query ? null : tab === "home" ? 0 : tab === "shelf" ? 1 : null}>
         <button aria-current={tab === "home" && !query ? "page" : undefined} onClick={() => go("home")}>Discover</button>
         <button aria-current={tab === "shelf" && !query ? "page" : undefined} onClick={() => go("shelf")}>
-          My shelf{shelf?.length ? <span className="kb-count">{shelf.length}</span> : null}
+          You{shelf?.length ? <span className="kb-count">{shelf.length}</span> : null}
         </button>
       </Tabs>
       <SearchField value={query} onChange={search} />
@@ -114,7 +118,7 @@ export function BooksApp({ app, accent, firstName, home: arrived }: { app: AppId
       {query.trim()
         ? <SearchResults q={query.trim()} genres={home?.genres ?? []} onOpen={openBook} onBrowse={browse} />
         : tab === "shelf"
-          ? <ShelfPage shelf={shelf} onOpen={openBook} onDiscover={() => go("home")} />
+          ? <ShelfPage you={you} shelf={shelf} friends={home?.friends ?? null} onOpen={openBook} onDiscover={() => go("home")} />
           : genre
             ? <GenrePage key={genre} id={genre} genres={home?.genres ?? []} onOpen={openBook} onBrowse={browse} onBack={() => go("home")} />
             : <HomePage home={home} reading={reading} firstName={firstName} problem={problem} onRetry={loadHome} onOpen={openBook} onShelf={() => go("shelf")} onBrowse={browse} onPlaced={placed} />}
@@ -488,17 +492,43 @@ function RatingIcon({ rating }: { rating: Rating }) {
 const shelfOrder: ShelfState[] = ["reading", "want", "read"];
 const shelfTitle: Record<ShelfState, string> = { reading: "Reading now", want: "Want to read", read: "Read" };
 
-function ShelfPage({ shelf, onOpen, onDiscover }: { shelf: ShelfItem[] | null; onOpen: (key: string) => void; onDiscover: () => void }) {
+/** Your space in Books: you, your year in books, your shelves, what you loved, and what friends are reading. */
+function ShelfPage({ you, shelf, friends, onOpen, onDiscover }: { you: You; shelf: ShelfItem[] | null; friends: FriendReading[] | null; onOpen: (key: string) => void; onDiscover: () => void }) {
   const [only, setOnly] = useState<ShelfState | null>(null);
   if (!shelf) return <ShelfGhosts />;
-  if (!shelf.length) return <div className="kb-empty kb-empty-shelf">
-    <div className="kb-empty-books" aria-hidden><span /><span /><span /></div>
-    <h1 className="kb-h1">Your shelf is empty</h1>
-    <p className="kb-note">Books you want to read, are reading and have read live here, and on your profile.</p>
-    <button className="kb-btn kb-filled" onClick={onDiscover}>Find a book</button>
-  </div>;
   const by = (s: ShelfState) => shelf.filter((b) => b.state === s);
+  const year = new Date().getFullYear();
+  const readThisYear = by("read").filter((b) => new Date(b.updatedAt).getFullYear() === year).length;
+  const loved = shelf.filter((b) => b.rating === "love");
+  const facts = [
+    by("reading").length ? `reading ${by("reading").length}` : null,
+    readThisYear ? `${readThisYear} read in ${year}` : null,
+    by("want").length ? `${by("want").length} to read` : null,
+  ].filter(Boolean).join(" · ");
+  const head = <header className="kb-you">
+    <InkPortraitFrame seed={you.username} weight={5} className="kb-you-portrait"><Portrait name={you.name} username={you.username} picture={you.picture} size={132} /></InkPortraitFrame>
+    <div className="kb-you-text">
+      <span className="kb-you-kind">Your books</span>
+      <h1 className="kb-you-name">{you.name}</h1>
+      {facts ? <p className="kb-note">{facts.charAt(0).toUpperCase() + facts.slice(1)}</p> : null}
+      <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(you.username)}`} className="kb-you-profile">Your profile</Crossing>
+    </div>
+  </header>;
+  const friendsPart = friends?.length
+    ? <FriendsShelf friends={friends} onOpen={onOpen} />
+    : <section className="kb-shelf kb-you-friends"><div className="kb-shelf-head"><h2>Friends</h2></div><p className="kb-note">See what your friends are reading. <Crossing kind="kakejiku" href="/account/friends">Find friends</Crossing></p></section>;
+  if (!shelf.length) return <>
+    {head}
+    <div className="kb-empty kb-empty-shelf">
+      <div className="kb-empty-books" aria-hidden><span /><span /><span /></div>
+      <h2 className="kb-h1">Your shelf is empty</h2>
+      <p className="kb-note">Books you want to read, are reading and have read live here, and on your profile.</p>
+      <button className="kb-btn kb-filled" onClick={onDiscover}>Find a book</button>
+    </div>
+    {friendsPart}
+  </>;
   return <>
+    {head}
     <div className="kb-segments" role="tablist" aria-label="Shelf">
       <button role="tab" aria-selected={only === null} onClick={() => setOnly(null)}>All <span>{shelf.length}</span></button>
       {shelfOrder.map((s) => <button key={s} role="tab" aria-selected={only === s} onClick={() => setOnly(s)} disabled={!by(s).length}>{shelfTitle[s]} <span>{by(s).length}</span></button>)}
@@ -515,8 +545,14 @@ function ShelfPage({ shelf, onOpen, onDiscover }: { shelf: ShelfItem[] | null; o
           </span>
         </div>)}
       </div>
-      
     </section>)}
+    {only === null && loved.length ? <Shelf title="Loved">
+      {loved.map((b) => <div key={b.key} className="kb-slot">
+        <Book3D book={asBook(b)} onOpen={() => onOpen(b.key)} />
+        <span className="kb-caption"><span className="kb-cap-title">{b.title}</span><span className="kb-cap-author">{b.authors[0] ?? " "}</span></span>
+      </div>)}
+    </Shelf> : null}
+    {only === null ? friendsPart : null}
   </>;
 }
 

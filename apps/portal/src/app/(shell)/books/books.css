@@ -544,3 +544,18 @@
 .kb .kb-reader-pageask input:focus{border-bottom-color:#7d8f58}
 .kb .kb-reader-pageask input[aria-invalid="true"]{border-bottom-color:#b5523b}
 .kb .kb-reader-pageask em{font-style:normal;opacity:.7}
+
+/* Your space: you, with your year in books, above your shelves. */
+.kb .kb-you{display:flex;align-items:center;gap:28px;padding:18px var(--gutter) 6px}
+.kb .kb-you-portrait .portrait{margin:16px;background:transparent;box-shadow:none}
+.kb .kb-you-text{display:grid;gap:6px;min-width:0}
+.kb .kb-you-kind{font:700 13px/16px var(--k-sans);color:var(--fg-2)}
+.kb .kb-you-name{margin:0;font:600 clamp(32px,4.4vw,52px)/1.05 var(--k-display);letter-spacing:-.015em;color:var(--k-plum)}
+.kb .kb-you-profile{justify-self:start;margin-top:4px;padding:8px 12px;margin-left:-12px;border-radius:8px;font:700 14px/20px var(--k-sans);color:var(--fg-2);text-decoration:none}
+.kb .kb-you-profile:hover{background:var(--surface-2);color:var(--fg)}
+.kb .kb-you-friends .kb-note a{color:var(--primary);font-weight:700}
+@media (max-width:759px){
+  .kb .kb-you{flex-direction:column;text-align:center;gap:12px}
+  .kb .kb-you-text{justify-items:center}
+  .kb .kb-you-profile{margin-left:0}
+}
