@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { InkBlot, InkPortraitFrame, Seal } from "@kimono/ui";
+import { Glyph, InkBlot, InkPortraitFrame, Seal, type GlyphName } from "@kimono/ui";
 import { Crossing, CrossingSeal } from "@/components/crossing";
 import { InkSheet } from "@/components/ink-sheet";
 import { JointSwitch } from "@/components/joint-switch";
@@ -25,8 +25,12 @@ import { BannerSheet } from "./banner-sheet";
 
 
 /* Each app's colour and mark on a profile: moss for Books, lapis for Music, rose for Watch. */
-const appTint = (app: string) => (app === "books" ? "#5c7150" : app === "music" ? "#2e5e8a" : "#a84d63");
-const appIcon = (app: string) => (app === "books" ? "book" as const : app === "music" ? "music" as const : "film" as const);
+/* Each app's own colour and mark, as the rail draws them: moss for Books, gold for Music, rose for Watch. */
+const appTint = (app: string) => (app === "books" ? "#5c7150" : app === "music" ? "#946c25" : "#a84d63");
+const appGlyph = (app: string): GlyphName => (app === "books" ? "book" : app === "music" ? "music" : "play");
+function AppMark({ app }: { app: string }) {
+  return <svg className="line-icon fr-app-glyph" viewBox="0 0 100 100" aria-hidden="true"><Glyph name={appGlyph(app)} color="currentColor" scale={1.25} /></svg>;
+}
 
 export type Person = { username: string; name: string; picture: string | null };
 export type ProfileColor = "suo" | "plum" | "moss" | "ai" | "kuchiba" | "sakura" | "sumi";
@@ -39,7 +43,8 @@ export type Profile = Person & { you: boolean; visitor?: boolean; link: "friends
   | { open: true; bio: string; pronouns: string; color: ProfileColor | null; banner?: string | null; links: { title: string; url: string; icon?: string; show?: LinkShow }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
 );
 /** What you let friends see (your own profile only): lib/friends/model.ts privacyOf. */
-export type Privacy = { invisible: boolean; visibility: "friends" | "public" | "private"; friends: boolean; apps: { app: string; name: string; shown: boolean; rows: { kind: string; title: string; shown: boolean }[] }[] };
+export type Privacy = { invisible: boolean; visibility: "friends" | "public" | "private"; friends: boolean; friendsEveryone?: boolean; apps: { app: string; name: string; shown: boolean; everyone?: boolean; rows: { kind: string; title: string; shown: boolean; everyone?: boolean }[] }[] };
+type Audience = "me" | "friends" | "everyone";
 /** A title you took off a row of your profile, to put back (lib/friends/model.ts offProfileList). */
 export type Off = Item & { appName: string; kind: string; rowTitle: string; at: number };
 type FriendsList = { friends: (Person & { bio: string })[]; asked: Person[]; asking: Person[]; unseen: number };
@@ -277,7 +282,21 @@ export function ProfileView({ username, home = false, standalone = false }: { us
   const friendList = p.open && !(preview && friendsKept) ? p.friendList ?? [] : [];
   const color = colorOf(p.open ? p.color : null);
   /* The widgets are the profile: what each app shows, and your friends, live in them. */
-  const board = p.open ? { person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex, own: p.you && !preview ? { asking: asked, kept: Boolean(friendsKept) } : undefined } : null;
+  /* What you keep to yourself, row by row ("watch:watching"): a whole app kept keeps all its rows. */
+  const keptRows = privacy ? privacy.apps.flatMap((a) => a.rows.filter((r) => !a.shown || !r.shown).map((r) => `${a.app}:${r.kind}`)) : [];
+  /* On a public profile: what friends see and the link doesn't. */
+  const friendsOnlyRows = privacy?.visibility === "public" ? privacy.apps.flatMap((a) => a.rows.filter((r) => a.shown && r.shown && (a.everyone === false || r.everyone === false)).map((r) => `${a.app}:${r.kind}`)) : [];
+  /* Shares one row as far as asked: its app first if the whole app was kept back. */
+  const shareRow = async (row: string, to: "friends" | "everyone") => {
+    const [app] = row.split(":");
+    const a = privacy?.apps.find((x) => x.app === app);
+    try {
+      if (a && (!a.shown || (to === "everyone" && a.everyone === false))) await call("/api/v1/profile", "PATCH", { audience: app, to });
+      await call("/api/v1/profile", "PATCH", { audience: row, to });
+      setToast(to === "everyone" ? "Everyone sees it" : "Friends see it"); await load();
+    } catch (e) { setProblem(message(e)); }
+  };
+  const board = p.open ? { person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex, own: p.you && !preview ? { asking: asked, kept: Boolean(friendsKept), keptRows, friendsOnlyRows, onShare: (row: string, to: "friends" | "everyone") => void shareRow(row, to) } : undefined } : null;
   /* Invisible, seen as a friend: what they get is your name and portrait. */
   const closedToFriends = preview && invisible;
 
@@ -366,19 +385,16 @@ export function ProfileView({ username, home = false, standalone = false }: { us
 
 /* ── Who sees what ─────────────────────────────────────────────────────── */
 
-/** Friends or only me, as two words side by side: what's chosen is filled. */
-function Who({ friends, label, disabled, onChange }: { friends: boolean; label: string; disabled?: boolean; onChange: (friends: boolean) => void }) {
-  return <span className="fr-who" role="radiogroup" aria-label={label}>
-    <button type="button" role="radio" aria-checked={friends} disabled={disabled} className={friends ? "is-on" : undefined} onClick={() => onChange(true)}><LineIcon name="people" />Friends</button>
-    <button type="button" role="radio" aria-checked={!friends} disabled={disabled} className={!friends ? "is-on" : undefined} onClick={() => onChange(false)}><LineIcon name="lock" />Only me</button>
+/** Who sees one thing: only me, friends, and (on a public profile) everyone with the link; side by side, what's chosen filled. */
+function Who({ value, everyone, label, disabled, onChange }: { value: Audience; everyone: boolean; label: string; disabled?: boolean; onChange: (to: Audience) => void }) {
+  const options: [Audience, LineIconName, string][] = [["me", "lock", "Only me"], ["friends", "people", "Friends"], ...(everyone ? [["everyone", "link", "Everyone"] as [Audience, LineIconName, string]] : [])];
+  const shown = !everyone && value === "everyone" ? "friends" : value;
+  return <span className={`fr-who${everyone ? " is-three" : ""}`} role="radiogroup" aria-label={label}>
+    {options.map(([v, icon, name]) => <button key={v} type="button" role="radio" aria-checked={shown === v} disabled={disabled} className={shown === v ? "is-on" : undefined} onClick={() => onChange(v)}><LineIcon name={icon} />{name}</button>)}
   </span>;
 }
+const audience = (shown: boolean, everyone?: boolean): Audience => (!shown ? "me" : everyone === false ? "friends" : "everyone");
 
-/**
- * Every privacy choice in one place, in plain words: whether friends see your
- * profile at all, your friends list, and each app and each of its rows. Each
- * choice saves as it's made.
- */
 /** Your public profile's address, to copy. */
 function PublicLink() {
   const [copied, setCopied] = useState(false);
@@ -391,37 +407,60 @@ function PublicLink() {
   </div>;
 }
 
+/**
+ * Every privacy choice in one place, in plain words: who sees your profile at
+ * all, your friends list, and each app and each of its rows (folded until you
+ * open the app). On a public profile each can be Only me, Friends or Everyone.
+ * Each choice saves as it's made.
+ */
 function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy: Privacy; offCount: number; onClose: () => void; onOff: () => void; onChanged: (r: { privacy: Privacy; hidden: string[] }) => void }) {
   const [now, setNow] = useState(privacy);
+  const [open, setOpen] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const change = (body: Record<string, unknown>) => call<{ privacy: Privacy; hidden: string[] }>("/api/v1/profile", "PATCH", body)
     .then((r) => { setNow(r.privacy); onChanged(r); setProblem(null); }, (e) => setProblem(message(e)));
   const hidden = now.invisible;
+  const pub = now.visibility === "public";
+  const set = (key: string) => (to: Audience) => void change({ audience: key, to });
+  /* What an app's rows come to, folded: who sees how many. */
+  const summary = (a: Privacy["apps"][number]) => {
+    if (!a.shown) return "Only you";
+    const seen = a.rows.filter((r) => r.shown);
+    if (!seen.length) return "Only you";
+    const all = seen.length === a.rows.length ? "All" : `${seen.length} of ${a.rows.length}`;
+    if (!pub) return `${all} shown to friends`;
+    const wide = a.everyone === false ? 0 : seen.filter((r) => r.everyone !== false).length;
+    return wide === seen.length ? `${all} shown to everyone` : wide ? `${all} shown · ${wide} to everyone` : `${all} shown to friends`;
+  };
   return <InkSheet title="Who sees what" icon="eye" onClose={onClose} actions={<Seal compact onClick={onClose}>Done</Seal>}>
     <div className="fr-wsw">
       <div className="fr-wsw-modes is-three" role="radiogroup" aria-label="Who sees your profile">
         {([
           ["friends", "people", "Friends", "Your friends see what you choose below"],
-          ["public", "link", "Anyone with the link", "Like friends do, even without an account"],
+          ["public", "link", "Anyone with the link", "You choose what's for friends and what's for everyone"],
           ["private", "lock", "Only me", "Friends see your name and picture"],
         ] as const).map(([v, icon, name, says]) => <button key={v} type="button" role="radio" aria-checked={now.visibility === v} className={now.visibility === v ? "is-on" : undefined} onClick={() => void change({ visibility: v })}>
           <LineIcon name={icon} /><b>{name}</b><small>{says}</small>
         </button>)}
       </div>
-      {now.visibility === "public" ? <PublicLink /> : null}
+      {pub ? <PublicLink /> : null}
 
       <div className={`fr-wsw-rows${hidden ? " is-off" : ""}`}>
         <div className="fr-wsw-row"><span><b>Your friends list</b><small>Who you&rsquo;re friends with</small></span>
-          <Who friends={now.friends} label="Your friends list" disabled={hidden} onChange={(f) => void change({ keep: "friends", shown: f })} /></div>
-        {now.apps.map((a) => <section key={a.app} className={`fr-wsw-app fr-app-${a.app}`}>
+          <Who value={audience(now.friends, now.friendsEveryone)} everyone={pub} label="Your friends list" disabled={hidden} onChange={set("friends")} /></div>
+        {now.apps.map((a) => <section key={a.app} className={`fr-wsw-app fr-app-${a.app}${open === a.app ? " is-open" : ""}`}>
           <div className="fr-wsw-row fr-wsw-apphead">
-            <span className="fr-wsw-appname"><InkBlot tint={appTint(a.app)} seed={`app:${a.app}`}><LineIcon name={appIcon(a.app)} /></InkBlot><b>{a.name}</b></span>
-            <Who friends={a.shown} label={`${a.name} on your profile`} disabled={hidden} onChange={(f) => void change({ app: a.app, shown: f })} />
+            <button type="button" className="fr-wsw-appname" aria-expanded={open === a.app} onClick={() => setOpen(open === a.app ? null : a.app)}>
+              <InkBlot tint={appTint(a.app)} seed={`app:${a.app}`}><AppMark app={a.app} /></InkBlot>
+              <span><b>{a.name}</b><small>{summary(a)}</small></span>
+              <LineIcon name="down" />
+            </button>
+            <Who value={audience(a.shown, a.everyone)} everyone={pub} label={`${a.name} on your profile`} disabled={hidden} onChange={set(a.app)} />
           </div>
-          {a.rows.map((r) => <div key={r.kind} className={`fr-wsw-row fr-wsw-sub${a.shown ? "" : " is-off"}`}>
+          {open === a.app ? <div className="fr-wsw-subs">{a.rows.map((r) => <div key={r.kind} className={`fr-wsw-row fr-wsw-sub${a.shown ? "" : " is-off"}`}>
             <span>{rowWords[`${a.app}:${r.kind}`] ?? r.title}</span>
-            <Who friends={r.shown && a.shown} label={`${a.name}: ${r.title}`} disabled={hidden || !a.shown} onChange={(f) => void change({ keep: `${a.app}:${r.kind}`, shown: f })} />
-          </div>)}
+            <Who value={a.shown ? audience(r.shown, r.everyone !== false && a.everyone !== false) : "me"} everyone={pub} label={`${a.name}: ${r.title}`} disabled={hidden || !a.shown} onChange={set(`${a.app}:${r.kind}`)} />
+          </div>)}</div> : null}
         </section>)}
       </div>
 

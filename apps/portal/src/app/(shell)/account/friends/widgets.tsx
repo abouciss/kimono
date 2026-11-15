@@ -40,8 +40,8 @@ export type BoardData = {
   music: MusicExtras;
   books?: BooksExtras;
   color: string;
-  /** Your own profile, not seen as a friend: friend requests waiting, and whether friends see your friends. */
-  own?: { asking: number; kept: boolean };
+  /** Your own profile, not seen as a friend: friend requests waiting, whether friends see your friends, the rows you keep to yourself ("watch:watching") and how to share one. */
+  own?: { asking: number; kept: boolean; keptRows?: string[]; friendsOnlyRows?: string[]; onShare?: (row: string, to: "friends" | "everyone") => void };
 };
 
 const kinds: { kind: WidgetKind; name: string; says: string; icon: LineIconName; sizes: WidgetSize[]; size: WidgetSize }[] = [
@@ -80,6 +80,31 @@ const newId = () => `w${Date.now().toString(36)}${(made++).toString(36)}`;
 export function withFriends(ws: Widget[], d: BoardData): Widget[] {
   if (ws.some((w) => w.kind === "friends") || (!d.friends.length && !d.own)) return ws;
   return [...ws, { id: "friends", kind: "friends", size: "m" }];
+}
+
+/** The row of someone's activity a widget shows (lib/friends/model.ts rowsOf): kept to themselves, only they see it. */
+const widgetRow: Partial<Record<WidgetKind, string>> = {
+  listening: "music:playing", onrepeat: "music:stats", artists: "music:stats", stats: "music:stats", loved: "music:loved",
+  reading: "books:reading", review: "books:reviews", bookshelf: "books:read", yearbooks: "books:read",
+  watching: "watch:watching", watched: "watch:watched",
+};
+
+/** Whether a widget of their activity has anything in it for whoever's looking; those that don't aren't drawn for others. */
+function hasData(w: Widget, d: BoardData): boolean {
+  const has = (app: string, kind: string) => d.sections.some((s) => s.app === app && s.kind === kind && s.items.length);
+  switch (w.kind) {
+    case "listening": return Boolean(d.music?.listening);
+    case "onrepeat": return Boolean(d.music?.onRepeat);
+    case "artists": return Boolean(d.music?.artists.length);
+    case "stats": return Boolean(d.music?.plays);
+    case "loved": return has("music", "loved");
+    case "reading": return has("books", "reading");
+    case "review": return Boolean(d.books?.reviews.length);
+    case "bookshelf": return Boolean(d.books?.read.length);
+    case "watching": return has("watch", "watching");
+    case "watched": return has("watch", "watched");
+    default: return true;
+  }
 }
 
 export function defaultWidgets(d: BoardData): Widget[] {
@@ -123,7 +148,9 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
   const setArranging = onArranging;
   const [adding, setAdding] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
-  const list = (arranging ? draft : shown).filter((w) => !(w.kind === "friends" && w.config?.off));
+  const list = (arranging ? draft : shown).filter((w) => !(w.kind === "friends" && w.config?.off) && (editable || hasData(w, data)));
+  const keptRows = data.own?.keptRows ?? [];
+  const friendsOnlyRows = data.own?.friendsOnlyRows ?? [];
 
   const start = () => setArranging(true);
   const resize = (id: string, size: WidgetSize) => setDraft((ws) => ws.map((w) => (w.id === id ? { ...w, size } : w)));
@@ -142,6 +169,14 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
         onDragOver={(e) => { if (arranging && dragging) { e.preventDefault(); moveTo(dragging, w.id); } }}
         onDragEnd={() => setDragging(null)}>
         <WidgetView w={w} d={data} onEditLinks={onEditLinks} />
+        {/* Kept to yourself: said on the widget, with the way to share it right there. */}
+        {!arranging && widgetRow[w.kind] && keptRows.includes(widgetRow[w.kind]!) ? <span className="wg-kept">
+          <LineIcon name="lock" /><span>Only you</span>
+          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, "friends")}>Show</button> : null}
+        </span> : !arranging && widgetRow[w.kind] && friendsOnlyRows.includes(widgetRow[w.kind]!) ? <span className="wg-kept is-friends">
+          <LineIcon name="people" /><span>Friends only</span>
+          {data.own?.onShare ? <button type="button" onClick={() => data.own!.onShare!(widgetRow[w.kind]!, "everyone")}>Everyone</button> : null}
+        </span> : null}
         {arranging ? <div className="wg-edit">
           <button type="button" className="wg-x" aria-label={`Remove ${kindOf(w.kind).name}`} onClick={() => drop(w.id)}><LineIcon name="close" /></button>
           <span className="wg-sizes" role="group" aria-label="Size">
