@@ -71,16 +71,30 @@ export function defaultWidgets(d: BoardData): Widget[] {
 
 /* ── The board ─────────────────────────────────────────────────────────── */
 
-export function WidgetBoard({ data, widgets, editable, onSave }: { data: BoardData; widgets: Widget[] | null; editable: boolean; onSave: (w: Widget[]) => Promise<void> }) {
+export function WidgetBoard({ data, widgets, editable, arranging, onArranging, onSave }: {
+  data: BoardData; widgets: Widget[] | null; editable: boolean;
+  /** Arranging is the profile's to turn on (its Arrange seal): Done there saves. */
+  arranging: boolean; onArranging: (on: boolean) => void;
+  onSave: (w: Widget[]) => Promise<void>;
+}) {
   const shown = useMemo(() => widgets ?? defaultWidgets(data), [widgets, data]);
-  const [arranging, setArranging] = useState(false);
   const [draft, setDraft] = useState<Widget[]>(shown);
+  /* Arranging starts from what's shown (set while drawing, as React has it for a change from outside)… */
+  const [was, setWas] = useState(arranging);
+  if (was !== arranging) { setWas(arranging); if (arranging) setDraft(shown); }
+  /* …and ends by saving what was arranged, once. */
+  const saved = useRef({ arranging, draft, shown, onSave });
+  useEffect(() => {
+    const before = saved.current;
+    if (before.arranging && !arranging && JSON.stringify(before.draft) !== JSON.stringify(before.shown)) void before.onSave(before.draft);
+    saved.current = { arranging, draft, shown, onSave };
+  }, [arranging, draft, shown, onSave]);
+  const setArranging = onArranging;
   const [adding, setAdding] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
   const list = arranging ? draft : shown;
 
-  const start = () => { setDraft(shown); setArranging(true); };
-  const done = async () => { await onSave(draft); setArranging(false); };
+  const start = () => setArranging(true);
   const resize = (id: string, size: WidgetSize) => setDraft((ws) => ws.map((w) => (w.id === id ? { ...w, size } : w)));
   const drop = (id: string) => setDraft((ws) => ws.filter((w) => w.id !== id));
   const moveTo = (from: string, to: string) => setDraft((ws) => {
@@ -91,14 +105,8 @@ export function WidgetBoard({ data, widgets, editable, onSave }: { data: BoardDa
 
   if (!list.length && !editable) return null;
   return <section className={`wg${arranging ? " is-arranging" : ""}`} aria-label="Home screen">
-    {editable ? <div className="wg-tools">
-      {arranging ? <>
-        <Seal tone="quiet" compact onClick={() => setAdding(true)}><LineIcon name="plus" />Add widget</Seal>
-        <Seal compact onClick={() => void done()}>Done</Seal>
-      </> : <Seal tone="quiet" compact onClick={start}><LineIcon name="pin" />Arrange</Seal>}
-    </div> : null}
     <div className="wg-grid">
-      {list.map((w) => <div key={w.id} className={`wg-cell wg-${w.size} wg-k-${w.kind}${dragging === w.id ? " is-dragging" : ""}`}
+      {list.map((w, n) => <div key={w.id} className={`wg-cell wg-${w.size} wg-k-${w.kind}${dragging === w.id ? " is-dragging" : ""}`} style={{ "--n": n } as React.CSSProperties}
         draggable={arranging} onDragStart={(e) => { setDragging(w.id); e.dataTransfer.effectAllowed = "move"; }}
         onDragOver={(e) => { if (arranging && dragging) { e.preventDefault(); moveTo(dragging, w.id); } }}
         onDragEnd={() => setDragging(null)}>
@@ -113,7 +121,7 @@ export function WidgetBoard({ data, widgets, editable, onSave }: { data: BoardDa
       {arranging ? <button type="button" className="wg-cell wg-s wg-add" onClick={() => setAdding(true)}><LineIcon name="plus" /><span>Add widget</span></button> : null}
       {!list.length && editable && !arranging ? <button type="button" className="wg-cell wg-m wg-add" onClick={() => { start(); setAdding(true); }}><LineIcon name="plus" /><span>Make this yours: add widgets</span></button> : null}
     </div>
-    {adding ? <Gallery onClose={() => setAdding(false)} onPick={(w) => { setDraft((ws) => [...ws, w].slice(0, 16)); setAdding(false); if (!arranging) setArranging(true); }} /> : null}
+    {adding ? <Gallery data={data} onClose={() => setAdding(false)} onPick={(w) => { setDraft((ws) => [...ws, w].slice(0, 16)); setAdding(false); if (!arranging) setArranging(true); }} /> : null}
   </section>;
 }
 
@@ -167,17 +175,23 @@ function Turntable({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
+/** A turntable on the table: its plinth, the platter and record, the arm on its base in the corner. */
 function Deck({ cover, live }: { cover: string | null; live: boolean }) {
   return <span className={`wg-deck${live ? " is-live" : ""}`} aria-hidden="true">
-    <span className="wg-platter">
-      <span className="wg-disc">
+    <span className="wg-plinth">
+      <span className="wg-platter">
+        <span className="wg-disc">
+          {/* eslint-disable-next-line @next/next/no-img-element -- the album's own cover, as the record's label */}
+          <span className="wg-label">{cover ? <img src={cover.replace(/\/(\d{2,4})x\1-/, "/250x250-")} alt="" /> : null}</span>
+        </span>
         <span className="wg-grooves" />
-        {/* eslint-disable-next-line @next/next/no-img-element -- the album's own cover, as the record's label */}
-        <span className="wg-label">{cover ? <img src={cover.replace(/\/(\d{2,4})x\1-/, "/250x250-")} alt="" /> : null}</span>
         <span className="wg-spindle" />
       </span>
+      <span className="wg-arm-base" />
+      <span className="wg-arm"><span className="wg-arm-head" /></span>
+      <span className="wg-knob" />
+      <span className="wg-led" />
     </span>
-    <span className="wg-arm"><span className="wg-arm-head" /></span>
   </span>;
 }
 
@@ -246,8 +260,28 @@ function Stats({ w, d }: { w: Widget; d: BoardData }) {
   if (!facts.length) return <div className="wg-card"><Empty icon="clock" text="A quiet month so far" /></div>;
   return <div className="wg-card wg-stats">
     <small className="wg-kicker">This month</small>
-    <span className="wg-facts">{facts.slice(0, w.size === "s" ? 2 : 3).map((f) => <span key={f.unit}><b>{f.n}</b><small>{f.unit}</small></span>)}</span>
+    <span className="wg-facts">{facts.slice(0, w.size === "s" ? 2 : 3).map((f) => <span key={f.unit}><b><CountUp to={f.n} /></b><small>{f.unit}</small></span>)}</span>
   </div>;
+}
+
+/** A number that counts up to itself when it arrives. */
+function CountUp({ to }: { to: string }) {
+  const target = Number(to);
+  const decimals = to.includes(".") ? 1 : 0;
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (!Number.isFinite(target) || matchMedia("(prefers-reduced-motion: reduce)").matches) { const t = setTimeout(() => setShown(target), 0); return () => clearTimeout(t); }
+    let frame = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / 900);
+      setShown(target * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [target]);
+  return <>{Number.isFinite(target) ? shown.toFixed(decimals) : to}</>;
 }
 
 const tints: Record<string, string> = { suo: "#a84d63", plum: "#4e2b37", moss: "#5c7150", ai: "#2e5e8a", kuchiba: "#b8732c", sakura: "#d77b8c", sumi: "#3a3634" };
@@ -281,6 +315,8 @@ function Clock({ w, d }: { w: Widget; d: BoardData }) {
       {Array.from({ length: 12 }, (_, i) => <line key={i} x1="50" y1="10" x2="50" y2={i % 3 ? "14" : "18"} transform={`rotate(${i * 30} 50 50)`} className="wg-tick" />)}
       <line x1="50" y1="50" x2="50" y2="28" className="wg-hour" transform={`rotate(${(h % 12) * 30 + m / 2} 50 50)`} />
       <line x1="50" y1="50" x2="50" y2="18" className="wg-minute" transform={`rotate(${m * 6} 50 50)`} />
+      {/* The second hand sweeps on its own, started where the seconds are now. */}
+      <line x1="50" y1="56" x2="50" y2="14" className="wg-sec" style={{ "--sec": `-${now.getSeconds()}s` } as React.CSSProperties} />
       <circle cx="50" cy="50" r="3" className="wg-pin" />
     </svg>
     {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{night ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"} for {first(d.person.name)}</small><b>{said}</b>{zone ? <em>{zone.split("/").pop()?.replace(/_/g, " ")}</em> : null}</span>
@@ -288,12 +324,34 @@ function Clock({ w, d }: { w: Widget; d: BoardData }) {
   </div>;
 }
 
+/* The sites people link to that are a profile somewhere else: shown as round marks under the name, not buttons. */
+const socialHosts = /(^|\.)(instagram|twitter|x|bsky|threads|mastodon\.social|tiktok|youtube|youtu\.be|twitch|github|gitlab|linkedin|facebook|spotify|soundcloud|bandcamp|letterboxd|goodreads|discord|reddit|pinterest|behance|dribbble|vimeo|last\.fm|steamcommunity)\.[a-z.]+$/;
+export const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } };
+export const isSocial = (url: string) => socialHosts.test(hostOf(url));
+
+/** A link's own icon, from its site, or a mark when there isn't one. */
+export function Favicon({ url, fallback }: { url: string; fallback: LineIconName }) {
+  const [broken, setBroken] = useState(false);
+  const host = hostOf(url);
+  if (!host || broken || url.startsWith("mailto:")) return <LineIcon name={fallback} />;
+  // eslint-disable-next-line @next/next/no-img-element -- the linked site's own icon, asked of that site
+  return <img className="wg-favicon" src={`https://${host}/favicon.ico`} alt="" referrerPolicy="no-referrer" loading="lazy" onError={() => setBroken(true)} />;
+}
+
 function Links({ w, d }: { w: Widget; d: BoardData }) {
-  if (!d.links.length) return <div className="wg-card"><Empty icon="link" text="Add links in Edit profile" /></div>;
-  const n = w.size === "m" ? 2 : w.size === "l" ? 4 : 8;
+  /* The socials are under the name; this is for the rest (all of them, if there's nothing else). */
+  const own = d.links.filter((l) => !isSocial(l.url));
+  const list = own.length ? own : d.links;
+  if (!list.length) return <div className="wg-card"><Empty icon="link" text="Add links in Edit profile" /></div>;
+  const n = w.size === "m" ? 2 : w.size === "l" ? 5 : 8;
   return <div className="wg-card wg-links">
-    {/* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */}
-    {d.links.slice(0, n).map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow"><LineIcon name="link" /><b>{l.title}</b><LineIcon name="out" /></a>)}
+    {list.slice(0, n).map((l, i) =>
+      /* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */
+      <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" className={i === 0 && list.length > 1 && w.size !== "m" ? "is-first" : undefined} style={{ "--i": i } as React.CSSProperties}>
+        <span className="wg-link-mark"><Favicon url={l.url} fallback="link" /></span>
+        <span className="wg-link-words"><b>{l.title}</b><small>{hostOf(l.url) || l.url.replace(/^mailto:/, "")}</small></span>
+        <LineIcon name="out" className="wg-link-go" />
+      </a>)}
   </div>;
 }
 
@@ -311,15 +369,37 @@ function Friends({ w, d }: { w: Widget; d: BoardData }) {
 
 type Found = { key: string; title: string; subtitle: string; cover: string | null };
 
-function Gallery({ onClose, onPick }: { onClose: () => void; onPick: (w: Widget) => void }) {
+/* The gallery's shelves: each app's widgets together, then the ones about you. */
+const shelves: { title: string; tint: string; kinds: WidgetKind[] }[] = [
+  { title: "Music", tint: "#946c25", kinds: ["listening", "song", "album", "artists"] },
+  { title: "Books", tint: "#5c7150", kinds: ["reading"] },
+  { title: "Watch", tint: "#a84d63", kinds: ["watching"] },
+  { title: "About you", tint: "#74565c", kinds: ["status", "note", "clock", "stats", "links", "friends"] },
+];
+
+/* What a preview shows for a widget that's made from your choices. */
+const samples: Partial<Record<WidgetKind, Record<string, string>>> = {
+  song: { key: "dz:0", title: "Your song", subtitle: "Any artist", cover: "" },
+  album: { key: "dz:0", title: "Your album", subtitle: "Any artist", cover: "" },
+  note: { text: "ask me about city pop", tint: "sakura" },
+  status: { emoji: "🎧", text: "In a city pop phase" },
+  clock: { zone: "" },
+};
+
+function Gallery({ data, onClose, onPick }: { data: BoardData; onClose: () => void; onPick: (w: Widget) => void }) {
   const [kind, setKind] = useState<WidgetKind | null>(null);
   const k = kind ? kindOf(kind) : null;
   const plain = (kd: WidgetKind) => onPick({ id: newId(), kind: kd, size: kindOf(kd).size });
   return <InkSheet title={k ? k.name : "Add a widget"} icon="plus" onClose={onClose} actions={<Seal tone="quiet" compact onClick={k ? () => setKind(null) : onClose}>{k ? "Back" : "Cancel"}</Seal>}>
-    {!k ? <div className="wg-gallery">{kinds.map((x) => <button key={x.kind} type="button" className="wg-pick"
-      onClick={() => (["song", "album", "note", "status", "clock"].includes(x.kind) ? setKind(x.kind) : plain(x.kind))}>
-      <span className="wg-pick-mark"><LineIcon name={x.icon} /></span><span><b>{x.name}</b><small>{x.says}</small></span>
-    </button>)}</div>
+    {!k ? <div className="wg-gallery">{shelves.map((shelf) => <section key={shelf.title} className="wg-shelf" style={{ "--wg-shelf": shelf.tint } as React.CSSProperties}>
+      <h3>{shelf.title}</h3>
+      <div className="wg-shelf-row">{shelf.kinds.map((kd) => { const x = kindOf(kd); return <button key={kd} type="button" className="wg-pick"
+        onClick={() => (["song", "album", "note", "status", "clock"].includes(kd) ? setKind(kd) : plain(kd))}>
+        {/* The widget itself, small, made from your own things. */}
+        <span className="wg-preview" aria-hidden="true" inert><span className={`wg-cell wg-s wg-k-${kd}`}><WidgetView w={{ id: "p", kind: kd, size: "s", config: samples[kd] }} d={data} /></span></span>
+        <b>{x.name}</b><small>{x.says}</small>
+      </button>; })}</div>
+    </section>)}</div>
       : kind === "song" || kind === "album" ? <MusicPicker album={kind === "album"} onPick={(f) => onPick({ id: newId(), kind, size: k.size, config: { key: f.key, title: f.title, subtitle: f.subtitle, cover: f.cover ?? "" } })} />
         : kind === "note" ? <NoteMaker onPick={(text, tint) => onPick({ id: newId(), kind: "note", size: "s", config: { text, tint } })} />
           : kind === "status" ? <StatusMaker onPick={(emoji, text) => onPick({ id: newId(), kind: "status", size: "s", config: { emoji, text } })} />

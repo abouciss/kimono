@@ -400,3 +400,64 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 .fr-wsw .fr-who button.is-on { background: var(--k-secondary-container); color: var(--k-on-secondary-container, var(--k-on-surface)); box-shadow: none; }
 .fr-wsw .fr-who button[aria-checked="true"]:last-child { background: color-mix(in srgb, var(--k-suo) 22%, var(--k-container-high)); }
 .fr-wsw .fr-wsw-modes button { display: grid; }
+
+/* ── The hero, composed (2026-11-15): one colour, the band above, you on its edge, everything lined up ── */
+.fr-profile.fr-profile-v2 { --k-accent: var(--fr-color); --k-accent-deep: color-mix(in srgb, var(--fr-color) 78%, #000); --k-accent-pale: color-mix(in srgb, var(--fr-color) 18%, var(--k-surface)); }
+.fr-profile-v2 .fr-hero { display: block; margin: 0 0 22px; padding: 0; border-radius: 0; background: none; }
+.fr-profile-v2 .fr-band { position: relative; inset: auto; height: 136px; margin: 12px 0 0; border-radius: var(--k-r-xl); background-color: var(--fr-color); }
+.fr-profile-v2 .fr-band::after { opacity: .08; animation: fr-drift 60s linear infinite; }
+@keyframes fr-drift { to { background-position: 440px 0; } }
+.fr-profile-v2 .fr-top { position: absolute; left: 0; right: 0; top: 12px; padding: 14px 16px 0; z-index: 2; }
+.fr-profile-v2 .fr-asfriend { background: color-mix(in srgb, var(--k-surface) 92%, transparent); }
+.fr-profile-v2 .fr-hero-body { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 22px; margin-top: -72px; padding: 0 24px; }
+.fr-profile-v2 .fr-hero-face { animation: fr-pop .8s var(--k-spring) both; }
+.fr-profile-v2 .fr-hero-face .k-ink-portrait { width: 152px; height: 152px; border-radius: 50%; background: var(--k-surface); box-shadow: 0 0 0 6px var(--k-surface); }
+.fr-profile-v2 .fr-hero-face .k-ink-portrait .portrait { width: 126px; height: 126px; font-size: 56px; }
+.fr-profile-v2 .you-camera { background: var(--fr-color); }
+.fr-profile-v2 .fr-hero-words { display: grid; gap: 4px; padding: 0 0 6px; }
+.fr-profile-v2 .fr-name { font-size: clamp(28px, 3.4vw, 42px); animation: fr-rise .7s .08s var(--k-spring) both; }
+.fr-profile-v2 .fr-pronouns { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: var(--k-r-full); background: var(--k-accent-pale); color: var(--k-on-surface); font-size: 13px; }
+.fr-profile-v2 .fr-handle { animation: fr-rise .7s .14s var(--k-spring) both; }
+.fr-profile-v2 .fr-actions { margin: 0; padding-bottom: 8px; animation: fr-rise .7s .2s var(--k-spring) both; }
+.fr-profile-v2 .fr-hero-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 24px 0 calc(24px + 152px + 22px); animation: fr-rise .7s .26s var(--k-spring) both; }
+.fr-profile-v2 .fr-hero-more .fr-bio { flex: 1 1 320px; margin: 0; }
+@keyframes fr-pop { from { opacity: 0; transform: scale(.82) rotate(-6deg); } }
+@keyframes fr-rise { from { opacity: 0; transform: translateY(12px); } }
+
+/* Socials: round marks under the name, each its site's own icon. */
+.fr-socials { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.fr-socials a { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--k-container-low); color: var(--fr-color); box-shadow: 0 0 0 1px var(--k-outline-variant); animation: fr-pop .6s var(--k-spring) both; animation-delay: calc(.25s + var(--i, 0) * 60ms); transition: transform var(--k-t-fold) var(--k-spring), background var(--k-t-state); }
+.fr-socials a:hover { transform: translateY(-3px) rotate(-6deg) scale(1.08); background: var(--k-container); }
+.fr-socials .line-icon { width: 20px; height: 20px; }
+.fr-socials .wg-favicon { width: 20px; height: 20px; }
+
+/* The Silkscreen badge, as a small chip beside the words. */
+.fr-hero-more .fr-silkscreen { display: inline-flex; align-items: center; gap: 10px; padding: 4px 16px 4px 4px; border-radius: var(--k-r-full); background: var(--k-container-low); }
+.fr-hero-more .fr-ss-stage { width: 30px; height: 40px; border-radius: 6px; }
+.fr-hero-more .fr-ss-words b { font-size: 14px; }
+.fr-hero-more .fr-ss-words small { font-size: 12.5px; }
+
+/* The board sits on the page, lined up with the hero. */
+.fr-profile-v2 .wg { padding: 0; margin-bottom: 18px; }
+.fr-edit-move { display: inline-flex; flex-direction: column; }
+.fr-edit-move button { display: grid; place-items: center; width: 28px; height: 18px; border: 0; background: none; color: var(--k-on-surface-variant); cursor: pointer; }
+.fr-edit-move button:disabled { opacity: .3; cursor: default; }
+.fr-edit-move .line-icon { width: 16px; height: 16px; }
+.fr-edit-link { grid-template-columns: 40px minmax(0, 1.5fr) minmax(0, 1fr) 28px 36px; }
+@media (prefers-reduced-motion: reduce) { .fr-profile-v2 .fr-band::after, .fr-profile-v2 .fr-hero *, .fr-socials a { animation: none !important; } }
+
+@media (max-width: 720px) {
+  .fr-profile-v2 .fr-band { height: 112px; margin: 8px 8px 0; }
+  .fr-profile-v2 .fr-hero-body { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 10px; margin-top: -60px; padding: 0 16px; }
+  .fr-profile-v2 .fr-hero-face .k-ink-portrait { width: 124px; height: 124px; }
+  .fr-profile-v2 .fr-hero-face .k-ink-portrait .portrait { width: 102px; height: 102px; font-size: 46px; }
+  .fr-profile-v2 .fr-hero-words { justify-items: center; }
+  .fr-socials { justify-content: center; }
+  .fr-profile-v2 .fr-actions { justify-content: center; }
+  .fr-profile-v2 .fr-hero-more { justify-content: center; text-align: center; padding: 12px 16px 0; }
+  .fr-profile-v2 .wg { padding: 0 8px; }
+  .fr-edit-link { grid-template-columns: 40px minmax(0, 1fr) 28px 36px; }
+}
+/* The words start below the band, whatever the portrait does. */
+.fr-profile-v2 .fr-hero-words { margin-top: 84px; }
+@media (max-width: 720px) { .fr-profile-v2 .fr-hero-words { margin-top: 0; } }

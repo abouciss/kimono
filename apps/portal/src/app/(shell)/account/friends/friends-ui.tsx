@@ -10,7 +10,7 @@ import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
 import { Book3D } from "../../books/book3d";
-import { WidgetBoard, type MusicExtras, type Widget } from "./widgets";
+import { Favicon, isSocial, WidgetBoard, type MusicExtras, type Widget } from "./widgets";
 
 /*
  * 友 Friends, profiles and recommendations on the web (lib/friends has the
@@ -257,6 +257,8 @@ export function ProfileView({ username, home = false }: { username: string; home
   const [editing, setEditing] = useState(false);
   /* Your own profile as a friend sees it. */
   const [asFriend, setAsFriend] = useState(false);
+  /* Arranging the home screen's widgets (the board saves when it's done). */
+  const [arranging, setArranging] = useState(false);
   /* What you took off your profile, open to put back. */
   const [offOpen, setOffOpen] = useState(false);
   const load = useCallback(() => call<Profile>(`/api/v1/profiles/${encodeURIComponent(username)}`).then(setProfile, (e) => setProblem(message(e))), [username]);
@@ -303,7 +305,7 @@ export function ProfileView({ username, home = false }: { username: string; home
     <header className="fr-hero">
       <div className="fr-band" aria-hidden="true" />
       {home && !p.you ? null : <div className="fr-top">
-        {home ? null : <Crossing kind="kakejiku" className="fr-back" href={p.you ? "/account" : "/account/friends"} aria-label="Back"><LineIcon name="back" /></Crossing>}
+        {home ? <span /> : <Crossing kind="kakejiku" className="fr-back" href={p.you ? "/account" : "/account/friends"} aria-label="Back"><LineIcon name="back" /></Crossing>}
         {p.you ? <label className="fr-asfriend"><span>View as a friend</span><JointSwitch name="as-friend" label="View your profile as a friend sees it" defaultChecked={false} onChange={setAsFriend} /></label> : null}
       </div>}
       <div className="fr-hero-body">
@@ -313,23 +315,32 @@ export function ProfileView({ username, home = false }: { username: string; home
         <div className="fr-hero-words">
           <h1 className="fr-name">{p.name}{p.open && p.pronouns && !closedToFriends ? <small className="fr-pronouns">{p.pronouns}</small> : null}</h1>
           <p className="fr-handle">@{p.username}{p.open && !closedToFriends ? ` · ${p.friends === 1 ? "1 friend" : `${p.friends} friends`}` : ""}</p>
-          {p.open && p.bio && !closedToFriends ? <p className="fr-bio">{p.bio}</p> : p.you && !preview && p.open ? <button type="button" className="fr-bio fr-bio-empty" onClick={() => setEditing(true)}>Add a few words about you</button> : null}
-          {p.open && p.kimonoRead && !closedToFriends ? <SilkscreenBadge since={p.kimonoRead.since} you={p.you} name={p.name || p.username} /> : null}
-          <div className="fr-actions">
-            {p.you && !preview ? <>
-              <Seal compact onClick={() => setEditing(true)}><LineIcon name="brush" />Edit profile</Seal>
-              <Seal tone="quiet" compact onClick={() => setPrivacyOpen(true)}><LineIcon name="eye" />Who sees what</Seal>
-            </> : p.you ? null : action}
-          </div>
-          {p.you && invisible && !preview ? <button type="button" className="fr-only fr-only-big" onClick={() => setPrivacyOpen(true)}><LineIcon name="lock" />You&rsquo;re invisible: friends only see your name and picture</button> : null}
-          {closedToFriends ? <p className="fr-quiet">You&rsquo;re invisible, so this is all friends see.</p> : null}
+          {p.open && !closedToFriends && p.links.some((l) => isSocial(l.url)) ? <nav className="fr-socials" aria-label="Elsewhere">
+            {/* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */}
+            {p.links.filter((l) => isSocial(l.url)).map((l, i) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" title={l.title} aria-label={l.title} style={{ "--i": i } as React.CSSProperties}>
+              <Favicon url={l.url} fallback={linkMark(l.url)} />
+            </a>)}
+          </nav> : null}
+        </div>
+        <div className="fr-actions">
+          {p.you && !preview ? <>
+            <Seal compact onClick={() => setEditing(true)}><LineIcon name="brush" />Edit profile</Seal>
+            <Seal tone="quiet" compact onClick={() => setPrivacyOpen(true)}><LineIcon name="eye" />Who sees what</Seal>
+            {p.open ? <Seal tone="quiet" compact onClick={() => setArranging(!arranging)}><LineIcon name={arranging ? "check" : "pin"} />{arranging ? "Done" : "Arrange"}</Seal> : null}
+          </> : p.you ? null : action}
         </div>
       </div>
-      {p.open && !closedToFriends ? <WidgetBoard
-        data={{ person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, color: color.hex }}
-        widgets={p.widgets ?? null} editable={p.you && !preview}
-        onSave={(widgets) => call<{ widgets?: Widget[] }>("/api/v1/profile", "PATCH", { widgets }).then(() => { setProfile({ ...p, widgets }); setToast("Saved"); }, (e) => setProblem(message(e)))} /> : null}
+      <div className="fr-hero-more">
+        {p.open && p.bio && !closedToFriends ? <p className="fr-bio">{p.bio}</p> : p.you && !preview && p.open ? <button type="button" className="fr-bio fr-bio-empty" onClick={() => setEditing(true)}>Add a few words about you</button> : null}
+        {p.open && p.kimonoRead && !closedToFriends ? <SilkscreenBadge since={p.kimonoRead.since} you={p.you} name={p.name || p.username} /> : null}
+        {p.you && invisible && !preview ? <button type="button" className="fr-only fr-only-big" onClick={() => setPrivacyOpen(true)}><LineIcon name="lock" />You&rsquo;re invisible: friends only see your name and picture</button> : null}
+        {closedToFriends ? <p className="fr-quiet">You&rsquo;re invisible, so this is all friends see.</p> : null}
+      </div>
     </header>
+    {p.open && !closedToFriends ? <WidgetBoard
+      data={{ person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, color: color.hex }}
+      widgets={p.widgets ?? null} editable={p.you && !preview} arranging={arranging && p.you && !preview} onArranging={setArranging}
+      onSave={(widgets) => call<{ widgets?: Widget[] }>("/api/v1/profile", "PATCH", { widgets }).then(() => { setProfile({ ...p, widgets }); setToast("Saved"); }, (e) => setProblem(message(e)))} /> : null}
     {problem ? <p className="fr-problem" role="alert">{problem}</p> : null}
 
     {p.open && !closedToFriends ? <div className="fr-body">
@@ -508,6 +519,10 @@ function EditProfileSheet({ profile, onClose, onSaved }: { profile: Profile & { 
           <span className="fr-link-mark"><LineIcon name={l.url ? linkMark(/^[a-z]+:/i.test(l.url) ? l.url : `https://${l.url}`) : "link"} /></span>
           <input aria-label="Link address" placeholder="instagram.com/you" value={l.url} onChange={(e) => setLink(i, { url: e.target.value })} inputMode="url" />
           <input aria-label="Link title" placeholder="Title" value={l.title} maxLength={40} onChange={(e) => setLink(i, { title: e.target.value })} />
+          <span className="fr-edit-move">
+            <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => setLinks((ls) => { const o = [...ls]; [o[i - 1], o[i]] = [o[i], o[i - 1]]; return o; })}><LineIcon name="up" /></button>
+            <button type="button" aria-label="Move down" disabled={i === links.length - 1} onClick={() => setLinks((ls) => { const o = [...ls]; [o[i + 1], o[i]] = [o[i], o[i + 1]]; return o; })}><LineIcon name="down" /></button>
+          </span>
           <button type="button" className="fr-edit-drop" aria-label="Remove this link" onClick={() => setLinks((ls) => ls.length > 1 ? ls.filter((_, j) => j !== i) : [{ title: "", url: "" }])}><LineIcon name="close" /></button>
         </div>)}
         {links.length < 8 ? <button type="button" className="fr-edit-add" onClick={() => setLinks((ls) => [...ls, { title: "", url: "" }])}><LineIcon name="plus" />Add a link</button> : null}
