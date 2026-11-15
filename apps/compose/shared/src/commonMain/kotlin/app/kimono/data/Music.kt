@@ -80,8 +80,6 @@ data class PlaylistPage(
     val edits get() = who == "owner" || who == "member"
     val joined get() = members.filter { it.joined }
 }
-@Serializable data class SharingChoice(val key: String, val says: String, val on: Boolean = false)
-@Serializable data class SharingAsk(val ask: Boolean = false, val asks: List<SharingChoice> = emptyList())
 @Serializable data class SearchResults(val tracks: List<Track> = emptyList(), val albums: List<Album> = emptyList(), val artists: List<Artist> = emptyList())
 @Serializable data class SongStatus(val stage: String, val fraction: Double? = null)
 @Serializable data class QueueSource(val kind: String, val id: String, val title: String)
@@ -107,7 +105,7 @@ data class PartyView(
 @Serializable data class PartyNow(val state: PartyView, val chat: List<ChatLine> = emptyList(), val people: List<MusicPerson> = emptyList())
 
 @Serializable private data class Wrap<T>(val tracks: List<T> = emptyList())
-@Serializable private data class Playlists(val playlists: List<Playlist> = emptyList())
+@Serializable private data class MusicPlaylists(val playlists: List<Playlist> = emptyList())
 @Serializable private data class OnePlaylist(val playlist: PlaylistPage)
 @Serializable private data class Ratings(val ratings: List<RatedItem> = emptyList())
 @Serializable private data class LyricsAnswer(val lyrics: Lyrics? = null)
@@ -165,7 +163,7 @@ class Music(val session: Session) {
             })
         }
     }
-    suspend fun playlists(): List<Playlist> = get<Playlists>("playlists").playlists
+    suspend fun playlists(): List<Playlist> = get<MusicPlaylists>("playlists").playlists
     suspend fun playlist(id: String): PlaylistPage = get<OnePlaylist>("playlists/${id.encodeURLPathPart()}").playlist
     fun knownPlaylist(id: String): PlaylistPage? = known<OnePlaylist>("playlists/${id.encodeURLPathPart()}")?.playlist
     suspend fun createPlaylist(name: String, keys: List<String> = emptyList()): PlaylistPage =
@@ -182,11 +180,7 @@ class Music(val session: Session) {
     suspend fun join(id: String) = changePlaylist(id, buildJsonObject { put("join", true) })
     suspend fun leave(id: String) { session.call("$BASE/playlists/${id.encodeURLPathPart()}", HttpMethod.Patch) { contentType(ContentType.Application.Json); setBody(buildJsonObject { put("leave", true) }.toString()) } }
 
-    /** Whether Music should ask, the first time, what friends see of it. */
-    suspend fun sharingAsk(): SharingAsk = json.decodeFromString(session.call("/api/v1/profile/sharing?app=music"))
-    suspend fun saveSharing(on: List<String>) {
-        session.call("/api/v1/profile", HttpMethod.Patch) { contentType(ContentType.Application.Json); setBody(buildJsonObject { put("share", "music"); putJsonArray("on") { on.forEach { add(it) } } }.toString()) }
-    }
+    /* What friends see of Music is asked the first time by Friends' SharingAsk (screens/Profile.kt), as for Books. */
 
     /** The song's audio on this Kimono: AAC in MP4, with byte ranges. */
     fun streamUrl(key: String) = "${session.server.orEmpty()}$BASE/stream?key=${q(key)}"

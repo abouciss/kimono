@@ -112,7 +112,7 @@ data class Pick(val key: String, val title: String, val subtitle: String, val co
 @Serializable private data class BookHit(val key: String, val title: String = "", val authors: List<String> = emptyList(), val cover: String? = null)
 @Serializable private data class WatchSearch(val results: List<WatchHit> = emptyList())
 @Serializable private data class WatchHit(val id: String, val name: String = "", val year: Int? = null, val poster: String? = null)
-@Serializable private data class Playlists(val playlists: List<PlaylistHit> = emptyList())
+@Serializable private data class PlaylistHits(val playlists: List<PlaylistHit> = emptyList())
 @Serializable private data class PlaylistHit(val id: String, val name: String = "", val count: Int = 0, val covers: List<String> = emptyList())
 
 /** Whether an app asks you, the first time you open it with a friend, what friends see of it (GET /api/v1/profile/sharing); each choice starts [on] or off. */
@@ -262,7 +262,7 @@ class Friends(private val session: Session) {
         val local = server?.let { s -> hit.poster?.takeIf { it.startsWith(s) }?.removePrefix(s) } ?: hit.poster
         Pick(hit.id, hit.name, hit.year?.toString() ?: "", local)
     }
-    suspend fun playlists(): List<Pick> = json.decodeFromString<Playlists>(session.call("/api/v1/music/playlists")).playlists.map { Pick(it.id, it.name, "${it.count} ${if (it.count == 1) "song" else "songs"}", it.covers.firstOrNull()) }
+    suspend fun playlists(): List<Pick> = json.decodeFromString<PlaylistHits>(session.call("/api/v1/music/playlists")).playlists.map { Pick(it.id, it.name, "${it.count} ${if (it.count == 1) "song" else "songs"}", it.covers.firstOrNull()) }
 
     /** What friends are up to, the latest first, for Home. */
     suspend fun activity(): List<FriendActivity> = json.decodeFromString<Activity>(session.fetch(ACTIVITY)).items

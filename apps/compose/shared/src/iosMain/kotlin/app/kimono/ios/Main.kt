@@ -145,6 +145,7 @@ private class IosPlatform(private val host: IosHost) : Platform {
     override fun utcOffsetMillis(at: Long): Long =
         NSTimeZone.localTimeZone.secondsFromGMTForDate(NSDate.dateWithTimeIntervalSince1970(at / 1000.0)) * 1000L
     override val build: Long get() = host.appBuild()
+    override val version: String get() = (platform.Foundation.NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String) ?: ""
     override suspend fun pickFiles(): List<PickedFile> =
         suspendCancellableCoroutine<List<IosPickedFile>> { waiting -> host.pickFiles { waiting.resume(it) } }
             .map { IosFile(it.path, it.name, it.size, it.mimeType, host) }
