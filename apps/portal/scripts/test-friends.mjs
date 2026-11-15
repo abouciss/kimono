@@ -6,9 +6,11 @@ import * as watchFriends from '../src/lib/watch/friends.ts';
 import * as booksSection from '../src/lib/friends/books-section.ts';
 import * as activity from '../src/lib/friends/activity.ts';
 
-function fresh() {
+/** A database where everyone has already chosen to share everything (the dialog's answer), unless [undecided]. */
+function fresh({ undecided = false } = {}) {
   const db = new DatabaseSync(':memory:');
   friends.migrateSocial(db);
+  if (!undecided) for (const u of ['ana', 'sami', 'lee', 'kai', 'mo']) for (const app of Object.keys(friends.sharingAsks)) friends.decideSharing(db, u, app, friends.sharingAsks[app].map((a) => a.key), 0);
   return db;
 }
 let n = 0;
@@ -320,4 +322,34 @@ test('profile widgets: known kinds and sizes, each keeping only what it should',
   assert.throws(() => friends.widgetsFrom([{ kind: 'note', size: 'huge' }]), /size/);
   assert.throws(() => friends.widgetsFrom([{ kind: 'clock', size: 's', config: { zone: 'Mars/Olympus' } }]), /time zone/);
   assert.equal(friends.widgetsFrom([{ kind: 'song', size: 's', config: { key: 'dz:1', cover: 'javascript:alert(1)' } }])[0].config.cover, '');
+});
+
+test('until an app is chosen, nothing of it is shared; choosing writes it down', () => {
+  const db = fresh({ undecided: true });
+  assert.ok(friends.keptOf(db, 'ana').includes('music:playing'));
+  assert.ok(friends.keptOf(db, 'ana').includes('books:read'));
+  friends.decideSharing(db, 'ana', 'books', ['reading', 'reviews']);
+  const kept = friends.keptOf(db, 'ana');
+  assert.ok(!kept.includes('books:reading') && !kept.includes('books:reviews'));
+  assert.ok(kept.includes('books:read') && kept.includes('books:want'));
+  assert.ok(kept.includes('music:playing'), 'other apps stay undecided');
+  /* One row changed on an undecided app decides it, the rest kept. */
+  friends.setKept(db, 'ana', 'music:loved', false);
+  assert.deepEqual(friends.decidedOf(db, 'ana'), ['books', 'music']);
+  assert.ok(!friends.keptOf(db, 'ana').includes('music:loved'));
+  assert.ok(friends.keptOf(db, 'ana').includes('music:playing'));
+});
+
+test('a profile is friends-only, public to anyone with its address, or private', () => {
+  const db = fresh();
+  assert.equal(friends.visibilityOf(db, 'ana'), 'friends');
+  assert.equal(friends.seesProfile(db, 'sami', 'ana'), false);
+  assert.equal(friends.seesProfile(db, '', 'ana'), false);
+  friends.setVisibility(db, 'ana', 'public');
+  assert.equal(friends.seesProfile(db, 'sami', 'ana'), true);
+  assert.equal(friends.seesProfile(db, '', 'ana'), true);
+  assert.equal(friends.profileFor(db, '', { username: 'ana' }, () => []).you, false);
+  friends.setVisibility(db, 'ana', 'private');
+  assert.equal(friends.isInvisible(db, 'ana'), true);
+  assert.equal(friends.seesProfile(db, '', 'ana'), false);
 });

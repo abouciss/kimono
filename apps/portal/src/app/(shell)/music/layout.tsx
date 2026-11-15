@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { appIcons } from "@/lib/app-favicon";
+import { SharingAsk } from "@/components/sharing-ask";
 import { musicConfig, musicIdentity } from "@/lib/music/config";
 import { picturePathFor } from "@/lib/pictures";
 import { getPlatformSettings } from "@/lib/settings";
@@ -40,6 +41,7 @@ export default async function MusicLayout({ children }: { children: ReactNode })
           {children}
         </div>
         <PlayerChrome />
+        <SharingAsk app="music" />
       </PartyProvider>
     </MusicProvider>
   </AppShell>;

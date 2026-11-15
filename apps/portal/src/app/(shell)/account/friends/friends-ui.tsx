@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InkBlot, InkPortraitFrame, Seal } from "@kimono/ui";
-import { Crossing } from "@/components/crossing";
+import { Crossing, CrossingSeal } from "@/components/crossing";
 import { InkSheet } from "@/components/ink-sheet";
 import { JointSwitch } from "@/components/joint-switch";
 import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
 import { Book3D } from "../../books/book3d";
-import { Favicon, isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
+import { isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
+import { LinkMark } from "./link-marks";
 import { LinksEditor } from "./links-editor";
 
 /*
@@ -30,12 +31,12 @@ export type Item = { app: string; itemId: string; title: string; subtitle: strin
 export type Recommendation = Item & { id: string; from: Person; to: Person | null; note: string | null; at: number; seen: boolean; appName: string };
 export type Section = { app: string; appName: string; kind: string; title: string; items: Item[] };
 /** Private until you're friends: then only `open: false` and who they are comes back (lib/friends/model.ts profileFor). */
-export type Profile = Person & { you: boolean; link: "friends" | "asked" | "asking" | null } & (
+export type Profile = Person & { you: boolean; visitor?: boolean; link: "friends" | "asked" | "asking" | null } & (
   | { open: false }
-  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
+  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
 );
 /** What you let friends see (your own profile only): lib/friends/model.ts privacyOf. */
-export type Privacy = { invisible: boolean; friends: boolean; apps: { app: string; name: string; shown: boolean; rows: { kind: string; title: string; shown: boolean }[] }[] };
+export type Privacy = { invisible: boolean; visibility: "friends" | "public" | "private"; friends: boolean; apps: { app: string; name: string; shown: boolean; rows: { kind: string; title: string; shown: boolean }[] }[] };
 /** A title you took off a row of your profile, to put back (lib/friends/model.ts offProfileList). */
 export type Off = Item & { appName: string; kind: string; rowTitle: string; at: number };
 type FriendsList = { friends: (Person & { bio: string })[]; asked: Person[]; asking: Person[]; unseen: number };
@@ -234,14 +235,17 @@ function linkMark(url: string): LineIconName {
 /* What each row of a profile says, in plain words, for Who sees what. */
 const rowWords: Record<string, string> = {
   "watch:watching": "What you're watching, and how far",
-  "watch:watched": "What you've watched, and how you rated it",
+  "watch:watched": "What you've watched",
   "watch:listed": "Your watchlist",
   "books:reading": "Books you're reading, and how far",
   "books:want": "Books you want to read",
   "books:read": "Books you've read, and how you rated them",
   "music:playing": "Songs you've been listening to, and what's on now",
   "music:loved": "Songs you love",
-  "music:playlists": "Your playlists (friends can open and play them)",
+  "music:playlists": "Your public playlists",
+  "music:stats": "Your top artists and how much you listen",
+  "watch:rated": "How you rated what you watched",
+  "books:reviews": "Your reviews",
 };
 
 export function ProfileView({ username, home = false }: { username: string; home?: boolean }) {
@@ -272,7 +276,7 @@ export function ProfileView({ username, home = false }: { username: string; home
 
   if (!profile) return <div className="you fr">{problem ? <p className="fr-problem" role="alert">{problem}</p> : <div className="stack you-head"><span className="fr-sk-face" /></div>}</div>;
   const p = profile;
-  const action = p.link === "friends" ? <Seal tone="quiet" compact onClick={() => setRemoving(true)}><LineIcon name="check" />Friends</Seal>
+  const action = p.visitor ? null : p.link === "friends" ? <Seal tone="quiet" compact onClick={() => setRemoving(true)}><LineIcon name="check" />Friends</Seal>
       : p.link === "asked" ? <><Seal tone="quiet" compact onClick={() => void change("no")}>Not now</Seal><Seal compact onClick={() => void change("yes")}>Accept</Seal></>
         : p.link === "asking" ? <Seal tone="quiet" compact onClick={() => void change("remove")}>Asked</Seal>
           : <Seal compact onClick={() => void change("ask")}>Ask to be friends</Seal>;
@@ -299,7 +303,10 @@ export function ProfileView({ username, home = false }: { username: string; home
       <div className="fr-band" aria-hidden="true" />
       {home && !p.you ? null : <div className="fr-top">
         {home ? <span /> : <Crossing kind="kakejiku" className="fr-back" href={p.you ? "/account" : "/account/friends"} aria-label="Back"><LineIcon name="back" /></Crossing>}
-        {p.you ? <label className="fr-asfriend"><span>View as a friend</span><JointSwitch name="as-friend" label="View your profile as a friend sees it" defaultChecked={false} onChange={setAsFriend} /></label> : null}
+        {p.you ? <span className="fr-top-end">
+          <label className="fr-asfriend"><span>View as a friend</span><JointSwitch name="as-friend" label="View your profile as a friend sees it" defaultChecked={false} onChange={setAsFriend} /></label>
+          <CrossingSeal tone="quiet" compact className="fr-settings" href="/account/settings"><LineIcon name="cog" />Settings</CrossingSeal>
+        </span> : null}
       </div>}
       <div className="fr-hero-body">
         {p.you && !preview ? <Crossing kind="kakejiku" className="you-picture fr-hero-face" href="/account?sheet=picture" aria-label="Change your picture">
@@ -311,7 +318,7 @@ export function ProfileView({ username, home = false }: { username: string; home
           {p.open && !closedToFriends && p.links.some((l) => isSocial(l.url)) ? <nav className="fr-socials" aria-label="Elsewhere">
             {/* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */}
             {p.links.filter((l) => isSocial(l.url)).map((l, i) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" title={l.title} aria-label={l.title} style={{ "--i": i } as React.CSSProperties}>
-              <Favicon url={l.url} fallback={linkMark(l.url)} />
+              <LinkMark url={l.url} icon={l.icon} fallback={linkMark(l.url)} />
             </a>)}
           </nav> : null}
         </div>
@@ -345,7 +352,7 @@ export function ProfileView({ username, home = false }: { username: string; home
         <div className="fr-shelf k-inkbar">{p.recommendations.map((r) => <Tile key={r.id} item={r}>
           {r.note ? <q className="fr-tile-note">{r.note}</q> : null}
           {p.you && !preview ? <button type="button" className="fr-away" aria-label={`Take ${r.title} off your profile`} onClick={() => setUnrecommending(r)}><LineIcon name="close" /></button>
-            : p.you ? null : <button type="button" className="fr-away" aria-label={`Recommend ${r.title}`} onClick={() => setRecommending(r)}><LineIcon name="send" /></button>}
+            : p.you || p.visitor ? null : <button type="button" className="fr-away" aria-label={`Recommend ${r.title}`} onClick={() => setRecommending(r)}><LineIcon name="send" /></button>}
         </Tile>)}</div>
       </section> : null}
 
@@ -355,7 +362,7 @@ export function ProfileView({ username, home = false }: { username: string; home
       onChanged={(r) => { if (p.open) setProfile({ ...p, privacy: r.privacy, hidden: r.hidden, kept: keptFrom(r.privacy) }); }} /> : null}
     {editing && p.open ? <EditProfileSheet profile={p} onClose={() => setEditing(false)} onSaved={(next) => { setProfile(next); setToast("Saved"); }} onLinks={() => setEditingLinks(true)} /> : null}
     {editingLinks && p.open ? <LinksEditor links={p.links} onClose={() => setEditingLinks(false)}
-      onSave={(links) => call<{ links: { title: string; url: string }[] }>("/api/v1/profile", "PATCH", { links }).then((r) => { setProfile((was) => was && was.open ? { ...was, links: r.links } : was); return true; }, (e) => { setProblem(message(e)); return false; })} /> : null}
+      onSave={(links) => call<{ links: { title: string; url: string; icon?: string }[] }>("/api/v1/profile", "PATCH", { links }).then((r) => { setProfile((was) => was && was.open ? { ...was, links: r.links } : was); return true; }, (e) => { setProblem(message(e)); return false; })} /> : null}
     {removing ? <InkSheet title={`Remove ${first(p)}?`} icon="people" onClose={() => setRemoving(false)} actions={<>
       <Seal tone="quiet" compact onClick={() => setRemoving(false)}>Keep</Seal>
       <Seal tone="danger" compact onClick={() => { setRemoving(false); void change("remove"); }}>Remove</Seal>
@@ -386,6 +393,18 @@ function Who({ friends, label, disabled, onChange }: { friends: boolean; label: 
  * profile at all, your friends list, and each app and each of its rows. Each
  * choice saves as it's made.
  */
+/** Your public profile's address, to copy. */
+function PublicLink() {
+  const [copied, setCopied] = useState(false);
+  const [href, setHref] = useState("");
+  useEffect(() => { void fetch("/api/v1/me").then((r) => r.json()).then((m: { username?: string }) => { if (m.username) setHref(`${location.origin}/p/${encodeURIComponent(m.username)}`); }).catch(() => null); }, []);
+  if (!href) return null;
+  return <div className="fr-wsw-link">
+    <LineIcon name="link" /><code>{href.replace(/^https?:\/\//, "")}</code>
+    <Seal tone="quiet" compact onClick={() => { void navigator.clipboard.writeText(href).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }); }}>{copied ? "Copied" : "Copy"}</Seal>
+  </div>;
+}
+
 function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy: Privacy; offCount: number; onClose: () => void; onOff: () => void; onChanged: (r: { privacy: Privacy; hidden: string[] }) => void }) {
   const [now, setNow] = useState(privacy);
   const [problem, setProblem] = useState<string | null>(null);
@@ -394,16 +413,16 @@ function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy
   const hidden = now.invisible;
   return <InkSheet title="Who sees what" icon="eye" onClose={onClose} actions={<Seal compact onClick={onClose}>Done</Seal>}>
     <div className="fr-wsw">
-      <p className="fr-wsw-lead">Only your friends ever see your profile. Everyone else on this Kimono sees your name and picture.</p>
-
-      <div className="fr-wsw-modes" role="radiogroup" aria-label="Your profile">
-        <button type="button" role="radio" aria-checked={!hidden} className={!hidden ? "is-on" : undefined} onClick={() => void change({ invisible: false })}>
-          <LineIcon name="people" /><b>Friends see my profile</b><small>What you choose below</small>
-        </button>
-        <button type="button" role="radio" aria-checked={hidden} className={hidden ? "is-on" : undefined} onClick={() => void change({ invisible: true })}>
-          <LineIcon name="lock" /><b>Invisible</b><small>Friends only see your name and picture, and none of your apps</small>
-        </button>
+      <div className="fr-wsw-modes is-three" role="radiogroup" aria-label="Who sees your profile">
+        {([
+          ["friends", "people", "Friends", "Your friends see what you choose below"],
+          ["public", "link", "Anyone with the link", "Like friends do, even without an account"],
+          ["private", "lock", "Only me", "Friends see your name and picture"],
+        ] as const).map(([v, icon, name, says]) => <button key={v} type="button" role="radio" aria-checked={now.visibility === v} className={now.visibility === v ? "is-on" : undefined} onClick={() => void change({ visibility: v })}>
+          <LineIcon name={icon} /><b>{name}</b><small>{says}</small>
+        </button>)}
       </div>
+      {now.visibility === "public" ? <PublicLink /> : null}
 
       <div className={`fr-wsw-rows${hidden ? " is-off" : ""}`}>
         <div className="fr-wsw-row"><span><b>Your friends list</b><small>Who you&rsquo;re friends with</small></span>
@@ -428,7 +447,7 @@ function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy
 
 /* ── Editing your profile ──────────────────────────────────────────────── */
 
-type Look = { pronouns: string; color: ProfileColor | null; links: { title: string; url: string }[] };
+type Look = { pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string }[] };
 
 /** Your name, pronouns, words, colour and links, in one place, saved together. */
 function EditProfileSheet({ profile, onClose, onSaved, onLinks }: { profile: Profile & { open: true }; onClose: () => void; onSaved: (p: Profile) => void; onLinks: () => void }) {
