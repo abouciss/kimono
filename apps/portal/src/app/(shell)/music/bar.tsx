@@ -7,7 +7,7 @@ import { cx, InkWave, Seal } from "@kimono/ui";
 import { byline, clock, hrefOf, musicApi, share, type Lyrics } from "./api";
 import { Asker } from "./ask";
 import { Icon } from "./icons";
-import { AddToPlaylist, ArtistLinks, Bars, Cover, Menu, MoreButton, playlistItems, RateMarks, songMenuItems, type Item } from "./parts";
+import { AddToPlaylist, ArtistLinks, Bars, Cover, Menu, MenuRates, MoreButton, playlistItems, RateMarks, songMenuItems, type Item } from "./parts";
 import { usePlayer, usePosition, type Source } from "./player";
 
 /*
@@ -221,7 +221,7 @@ function Bar() {
       <BarViews words={hasWords(lyrics)} />
       <Volume />
       {/* The song's own menu, last and away from the marks; where the marks don't fit, they're in it. */}
-      <MoreButton label={`More for ${t.title}`} className="km-bar-more" items={() => songMenuItems(t, p, matchMedia("(max-width: 900px)").matches)} />
+      <MoreButton label={`More for ${t.title}`} className="km-bar-more" head={() => (matchMedia("(max-width: 900px)").matches ? <MenuRates t={t} /> : null)} items={() => songMenuItems(t, p)} />
     </div>
     {/* Narrower, the song's place runs along the bar's top edge: a rail you can take hold of. A phone draws it as a line. */}
     {arriving
