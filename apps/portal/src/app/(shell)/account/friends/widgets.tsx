@@ -39,6 +39,8 @@ export type BoardData = {
   music: MusicExtras;
   books?: BooksExtras;
   color: string;
+  /** Your own profile, not seen as a friend: friend requests waiting, and whether friends see your friends. */
+  own?: { asking: number; kept: boolean };
 };
 
 const kinds: { kind: WidgetKind; name: string; says: string; icon: LineIconName; sizes: WidgetSize[]; size: WidgetSize }[] = [
@@ -73,6 +75,12 @@ let made = 0;
 const newId = () => `w${Date.now().toString(36)}${(made++).toString(36)}`;
 
 /** A home screen for someone who hasn't arranged one: what they have, at sensible sizes. */
+/** Friends are always on the board (it's the whole profile now), wherever you've put them; never for a visitor when there are none. */
+export function withFriends(ws: Widget[], d: BoardData): Widget[] {
+  if (ws.some((w) => w.kind === "friends") || (!d.friends.length && !d.own)) return ws;
+  return [...ws, { id: "friends", kind: "friends", size: "m" }];
+}
+
 export function defaultWidgets(d: BoardData): Widget[] {
   const has = (app: string, kind: string) => d.sections.some((s) => s.app === app && s.kind === kind && s.items.length);
   const out: Widget[] = [];
@@ -95,7 +103,7 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
   onEditLinks?: () => void;
   onSave: (w: Widget[]) => Promise<void>;
 }) {
-  const shown = useMemo(() => widgets ?? defaultWidgets(data), [widgets, data]);
+  const shown = useMemo(() => withFriends(widgets ?? defaultWidgets(data), data), [widgets, data]);
   const [draft, setDraft] = useState<Widget[]>(shown);
   /* Arranging starts from what's shown (set while drawing, as React has it for a change from outside)… */
   const [was, setWas] = useState(arranging);
@@ -134,7 +142,7 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
         onDragEnd={() => setDragging(null)}>
         <WidgetView w={w} d={data} onEditLinks={onEditLinks} />
         {arranging ? <div className="wg-edit">
-          <button type="button" className="wg-x" aria-label={`Remove ${kindOf(w.kind).name}`} onClick={() => drop(w.id)}><LineIcon name="close" /></button>
+          {w.kind === "friends" ? null : <button type="button" className="wg-x" aria-label={`Remove ${kindOf(w.kind).name}`} onClick={() => drop(w.id)}><LineIcon name="close" /></button>}
           <span className="wg-sizes" role="group" aria-label="Size">
             {kindOf(w.kind).sizes.map((s) => <button key={s} type="button" aria-pressed={w.size === s} title={sizeName[s]} onClick={() => resize(w.id, s)}><i className={`wg-size-glyph wg-glyph-${s}`} /></button>)}
           </span>
@@ -419,12 +427,21 @@ function Links({ w, d, onEdit }: { w: Widget; d: BoardData; onEdit?: () => void 
 }
 
 function Friends({ w, d }: { w: Widget; d: BoardData }) {
-  if (!d.friends.length) return <div className="wg-card"><Empty icon="people" text="No friends to show" /></div>;
+  const own = d.own;
+  const more = own ? <span className="wg-friends-more">
+    {own.asking ? <Crossing kind="kakejiku" href="/account/friends" className="wg-chip is-new"><i />{own.asking} asking</Crossing> : null}
+    <Crossing kind="kakejiku" href="/account/friends" className="wg-chip">{d.friends.length ? "All friends" : <><LineIcon name="search" />Find friends</>}</Crossing>
+  </span> : null;
+  const kicker = <small className="wg-kicker">{d.friends.length === 1 ? "1 friend" : d.friends.length ? `${d.friends.length} friends` : "Friends"}{own?.kept ? <span className="wg-only"><LineIcon name="lock" />Only you</span> : null}</small>;
+  if (!d.friends.length) return <div className="wg-card wg-friends">{kicker}<Empty icon="people" text={own ? "Your friends show up here" : "No friends to show"} />{more}</div>;
+  const n = w.size === "s" ? 4 : w.size === "m" ? 6 : 12;
   return <div className="wg-card wg-friends">
-    <small className="wg-kicker">{d.friends.length === 1 ? "1 friend" : `${d.friends.length} friends`}</small>
-    <span className="wg-faces">{d.friends.slice(0, w.size === "l" ? 12 : 6).map((f) => <Crossing key={f.username} kind="kakejiku" href={`/account/people/${encodeURIComponent(f.username)}`} title={f.name}>
+    {kicker}
+    <span className="wg-faces">{d.friends.slice(0, n).map((f) => <Crossing key={f.username} kind="kakejiku" href={`/account/people/${encodeURIComponent(f.username)}`} title={f.name || f.username} className="wg-friend">
       <InkPortraitFrame seed={f.username} weight={3}><Portrait name={f.name} username={f.username} picture={f.picture} size={40} /></InkPortraitFrame>
-    </Crossing>)}</span>
+      {w.size !== "s" ? <small>{first(f.name || f.username)}</small> : null}
+    </Crossing>)}{d.friends.length > n ? <Crossing kind="kakejiku" href="/account/friends" className="wg-friend wg-friend-more"><b>+{d.friends.length - n}</b></Crossing> : null}</span>
+    {more}
   </div>;
 }
 
@@ -603,7 +620,7 @@ const shelves: { title: string; tint: string; kinds: WidgetKind[] }[] = [
   { title: "Music", tint: "#946c25", kinds: ["listening", "song", "album", "onrepeat", "playlist", "loved", "artists"] },
   { title: "Books", tint: "#5c7150", kinds: ["reading", "review", "bookshelf", "book", "yearbooks"] },
   { title: "Watch", tint: "#a84d63", kinds: ["watching", "watched", "show"] },
-  { title: "About you", tint: "#74565c", kinds: ["status", "note", "quote", "countdown", "clock", "stats", "links", "friends"] },
+  { title: "About you", tint: "#74565c", kinds: ["status", "note", "quote", "countdown", "clock", "stats", "links"] },
 ];
 
 /* What a preview shows for a widget that's made from your choices. */

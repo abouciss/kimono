@@ -424,3 +424,20 @@ a.wg-ticket-card:hover { background: none; transform: rotate(-1.5deg) translateY
 .wg-artist-plays { font-style: normal; font-size: 12px; line-height: 14px; color: var(--k-ink-muted, #7a6a63); font-variant-numeric: tabular-nums; }
 .wg-times { display: inline-flex; align-items: baseline; gap: 5px; margin-top: 8px; font-size: 13px; color: var(--k-ink-muted, #7a6a63); }
 .wg-times b { font: 600 22px/1 var(--k-display); color: var(--fr-color, #a84d63); font-variant-numeric: tabular-nums; }
+
+/* ── Friends, on the board ────────────────────────────────────────────── */
+
+.wg-friends { gap: 10px; }
+.wg-friends .wg-kicker { display: inline-flex; align-items: center; gap: 8px; }
+.wg-only { display: inline-flex; align-items: center; gap: 3px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--k-ink-muted, #7a6a63); }
+.wg-only .line-icon { width: 12px; height: 12px; }
+.wg-faces { gap: 4px 10px; }
+.wg-friend { display: grid; justify-items: center; gap: 2px; color: inherit; text-decoration: none !important; transition: transform .35s var(--k-spring); }
+.wg-friend:hover { transform: translateY(-3px) rotate(-3deg); }
+.wg-friend small { font-size: 12px; max-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wg-friend-more b { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; border: 1.5px dashed color-mix(in srgb, var(--fr-color, #a84d63) 55%, transparent); color: var(--fr-color, #a84d63); font: 600 14px/1 var(--k-sans); }
+.wg-friends-more { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.wg-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 10px; border-radius: 4px 12px 4px 12px; font-size: 12.5px; font-weight: 600; color: var(--fr-color, #a84d63); background: color-mix(in srgb, var(--fr-color, #a84d63) 12%, transparent); text-decoration: none !important; transition: background .2s; }
+.wg-chip:hover { background: color-mix(in srgb, var(--fr-color, #a84d63) 22%, transparent); }
+.wg-chip .line-icon { width: 14px; height: 14px; }
+.wg-chip.is-new i { width: 7px; height: 7px; border-radius: 50%; background: var(--k-moss, #5f8a4e); }

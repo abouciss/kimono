@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InkBlot, InkPortraitFrame, Seal } from "@kimono/ui";
-import { Crossing, CrossingSeal } from "@/components/crossing";
+import { Crossing } from "@/components/crossing";
 import { InkSheet } from "@/components/ink-sheet";
 import { JointSwitch } from "@/components/joint-switch";
 import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
 import { Book3D } from "../../books/book3d";
-import { defaultWidgets, Favicon, isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
+import { Favicon, isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
 import { LinksEditor } from "./links-editor";
 
 /*
@@ -289,10 +289,8 @@ export function ProfileView({ username, home = false }: { username: string; home
   const off = p.open ? p.off ?? [] : [];
   const friendList = p.open && !(preview && friendsKept) ? p.friendList ?? [] : [];
   const color = colorOf(p.open ? p.color : null);
-  /* The widgets are the profile: what each app shows lives in them, and friends only get their own section when there's no Friends widget. */
-  const board = p.open ? { person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex } : null;
-  const friendsOnBoard = board ? (p.open && p.widgets ? p.widgets : defaultWidgets(board)).some((w) => w.kind === "friends") : false;
-  const onlyYou = <button type="button" className="fr-only" onClick={() => setPrivacyOpen(true)} title="Friends don't see this"><LineIcon name="lock" />Only you</button>;
+  /* The widgets are the profile: what each app shows, and your friends, live in them. */
+  const board = p.open ? { person: p, sections, links: p.links, friends: friendList, music: p.music ?? null, books: p.books ?? null, color: color.hex, own: p.you && !preview ? { asking: asked, kept: Boolean(friendsKept) } : undefined } : null;
   /* Invisible, seen as a friend: what they get is your name and portrait. */
   const closedToFriends = preview && invisible;
 
@@ -338,7 +336,7 @@ export function ProfileView({ username, home = false }: { username: string; home
       onSave={(widgets) => call<{ widgets?: Widget[] }>("/api/v1/profile", "PATCH", { widgets }).then(() => { setProfile({ ...p, widgets }); setToast("Saved"); }, (e) => setProblem(message(e)))} /> : null}
     {problem ? <p className="fr-problem" role="alert">{problem}</p> : null}
 
-    {p.open && !closedToFriends ? <div className="fr-body">
+    {p.open && !closedToFriends && p.recommendations.length ? <div className="fr-body">
       {p.recommendations.length ? <section className="fr-group fr-card">
         <div className="fr-app-head">
           <InkBlot tint="#a84d63" seed="recommends"><LineIcon name="send" /></InkBlot>
@@ -351,22 +349,6 @@ export function ProfileView({ username, home = false }: { username: string; home
         </Tile>)}</div>
       </section> : null}
 
-      {!friendsOnBoard && (friendList.length || (p.you && !preview)) ? <section className={`fr-group fr-card fr-friends${friendsKept && !preview ? " is-kept" : ""}`}>
-        <div className="fr-app-head">
-          <InkBlot tint="#74565c" seed="friends"><LineIcon name="people" /></InkBlot>
-          <h2>Friends</h2>
-          {p.you && !preview && friendsKept ? onlyYou : null}
-        </div>
-        {friendList.length ? <div className="fr-shelf fr-people k-inkbar">{friendList.slice(0, 12).map((f) =>
-          <Crossing key={f.username} kind="kakejiku" className="fr-person" href={`/account/people/${encodeURIComponent(f.username)}`}>
-            <Face person={f} size={64} /><span>{first(f)}</span>
-          </Crossing>)}</div> : null}
-        {p.you && !preview ? <div className="fr-more">
-          {asked ? <CrossingSeal compact href="/account/friends"><i className="fr-new" />{asked} asking</CrossingSeal> : null}
-          {friendList.length ? <CrossingSeal tone="quiet" compact href="/account/friends">All friends</CrossingSeal>
-            : <CrossingSeal compact href="/account/friends"><LineIcon name="search" />Find friends</CrossingSeal>}
-        </div> : null}
-      </section> : null}
     </div> : null}
 
     {privacyOpen && privacy ? <WhoSeesWhat privacy={privacy} offCount={off.length} onClose={() => setPrivacyOpen(false)} onOff={() => { setPrivacyOpen(false); setOffOpen(true); }}
