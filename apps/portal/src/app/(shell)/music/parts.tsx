@@ -100,10 +100,10 @@ export function playlistItems(keys: string[], say: (t: string) => void): () => P
       { label: "New playlist", icon: "add", run: async () => {
         const name = await askName("New playlist", "Make it");
         if (!name) return;
-        musicApi.createPlaylist(name, keys).then(() => { forget("playlists"); forget("home"); say(`Made “${name}”`); }).catch(() => say("That playlist wasn't made."));
+        musicApi.createPlaylist(name, keys).then(() => { forget("playlists"); forget("home"); forget("me"); say(`Made “${name}”`); }).catch(() => say("That playlist wasn't made."));
       } },
       ...playlists.map((pl): Item => ({ label: pl.name, icon: "playlist", run: () => {
-        musicApi.addToPlaylist(pl.id, keys).then(() => { forget(`playlist:${pl.id}`); forget("playlists"); say(`Added to “${pl.name}”`); }).catch(() => say("That didn't go in."));
+        musicApi.addToPlaylist(pl.id, keys).then(() => { forget(`playlist:${pl.id}`); forget("playlists"); forget("me"); say(`Added to “${pl.name}”`); }).catch(() => say("That didn't go in."));
       } })),
     ];
   };

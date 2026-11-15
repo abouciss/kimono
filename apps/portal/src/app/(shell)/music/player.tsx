@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { byline, musicApi, type Queue, type RatedKind, type Rating, type Track } from "./api";
+import { byline, musicApi, type Person, type Queue, type RatedKind, type Rating, type SongStatus, type Track } from "./api";
 
 /*
  * 音 The player: one audio element for all of Music, kept by the Music layout,
@@ -18,6 +18,10 @@ export type Repeat = Queue["repeat"];
 export type Panel = "queue" | "lyrics" | null;
 
 type Player = {
+  /** Who's listening: for the greeting and your space. */
+  you: Person;
+  /** A song being got for the first time: how far along, for the bar. Null once it plays. */
+  arriving: SongStatus | null;
   tracks: Track[];
   index: number;
   current: Track | null;
@@ -86,7 +90,7 @@ const store = (key: string, value: unknown) => { try { localStorage.setItem(key,
 
 const streamOf = (t: Track) => `/api/v1/music/stream?key=${encodeURIComponent(t.key)}`;
 
-export function MusicProvider({ children }: { children: ReactNode }) {
+export function MusicProvider({ you, children }: { you: Person; children: ReactNode }) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [index, setIndex] = useState(0);
@@ -102,6 +106,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [nowPlaying, setNowPlaying] = useState(false);
   const [toast, setToast] = useState<{ text: string; at: number } | null>(null);
   const [rated, setRated] = useState<Map<string, Rating>>(new Map());
+  const [arriving, setArriving] = useState<SongStatus | null>(null);
 
   /* The order before shuffling, so turning it off puts the songs back. */
   const unshuffled = useRef<Track[] | null>(null);
@@ -236,11 +241,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     if (!list.length) return;
     /* The queue around where you are: what's played long ago needn't travel. */
     const from = Math.max(0, i - 50);
-    void musicApi.saveQueue({ keys: list.slice(from, from + 500).map((t) => t.key), index: i - from, position: audio.current?.currentTime ?? 0, shuffle: s, repeat: r, source: src, at: Date.now() }).catch(() => null);
+    void musicApi.saveQueue({ keys: list.slice(from, from + 500).map((t) => t.key), index: i - from, position: audio.current?.currentTime ?? 0, shuffle: s, repeat: r, source: src, playing: Boolean(audio.current && !audio.current.paused), at: Date.now() }).catch(() => null);
   }, []);
   useEffect(() => { const t = setTimeout(save, 1200); return () => clearTimeout(t); }, [tracks, index, shuffle, repeat, source, save]);
   useEffect(() => {
-    if (!playing) { save(); return; }
+    /* Saved as it starts and stops too, so friends see what's on now. */
+    save();
+    if (!playing) return;
     const t = setInterval(save, 15_000);
     return () => clearInterval(t);
   }, [playing, save]);
@@ -358,6 +365,29 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     });
   }, [rated, say]);
 
+  /* ── A song's first time: how far it has got, while it's on its way ── */
+  useEffect(() => {
+    if (!waiting || !current) return;
+    let live = true;
+    const key = current.key;
+    const ask = async () => {
+      while (live) {
+        /* Something already playing (it was kept) needs no bar. */
+        if ((audio.current?.currentTime ?? 0) > 0.2) break;
+        const s = await musicApi.status(key).catch(() => null);
+        if (!live) return;
+        if (s?.stage === "ready") break;
+        if (s) setArriving(s);
+        await new Promise((ok) => setTimeout(ok, 500));
+      }
+      if (live) setArriving(null);
+    };
+    /* Kept songs start at once: only a wait longer than a moment shows the bar. */
+    const start = setTimeout(() => void ask(), 400);
+    return () => { live = false; clearTimeout(start); };
+  }, [waiting, current]);
+  useEffect(() => { if (!waiting && arriving) { const t = setTimeout(() => setArriving(null), 0); return () => clearTimeout(t); } }, [waiting, arriving]);
+
   /* ── The lock screen, headphones and media keys ────────────────────── */
   useEffect(() => {
     const ms = typeof navigator !== "undefined" ? navigator.mediaSession : undefined;
@@ -398,12 +428,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [toggle, next, prev, seek, setMuted]);
 
   const value = useMemo<Player>(() => ({
+    you, arriving,
     tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted,
     position: () => audio.current?.currentTime ?? 0,
     duration: () => (Number.isFinite(audio.current?.duration) ? audio.current!.duration : 0),
     play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted,
     ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast,
-  }), [tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted, play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted, ratingOf, rate, panel, nowPlaying, say, toast]);
+  }), [you, arriving, tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted, play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted, ratingOf, rate, panel, nowPlaying, say, toast]);
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }

@@ -1,15 +1,17 @@
 import { apiError, apiJson, apiUser, crossSite, readJson, unauthorized } from "@/lib/api-v1";
-import { addToPlaylist, deletePlaylist, music, playlist, renamePlaylist, setPlaylistTracks } from "@/lib/music";
+import { addToPlaylist, deletePlaylist, music, renamePlaylist, setPlaylistTracks } from "@/lib/music";
+import { playlistFor } from "@/lib/music/social";
 
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
+/** A playlist: yours, or a friend's (read only) when they let friends see their playlists. */
 export async function GET(_request: Request, { params }: Params) {
   const user = await apiUser();
   if (!user) return unauthorized();
   const { id } = await params;
-  return music(() => apiJson({ playlist: playlist(user.username, id) }));
+  return music(async () => apiJson({ playlist: await playlistFor(user.username, id) }));
 }
 
 /** `{ name }` renames; `{ keys }` sets its songs in order; `{ add }` puts songs at the end (ones already in it stay where they are). */

@@ -218,6 +218,54 @@
 .km-genre:hover { background: var(--k-container-high); text-decoration: none !important; }
 .km-genre-art { position: absolute; right: -14px; bottom: -14px; width: 84px; height: 84px; transform: rotate(18deg); border-radius: var(--k-r-s); box-shadow: 0 6px 16px -6px rgba(0,0,0,.4); }
 
+/* Home: hello, and the quick way back to your things. */
+.km-hello { display: flex; align-items: center; gap: var(--k-space-4); padding-top: var(--k-space-3); }
+.km-hello-you { display: inline-flex; border-radius: 50%; }
+.km-hello-you:hover { text-decoration: none !important; }
+.km-hello-title { margin: 0; font: 600 clamp(30px, 3.6vw, 42px)/1.1 var(--k-display); letter-spacing: -.01em; color: var(--k-plum); }
+.km-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--k-space-3); margin-top: calc(-1 * var(--k-space-4)); }
+.km-quick-tile { position: relative; display: flex; align-items: center; gap: var(--k-space-3); min-width: 0; height: 64px; padding: 0 14px 0 0; border: 0; border-radius: var(--k-r-m); background: var(--k-container-low); color: inherit; text-align: left; font: 700 15px/20px var(--k-sans); overflow: hidden; cursor: pointer; transition: background var(--k-t-state) var(--k-ease-settle), transform var(--k-t-tap) var(--k-ease-settle); }
+.km-quick-tile:hover { background: var(--k-container); text-decoration: none !important; }
+.km-quick-tile:active { transform: scale(.985); }
+.km-quick-tile > span:not(.km-quick-art):not(.km-bars) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.km-quick-tile.km-now > span:not(.km-quick-art) { color: var(--k-accent); }
+.km-quick-art, .km-quick-tile .km-cover.km-quick-art, .km-quick-tile .km-mosaic.km-quick-art { flex: none; width: 64px; height: 64px; border-radius: 0; }
+.km-liked-art { display: grid; place-items: center; background: var(--k-primary-container); color: var(--k-accent); }
+.km-liked-art .km-icon { width: 40%; height: 40%; }
+.km-quick-liked .km-quick-art { display: grid; place-items: center; background: var(--k-primary-container); color: var(--k-accent); }
+.km-quick-liked .km-quick-art .km-icon { width: 26px; height: 26px; }
+
+/* Friends: who, what they're on, when. */
+.km-friends-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 300px); gap: var(--k-space-3); overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--km-gutter)); padding: 2px var(--km-gutter) 8px; scroll-snap-type: x mandatory; }
+.km-friends-row::-webkit-scrollbar { display: none; }
+.km-friend { display: grid; gap: 10px; padding: 12px; border-radius: var(--k-r-l); background: var(--k-container-low); scroll-snap-align: start; }
+.km-friend-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.km-friend-who:hover { text-decoration: none !important; }
+.km-friend-name { display: grid; min-width: 0; }
+.km-friend-name b { font: 700 15px/20px var(--k-sans); }
+.km-friend-name small { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; color: var(--k-on-surface-variant); }
+.km-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--k-moss); box-shadow: 0 0 0 0 color-mix(in srgb, var(--k-moss) 60%, transparent); animation: km-live 1.8s var(--k-ease-settle) infinite; }
+@keyframes km-live { 70% { box-shadow: 0 0 0 6px transparent; } }
+.km-live .km-friend-name small { color: var(--k-on-tertiary-container, var(--k-moss)); }
+.km-friend-song { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px; border: 0; border-radius: var(--k-r-m); background: var(--k-container); color: inherit; text-align: left; cursor: pointer; transition: background var(--k-t-state); }
+.km-friend-song:hover { background: var(--k-container-high); }
+.km-friend-song > span { display: grid; min-width: 0; }
+.km-friend-song b { font: 600 14px/19px var(--k-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.km-friend-song small { font-size: 13px; color: var(--k-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Your space */
+.km-you-portrait { width: auto; }
+.km-you-head .km-tags { margin-top: 2px; }
+.km-you-profile { display: inline-flex; align-items: center; margin: 0; text-decoration: none !important; }
+.km-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--k-space-3); }
+.km-liked-card .km-liked-art, .km-new-art { aspect-ratio: 1; border-radius: var(--k-r-m); }
+.km-liked-card .km-liked-art .km-icon { width: 34%; height: 34%; }
+.km-new-card { border: 0; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.km-new-art { display: grid; place-items: center; background: var(--k-container); color: var(--k-on-surface-variant); transition: background var(--k-t-state), color var(--k-t-state); }
+.km-new-card:hover .km-new-art { background: var(--k-container-high); color: var(--k-accent); }
+.km-new-art .km-icon { width: 30%; height: 30%; }
+.km-owner { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; font-weight: 700; color: var(--k-on-surface) !important; }
+
 /* Search */
 .km-results-top { display: grid; grid-template-columns: minmax(260px, 2fr) minmax(0, 3fr); gap: var(--k-space-6); }
 .km-best h2, .km-results-songs h2 { margin-bottom: var(--k-space-3); }
@@ -279,6 +327,12 @@
 .km-volume { display: flex; align-items: center; gap: 4px; }
 .km-volume-slider { width: 104px; }
 .km-bar-line { display: none; }
+/* A song on its way: the wave where the slider goes, saying what's happening. */
+.km-arriving { grid-template-columns: auto minmax(0, 1fr); }
+.km-arriving-label { font: 700 12.5px/16px var(--k-sans); color: var(--k-accent); white-space: nowrap; animation: km-breathe 1.1s var(--k-ease-settle) infinite alternate; }
+.km-arriving-wave { width: 100%; color: var(--k-accent); }
+.km-arriving-short { display: none; color: var(--k-accent); font-weight: 700; }
+.km-bar-line-arriving { opacity: .7; transition: width var(--k-t-fold) var(--k-ease-settle); }
 
 .km-slider { position: relative; height: 20px; display: grid; align-items: center; cursor: pointer; touch-action: none; outline: 0; }
 .km-slider-rail { position: relative; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--k-on-surface) 16%, transparent); overflow: hidden; }
@@ -375,6 +429,8 @@
   .km-bar { grid-template-columns: minmax(0, 1fr) auto auto; }
   .km-bar-middle { grid-column: 2; }
   .km-seek { display: none; }
+  .km-bar-arriving .km-arriving-short { display: inline; }
+  .km-bar-arriving .km-bar-artists { display: none; }
   .km-bar-line { display: block; position: absolute; left: 0; top: 0; height: 2px; background: var(--k-accent); }
   .km-volume-slider { display: none; }
   .km-bar-rate { display: none; }
@@ -399,6 +455,12 @@
   .km-chart-songs { columns: 1; }
   .km-shelf-row { grid-auto-columns: 148px; }
   .km-jump-grid { grid-template-columns: 1fr 1fr; }
+  .km-quick { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .km-quick-tile { height: 56px; font-size: 13px; }
+  .km-quick-art, .km-quick-tile .km-cover.km-quick-art, .km-quick-tile .km-mosaic.km-quick-art { width: 56px; height: 56px; }
+  .km-you-head { align-items: center; text-align: center; }
+  .km-you-head .km-head-text { justify-items: center; }
+  .km-you-head .km-head-meta, .km-you-head .km-head-actions { justify-content: center; }
   .km-jump-mark { display: none; }
   .km-card-play { display: none; }
   /* Above the phone's bottom bar, reaching to its edge. */
@@ -414,3 +476,6 @@
   .km-queue { top: auto; right: 8px; left: 8px; width: auto; bottom: calc(76px + 64px + 14px); max-height: 70vh; }
   .km-toast { bottom: calc(76px + 64px + 18px); }
 }
+
+/* A portrait in its ink frame, as the rail draws yours: the wash shows round it and behind the letter. */
+.km .k-ink-portrait > .portrait, .km-np .k-ink-portrait > .portrait { margin: calc(var(--portrait-size, 34px) * .12); background: transparent; box-shadow: none; }

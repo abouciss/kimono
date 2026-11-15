@@ -166,6 +166,7 @@ type SectionSource = (viewer: string, username: string, origin: string) => Promi
 const sourceLoaders: (() => Promise<SectionSource>)[] = [
   () => import("../watch/friends-live").then((m) => m.watchSections),
   () => import("./books-section").then((m) => m.booksSections),
+  () => import("../music/social").then((m) => m.musicSections),
 ];
 
 export type RecommendationView = Omit<Recommendation, "from" | "to"> & { from: Person; to: Person | null; appName: string };
@@ -304,12 +305,14 @@ export async function activityOf(username: string, origin: string, limit = 8): P
   const u = username.toLowerCase();
   const db = friendsDb();
   if (!friendsOf(db, u).length) return { items: [] };
-  const [watch, books] = await Promise.all([
+  const [watch, books, music] = await Promise.all([
     import("../watch/friends-live").then((m) => m.watchActivity(u, origin)).catch(() => null),
     import("@/lib/books").then(async (m) => (await m.booksSettings()).enabled ? m.friendsReading(u, 24) : []).catch(() => []),
+    import("../music/social").then((m) => m.musicActivity(u)).catch(() => []),
   ]);
   const items: Activity[] = [
     ...(watch?.items ?? []),
+    ...music,
     ...books.map((b) => ({
       kind: b.state === "read" ? "read" as const : "reading" as const, app: "books", from: b.username,
       itemId: b.book.key, title: b.book.title, subtitle: b.book.authors[0] ?? null, cover: b.book.cover,

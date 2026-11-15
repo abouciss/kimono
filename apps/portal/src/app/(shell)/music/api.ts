@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Album, Artist, Lyrics, Playlist, RatedKind, Rating, Row, Track } from "@/lib/music/model";
 import type { Home, Queue, RatedItem } from "@/lib/music";
+import type { FriendListening, Me, Person } from "@/lib/music/social";
 
-export type { Album, Artist, Home, Lyrics, Playlist, Queue, RatedItem, RatedKind, Rating, Row, Track };
+export type { Album, Artist, FriendListening, Home, Lyrics, Me, Person, Playlist, Queue, RatedItem, RatedKind, Rating, Row, Track };
 export type ArtistPage = { artist: Artist; top: Track[]; albums: Album[]; related: Artist[]; rating: Rating | null };
-export type PlaylistPage = { id: string; name: string; updatedAt: string; tracks: Track[] };
+export type PlaylistPage = { id: string; name: string; updatedAt: string; tracks: Track[]; owner?: Person; mine?: boolean };
+export type SongStatus = { stage: "finding" } | { stage: "fetching"; fraction: number } | { stage: "ready" };
 export type Genre = { id: number; name: string; picture: string | null };
 export type Results = { tracks: Track[]; albums: Album[]; artists: Artist[] };
 
@@ -25,6 +27,9 @@ const q = encodeURIComponent;
 
 export const musicApi = {
   home: () => call<Home>("home"),
+  me: () => call<Me>("me"),
+  friends: () => call<{ friends: FriendListening[] }>("friends"),
+  status: (key: string) => call<SongStatus>(`status?key=${q(key)}`),
   search: (text: string) => call<Results>(`search?q=${q(text)}`),
   album: (key: string) => call<{ album: Album; rating: Rating | null }>(`album?key=${q(key)}`),
   artist: (key: string) => call<ArtistPage>(`artist?key=${q(key)}`),
@@ -39,7 +44,7 @@ export const musicApi = {
   liked: () => call<{ tracks: Track[] }>("liked"),
   history: () => call<{ tracks: (Track & { playedAt: string })[] }>("history"),
   queue: () => call<{ queue: Queue | null }>("queue"),
-  saveQueue: (body: { keys: string[]; index: number; position: number; shuffle: boolean; repeat: Queue["repeat"]; source: Queue["source"]; at: number }) =>
+  saveQueue: (body: { keys: string[]; index: number; position: number; shuffle: boolean; repeat: Queue["repeat"]; source: Queue["source"]; playing: boolean; at: number }) =>
     call<{ queue: Queue }>("queue", { ...send("PUT", body), keepalive: true }),
   playlists: () => call<{ playlists: Playlist[] }>("playlists"),
   playlist: (id: string) => call<{ playlist: PlaylistPage }>(`playlists/${q(id)}`),
@@ -96,6 +101,16 @@ export function length(tracks: Track[]) {
   const total = tracks.reduce((n, t) => n + t.duration, 0);
   const h = Math.floor(total / 3600), m = Math.round((total % 3600) / 60);
   return h ? `${h} hr ${m} min` : `${m} min`;
+}
+
+/** "3 min ago", "yesterday", "12 Nov": when a friend last listened. */
+export function ago(iso: string) {
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (s < 90) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} hr ago`;
+  if (s < 2 * 86400) return "yesterday";
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 export const byline = (t: Pick<Track, "artists">) => [...new Set(t.artists.map((a) => a.name))].join(", ");

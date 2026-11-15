@@ -187,6 +187,7 @@ export type Item = { app: string; itemId: string; title: string; subtitle: strin
 export const apps: Record<string, { name: string }> = {
   watch: { name: "Watch" },
   books: { name: "Books" },
+  music: { name: "Music" },
 };
 
 /** One row of a profile: what someone did in one app (watched, loved, reading…), latest first. */
@@ -218,6 +219,7 @@ const itemFrom = (r: { app: string; item_id: string; title: string; subtitle: st
 export const rowsOf: Record<string, [kind: string, title: string][]> = {
   watch: [["watching", "Watching"], ["watched", "Watched"], ["listed", "Watchlist"]],
   books: [["reading", "Reading now"], ["want", "Want to read"], ["read", "Read"]],
+  music: [["playing", "Listening to"], ["loved", "Loved"], ["playlists", "Playlists"]],
 };
 
 type PrivacyRow = { hidden?: string; kept?: string; invisible?: number };

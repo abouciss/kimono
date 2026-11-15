@@ -1,6 +1,6 @@
-import { Suspense } from "react";
-import { LibraryView } from "../views";
+import { redirect } from "next/navigation";
 
+/* Your library became your space. */
 export default function MusicLibrary() {
-  return <Suspense><LibraryView /></Suspense>;
+  redirect("/music/you");
 }

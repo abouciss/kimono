@@ -113,7 +113,7 @@ test('profiles: an app kept off your profile is hidden from friends, still shown
   friends.setBio(db, 'ana', 'Hi');
   assert.deepEqual(friends.hiddenAppsOf(db, 'ana'), ['watch']);
   assert.deepEqual(friends.setAppHidden(db, 'ana', 'watch', false), []);
-  assert.throws(() => friends.setAppHidden(db, 'ana', 'music', true), /app/);
+  assert.throws(() => friends.setAppHidden(db, 'ana', 'games', true), /app/);
 });
 
 test('profiles: Books rows from the shelf — reading with how far, want to read, read', () => {
@@ -204,10 +204,10 @@ test('privacy: rows kept back, the friends list, and going invisible', () => {
   friends.setInvisible(db, 'ana', true);
   assert.equal(seen('sami').open, false);
   assert.equal(seen('sami').link, 'friends');
-  assert.deepEqual(friends.hiddenAppsOf(db, 'ana'), ['books', 'watch']);
+  assert.deepEqual(friends.hiddenAppsOf(db, 'ana'), ['books', 'music', 'watch']);
   assert.equal(seen('ana').open, true);
   assert.equal(seen('ana').privacy.invisible, true);
-  assert.deepEqual(seen('ana').privacy.apps.map((a) => a.shown), [true, true]);
+  assert.deepEqual(seen('ana').privacy.apps.map((a) => a.shown), [true, true, true]);
   /* Someone invisible isn't listed among a friend's friends. */
   friends.askFriend(db, 'lee', 'sami', 5); friends.askFriend(db, 'sami', 'lee', 6);
   assert.deepEqual(friends.profileFor(db, 'lee', { username: 'sami' }, () => []).friendList, ['lee']);

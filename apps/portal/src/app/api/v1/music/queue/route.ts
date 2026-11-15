@@ -23,6 +23,6 @@ export async function PUT(request: Request) {
   const at = typeof body.at === "number" && body.at <= Date.now() + 60_000 ? body.at : Date.now();
   return music(async () => apiJson({ queue: await saveQueue(user.username, {
     keys: body.keys as string[], index: Number(body.index) || 0, position: Number(body.position) || 0,
-    shuffle: Boolean(body.shuffle), repeat: body.repeat ?? "off", source: body.source ?? null,
+    shuffle: Boolean(body.shuffle), repeat: body.repeat ?? "off", source: body.source ?? null, playing: Boolean(body.playing),
   }, at) }));
 }
