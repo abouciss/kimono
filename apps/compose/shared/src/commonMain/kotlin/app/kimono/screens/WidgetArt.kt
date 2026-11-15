@@ -677,6 +677,10 @@ private fun Clock(w: Widget, d: BoardData) {
 private val socialHosts = Regex("(^|\\.)(instagram|twitter|x|bsky|threads|mastodon\\.social|tiktok|youtube|youtu\\.be|twitch|github|gitlab|linkedin|facebook|spotify|soundcloud|bandcamp|letterboxd|goodreads|discord|reddit|pinterest|behance|dribbble|vimeo|last\\.fm|steamcommunity)\\.[a-z.]+$")
 fun hostOf(url: String): String = runCatching { io.ktor.http.Url(url).host.removePrefix("www.") }.getOrDefault("").takeIf { !url.startsWith("mailto:") }.orEmpty()
 fun isSocial(url: String) = socialHosts.containsMatchIn(hostOf(url))
+/** Where a link shows, as chosen; unchosen, a social site is in both places and the rest are buttons. */
+fun showOf(l: app.kimono.data.ProfileLink): String = l.show?.takeIf { it in setOf("name", "links", "both") } ?: if (isSocial(l.url)) "both" else "links"
+fun underName(l: app.kimono.data.ProfileLink) = showOf(l) != "links"
+fun inLinks(l: app.kimono.data.ProfileLink) = showOf(l) != "name"
 
 /** What a link is, from where it goes: a mark people recognise without any brand drawn. */
 fun linkMark(url: String): String {
@@ -742,8 +746,7 @@ fun LinkMark(url: String, icon: String?, size: Dp, tint: Color = LocalBoardColor
 
 @Composable
 private fun Links(w: Widget, d: BoardData, act: BoardActions) {
-    val own = d.links.filter { !isSocial(it.url) }
-    val list = own.ifEmpty { d.links }
+    val list = d.links.filter(::inLinks)
     if (list.isEmpty()) return Card(onClick = act.editLinks) { Empty("link", if (act.editLinks != null) "Add your links" else "No links yet") }
     val n = when (w.size) { "m", "s" -> 2; "l" -> 4; else -> 5 }
     val accent = LocalBoardColor.current

@@ -195,7 +195,9 @@ export function setBio(db: DatabaseSync, username: string, bio: unknown, now = D
 /** The colours a profile can wear: Kimono's own pigments, so every profile still sits in the house. */
 export const profileColors = ["suo", "plum", "moss", "ai", "kuchiba", "sakura", "sumi"] as const;
 export type ProfileColor = (typeof profileColors)[number];
-export type ProfileLink = { title: string; url: string; icon?: string };
+/** Where a link shows: as a mark under the name, as a button in the Links widget, or both. None: both for a social site, the widget for the rest. */
+export type LinkShow = "name" | "links" | "both";
+export type ProfileLink = { title: string; url: string; icon?: string; show?: LinkShow };
 export const linksLimit = 8;
 
 /** Links as typed, checked: a web address (or mail), a short title (the site's name when left out). */
@@ -214,7 +216,8 @@ export function linksFrom(raw: unknown): ProfileLink[] {
     /* Its mark: a drawn one by name, or an emoji; none is the site's own icon. */
     const icon = text(r.icon, 24);
     const mark = /^[a-z]{2,12}$/.test(icon) || (/^emoji:\S/u.test(icon) && [...icon.slice(6)].length <= 4) ? icon : "";
-    return { title, url: parsed.toString(), ...(mark ? { icon: mark } : {}) };
+    const show = ["name", "links", "both"].includes(r.show as string) ? r.show as LinkShow : null;
+    return { title, url: parsed.toString(), ...(mark ? { icon: mark } : {}), ...(show ? { show } : {}) };
   });
 }
 

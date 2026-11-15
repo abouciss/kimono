@@ -10,7 +10,7 @@ import { LineIcon, type LineIconName } from "@/components/line-icon";
 import { AppearanceFlip } from "@/components/appearance";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
-import { isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
+import { underName, WidgetBoard, type LinkShow, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
 import { LinkMark } from "./link-marks";
 import { TitleCard, TitleRow } from "@/components/title-art";
 import "./recommend-sheet.css";
@@ -35,7 +35,7 @@ export type Section = { app: string; appName: string; kind: string; title: strin
 /** Private until you're friends: then only `open: false` and who they are comes back (lib/friends/model.ts profileFor). */
 export type Profile = Person & { you: boolean; visitor?: boolean; link: "friends" | "asked" | "asking" | null } & (
   | { open: false }
-  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
+  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string; show?: LinkShow }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
 );
 /** What you let friends see (your own profile only): lib/friends/model.ts privacyOf. */
 export type Privacy = { invisible: boolean; visibility: "friends" | "public" | "private"; friends: boolean; apps: { app: string; name: string; shown: boolean; rows: { kind: string; title: string; shown: boolean }[] }[] };
@@ -290,9 +290,9 @@ export function ProfileView({ username, home = false, standalone = false }: { us
         <div className="fr-hero-words">
           <h1 className="fr-name">{p.name}{p.open && p.pronouns && !closedToFriends ? <small className="fr-pronouns">{p.pronouns}</small> : null}</h1>
           <p className="fr-handle">@{p.username}{p.open && !closedToFriends ? ` · ${p.friends === 1 ? "1 friend" : `${p.friends} friends`}` : ""}</p>
-          {p.open && !closedToFriends && p.links.some((l) => isSocial(l.url)) ? <nav className="fr-socials" aria-label="Elsewhere">
+          {p.open && !closedToFriends && p.links.some(underName) ? <nav className="fr-socials" aria-label="Elsewhere">
             {/* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */}
-            {p.links.filter((l) => isSocial(l.url)).map((l, i) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" title={l.title} aria-label={l.title} style={{ "--i": i } as React.CSSProperties}>
+            {p.links.filter(underName).map((l, i) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" title={l.title} aria-label={l.title} style={{ "--i": i } as React.CSSProperties}>
               <LinkMark url={l.url} icon={l.icon} fallback={linkMark(l.url)} />
             </a>)}
           </nav> : null}
@@ -337,7 +337,7 @@ export function ProfileView({ username, home = false, standalone = false }: { us
       onChanged={(r) => { if (p.open) setProfile({ ...p, privacy: r.privacy, hidden: r.hidden, kept: keptFrom(r.privacy) }); }} /> : null}
     {editing && p.open ? <EditProfileSheet profile={p} onClose={() => setEditing(false)} onSaved={(next) => { setProfile(next); setToast("Saved"); }} onLinks={() => setEditingLinks(true)} /> : null}
     {editingLinks && p.open ? <LinksEditor links={p.links} onClose={() => setEditingLinks(false)}
-      onSave={(links) => call<{ links: { title: string; url: string; icon?: string }[] }>("/api/v1/profile", "PATCH", { links }).then((r) => { setProfile((was) => was && was.open ? { ...was, links: r.links } : was); return true; }, (e) => { setProblem(message(e)); return false; })} /> : null}
+      onSave={(links) => call<{ links: { title: string; url: string; icon?: string; show?: LinkShow }[] }>("/api/v1/profile", "PATCH", { links }).then((r) => { setProfile((was) => was && was.open ? { ...was, links: r.links } : was); return true; }, (e) => { setProblem(message(e)); return false; })} /> : null}
     {removing ? <InkSheet title={`Remove ${first(p)}?`} icon="people" onClose={() => setRemoving(false)} actions={<>
       <Seal tone="quiet" compact onClick={() => setRemoving(false)}>Keep</Seal>
       <Seal tone="danger" compact onClick={() => { setRemoving(false); void change("remove"); }}>Remove</Seal>
@@ -422,7 +422,7 @@ function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy
 
 /* ── Editing your profile ──────────────────────────────────────────────── */
 
-type Look = { pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string }[] };
+type Look = { pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string; show?: LinkShow }[] };
 
 /** Your name, pronouns, words, colour and links, in one place, saved together. */
 function EditProfileSheet({ profile, onClose, onSaved, onLinks }: { profile: Profile & { open: true }; onClose: () => void; onSaved: (p: Profile) => void; onLinks: () => void }) {
