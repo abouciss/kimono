@@ -5,11 +5,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppLockup, cx, InkPortraitFrame, Seal, type AppIdentity } from "@kimono/ui";
 import { useTabTitle } from "@/components/tab-title";
-import { ago, byline, clock, forget, hrefOf, length, musicApi, share, useMusic, type Album, type FriendListening, type Track } from "./api";
+import { ago, byline, clock, forget, hrefOf, length, musicApi, share, useMusic, type Album, type FriendListening, type Person, type Track } from "./api";
 import { askName, askSure } from "./ask";
 import { Icon } from "./icons";
 import { Portrait } from "@/components/portrait";
 import { AddToPlaylist, AlbumCard, ArtistCard, Bars, Cover, Head, Loading, MoreButton, Mosaic, PlayActions, playlistItems, Problem, RateMarks, SetCard, Shelf, Songs } from "./parts";
+import { RecommendSheet } from "../account/friends/friends-ui";
+import { Faces, useFriendParties, useParty } from "./party-ui";
 import { usePlayer } from "./player";
 
 /* ── Along the top of every page: search, and where you are ────────────── */
@@ -96,7 +98,9 @@ export function HomeView() {
       </button>)}
     </div>
 
+    <PartyInvites />
     {friends?.length ? <FriendsListening friends={friends} /> : null}
+    <SentToYou />
 
     {home.mixes.length ? <Shelf title="Made for you">
       {home.mixes.map((m) => <SetCard key={m.id} title={m.title} sub={`${m.items.length} songs`} covers={[...new Set(m.items.map((t) => t.album?.cover).filter((c): c is string => Boolean(c)))]}
@@ -128,6 +132,10 @@ export function HomeView() {
 /** What friends are on: live first, each with the song (press it to play it) and when. */
 function FriendsListening({ friends }: { friends: FriendListening[] }) {
   const p = usePlayer();
+  const parties = useFriendParties();
+  const party = useParty();
+  /* The party a friend is in (or hosts), if you can join it. */
+  const partyOf = (u: string) => parties.find((x) => x.host.username === u || x.members.some((m) => m.username === u));
   return <section className="km-friends">
     <h2 className="k-heading">Friends</h2>
     <div className="km-friends-row">
@@ -140,9 +148,42 @@ function FriendsListening({ friends }: { friends: FriendListening[] }) {
           <Cover src={f.track.album?.cover} size={44} />
           <span><b>{f.track.title}</b><small>{byline(f.track)}</small></span>
         </button>
+        {partyOf(f.username) && party.view?.id !== partyOf(f.username)!.id
+          ? <Crossing kind="kakejiku" href={`/music/party/${partyOf(f.username)!.id}`} className="km-friend-join"><Icon name="play" />Listen along</Crossing> : null}
       </div>)}
     </div>
   </section>;
+}
+
+/** Parties someone asked you to: a line to join each, at the top of Home. */
+function PartyInvites() {
+  const parties = useFriendParties();
+  const party = useParty();
+  const asked = parties.filter((x) => x.invited && x.id !== party.view?.id);
+  if (!asked.length) return null;
+  return <section className="km-invites">
+    {asked.map((x) => <Crossing key={x.id} kind="kakejiku" href={`/music/party/${x.id}`} className="km-invite-banner">
+      <Faces people={[x.host, ...x.members.filter((m) => m.username !== x.host.username)]} size={32} />
+      <span><b>{x.host.name.split(/\s+/)[0]} asked you to listen together</b>{x.song ? <small>{x.song.title} · {byline(x.song)}</small> : null}</span>
+      <span className="km-invite-go"><Icon name="play" />Join</span>
+    </Crossing>)}
+  </section>;
+}
+
+type Sent = { id: string; itemId: string; title: string; subtitle: string | null; cover: string | null; note: string | null; from: Person; at: number };
+
+/** Songs friends sent you, with their note: Kimono's recommendations, Music's own. */
+function SentToYou() {
+  const { data } = useMusic("sent", () => fetch("/api/v1/recommendations?app=music").then((r) => r.json()).then((b: { received?: Sent[] }) => b.received ?? []));
+  if (!data?.length) return null;
+  return <Shelf title="Sent to you">
+    {data.map((r) => <Crossing key={r.id} kind="kakejiku" href={hrefOf.song(r.itemId)} className="km-card km-card-link km-sent">
+      <span className="km-card-pic"><Cover src={r.cover} className="km-card-art" /><span className="km-sent-from"><Portrait name={r.from.name} username={r.from.username} picture={r.from.picture} size={30} /></span></span>
+      <span className="km-card-title">{r.title}</span>
+      <span className="km-card-sub">from {r.from.name.split(/\s+/)[0]}</span>
+      {r.note ? <q className="km-sent-note">{r.note}</q> : null}
+    </Crossing>)}
+  </Shelf>;
 }
 
 /* ── Search ────────────────────────────────────────────────────────────── */
@@ -251,6 +292,8 @@ export function SongView({ id }: { id: string }) {
   const { data: artist } = useMusic(t?.artists[0] ? `artist:${t.artists[0].key}` : null, () => musicApi.artist(t!.artists[0].key));
   const { data: lyrics } = useMusic(t ? `lyrics:${key}` : null, () => musicApi.lyrics(key).then((r) => r.lyrics));
   const [allWords, setAllWords] = useState(false);
+  const [sending, setSending] = useState(false);
+  const { data: friendsOn } = useMusic(t ? `song-friends:${key}` : null, () => fetch(`/api/v1/music/song-friends?key=${encodeURIComponent(key)}`).then((r) => r.json()).then((b: { friends?: (Person & { loved: boolean })[] }) => b.friends ?? []));
   useTabTitle(t ? `${t.title} · ${byline(t)}` : undefined, "Kimono Music");
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!t) return <Loading />;
@@ -264,10 +307,18 @@ export function SongView({ id }: { id: string }) {
         <Icon name={here && p.playing ? "pause" : "play"} />{here && p.playing ? "Pause" : "Play"}
       </Seal>
       <AddToPlaylist keys={[t.key]} compact={false} />
+      <Seal tone="quiet" className="km-seal-icon" onClick={() => setSending(true)}><Icon name="send" />Send to a friend</Seal>
       <Seal tone="quiet" className="km-seal-icon" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" />Share</Seal>
       {/* The marks apart from the actions: how you feel, not what to do. */}
       <RateMarks kind="track" keyOf={t.key} size="md" className="km-head-rates" />
     </Head>
+
+    {friendsOn?.length ? <p className="km-song-friends">
+      <Faces people={friendsOn} size={28} />
+      <span>{friendsOn.slice(0, 3).map((f) => f.name.split(/\s+/)[0]).join(", ")}{friendsOn.length > 3 ? ` and ${friendsOn.length - 3} more` : ""}
+        {friendsOn.every((f) => f.loved) ? " love this" : friendsOn.some((f) => f.loved) ? " played or love this" : " played this"}</span>
+    </p> : null}
+    {sending ? <RecommendSheet item={{ app: "music", itemId: t.key, title: t.title, subtitle: byline(t), cover: t.album?.cover ?? null }} onClose={() => setSending(false)} onSent={p.say} /> : null}
 
     {words.some((w) => w.trim()) ? <section className="km-song-words">
       <h2 className="k-heading">Lyrics</h2>

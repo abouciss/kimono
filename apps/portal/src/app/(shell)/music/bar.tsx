@@ -7,6 +7,7 @@ import { cx, InkWave, Seal } from "@kimono/ui";
 import { byline, clock, hrefOf, musicApi, share, type Lyrics } from "./api";
 import { Asker } from "./ask";
 import { Icon } from "./icons";
+import { ListenTogether } from "./party-ui";
 import { AddToPlaylist, ArtistLinks, Bars, Cover, Menu, MenuRates, MoreButton, playlistItems, RateMarks, songMenuItems, type Item } from "./parts";
 import { usePlayer, usePosition, type Source } from "./player";
 
@@ -271,6 +272,8 @@ function NowPlaying() {
           {from ? <Crossing kind="kakejiku" href={from} onClick={() => p.setNowPlaying(false)}>{p.source.title}</Crossing> : <span>{p.source.title}</span>}</> : null}
       </span>
       <span className="km-np-tools">
+        <ListenTogether className="km-np-worded" />
+        <ListenTogether labelled={false} className="km-np-phone-only" />
         <AddToPlaylist keys={[t.key]} className="km-np-worded" />
         <Seal tone="quiet" compact className="km-seal-icon km-np-worded" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" />Share</Seal>
         <MoreButton label={`More for ${t.title}`} items={() => songMenuItems(t, p)} />

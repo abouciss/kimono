@@ -48,3 +48,56 @@ test('LRC lines become seconds, with repeated stamps', () => {
     { at: 0, line: '' }, { at: 12.5, line: 'Hello' }, { at: 62, line: 'Chorus' }, { at: 120, line: 'Chorus' },
   ]);
 });
+
+import * as P from '../src/lib/music/party.ts';
+
+const tune = (n, duration = 200) => ({ key: `dz:${n}`, title: `Song ${n}`, artists: [{ key: 'dz:9', name: 'A' }], album: null, duration, isrc: null, explicit: false, rank: 0 });
+const joined = (p, client, user, now, key = null, state = 'loading') => P.report(p, { client, username: user }, state, key, now);
+
+test('a new song waits for everyone to load it, then starts for all a moment ahead', () => {
+  let p = P.newParty('party0001', 'ana', [tune(1), tune(2)], 0, 0, ['ben'], 0);
+  p = joined(joined(p, 'c-ana-1', 'ana', 0), 'c-ben-1', 'ben', 0);
+  p = P.startSong(p, 0, 100);
+  assert.equal(p.playing, false);
+  assert.deepEqual(p.waiting.for.sort(), ['c-ana-1', 'c-ben-1']);
+  p = joined(p, 'c-ana-1', 'ana', 200, 'dz:1', 'ready');
+  let t = P.tick(p, 250);
+  assert.equal(t.party.playing, false);
+  p = joined(t.party, 'c-ben-1', 'ben', 300, 'dz:1', 'ready');
+  t = P.tick(p, 350);
+  assert.equal(t.party.playing, true);
+  assert.equal(t.party.at, 350 + P.party.leadIn);
+});
+
+test('nobody is waited for forever, and a song that ends gives way to the next', () => {
+  let p = P.newParty('party0002', 'ana', [tune(1, 10), tune(2)], 0, 0, [], 0);
+  p = joined(p, 'c-ana-1', 'ana', 0);
+  p = P.startSong(p, 0, 0);
+  const late = P.tick(joined(p, 'c-ana-1', 'ana', P.party.waitAtMost - 1000), P.party.waitAtMost + 1);
+  assert.equal(late.party.playing, true);
+  const ended = P.tick(late.party, late.party.at + 10_000);
+  assert.equal(ended.party.index, 1);
+  assert.equal(ended.party.playing, false);
+  assert.equal(ended.wantMore, true);
+});
+
+test('a skip against an older state is refused; play and pause always land', () => {
+  let p = P.newParty('party0003', 'ana', [tune(1), tune(2), tune(3)], 0, 0, [], 0);
+  p = { ...p, playing: true, at: 0 };
+  const seq = p.seq;
+  const moved = P.command(p, { type: 'next' }, seq, 1000);
+  assert.equal(moved.ok, true);
+  const stale = P.command(moved.party, { type: 'next' }, seq, 1100);
+  assert.equal(stale.ok, false);
+  assert.equal(stale.reason, 'stale');
+  assert.equal(P.command(moved.party, { type: 'pause' }, seq, 1200).ok, true);
+});
+
+test('only the host, those asked and (while open) the host\'s friends may join', () => {
+  const p = P.newParty('party0004', 'ana', [tune(1)], 0, 0, ['ben'], 0);
+  assert.ok(P.mayJoin(p, 'ana', []));
+  assert.ok(P.mayJoin(p, 'ben', []));
+  assert.ok(P.mayJoin(p, 'cy', ['cy']));
+  assert.ok(!P.mayJoin({ ...p, open: false }, 'cy', ['cy']));
+  assert.ok(!P.mayJoin(p, 'dee', ['cy']));
+});

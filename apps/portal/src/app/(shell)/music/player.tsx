@@ -60,6 +60,29 @@ type Player = {
   toast: Toast | null;
   /** Held while you're reaching for the toast (its menu is open), so it doesn't go mid-choice. */
   holdToast(held: boolean): void;
+  /** In a listen party (./party-ui.tsx): the party's queue shows, and the controls act on it. */
+  inParty: boolean;
+  setRemote(remote: Remote | null): void;
+  /** Takes over a queue without stopping what's playing: what leaving a party leaves you with. */
+  adopt(tracks: Track[], index: number, source: Source): void;
+  audioElement(): HTMLAudioElement | null;
+};
+
+/** Something else holding the queue (a listen party): what it has, and what each control does there. */
+export type Remote = {
+  tracks: Track[];
+  index: number;
+  source: Source;
+  toggle(): void;
+  next(): void;
+  prev(): void;
+  seek(seconds: number): void;
+  jump(index: number): void;
+  play(tracks: Track[], start: number): void;
+  playNext(tracks: Track[]): void;
+  addToQueue(tracks: Track[]): void;
+  remove(index: number): void;
+  move(from: number, to: number): void;
 };
 
 /** A word along the bottom. `playlistFor` offers those songs a playlist: after a like, which already put them in Liked songs. */
@@ -123,6 +146,8 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
   const startAt = useRef(0);
   const failures = useRef(0);
   const live = useRef({ tracks, index, repeat, shuffle, source });
+  /* A listen party, while you're in one: it holds the queue (see setRemote). */
+  const remoteRef = useRef<Remote | null>(null);
   useLayoutEffect(() => { live.current = { tracks, index, repeat, shuffle, source }; });
   const current = tracks[index] ?? null;
 
@@ -195,10 +220,13 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
       if (!el.paused && step > 0 && step < 1.5) h.seconds += step;
       h.last = el.currentTime;
     };
-    const onEnded = () => void advance(false);
+    /* In a party, the party says what's next (its clock), not this player. */
+    const onEnded = () => { if (!remoteRef.current) void advance(false); };
     const onError = () => {
       if (!el.src || !el.getAttribute("src")) return;
       setWaiting(false);
+      /* In a party a song that won't play here is said, and the party carries on. */
+      if (remoteRef.current) { say("That song won't play here; the party carries on."); return; }
       failures.current += 1;
       const t = live.current.tracks[live.current.index];
       say(t ? `“${t.title}” won't play right now.` : "That won't play right now.");
@@ -248,7 +276,7 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
   }, []);
 
   const save = useCallback(() => {
-    if (!restored.current) return;
+    if (!restored.current || remoteRef.current) return;
     const { tracks: list, index: i, shuffle: s, repeat: r, source: src } = live.current;
     if (!list.length) return;
     /* The queue around where you are: what's played long ago needn't travel. */
@@ -442,14 +470,33 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
     return () => removeEventListener("keydown", key);
   }, [toggle, next, prev, seek, setMuted, setNowPlaying]);
 
-  const value = useMemo<Player>(() => ({
-    you, arriving,
-    tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted,
-    position: () => audio.current?.currentTime ?? 0,
-    duration: () => (Number.isFinite(audio.current?.duration) ? audio.current!.duration : 0),
-    play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted,
-    ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast, holdToast,
-  }), [you, arriving, tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted, play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted, ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast, holdToast]);
+  /* ── A listen party holding the queue ─────────────────────────────── */
+  const [remote, setRemoteState] = useState<Remote | null>(null);
+  const setRemote = useCallback((r: Remote | null) => { remoteRef.current = r; setRemoteState(r); }, []);
+  const adopt = useCallback((list: Track[], i: number, src: Source) => {
+    setTracks(list); setIndex(Math.max(0, Math.min(i, list.length - 1))); setSource(src);
+    const t = list[i];
+    if (t) heard.current = { key: t.key, seconds: 0, last: audio.current?.currentTime ?? 0 };
+  }, []);
+  const audioElement = useCallback(() => getAudio(), []);
+
+  const value = useMemo<Player>(() => {
+    const r = remote;
+    const notInParty = () => say("Shuffle and repeat are off while you listen together.");
+    return {
+      you, arriving,
+      tracks: r ? r.tracks : tracks, index: r ? r.index : index, current: r ? r.tracks[r.index] ?? null : current, source: r ? r.source : source,
+      playing, waiting, shuffle: r ? false : shuffle, repeat: r ? "off" : repeat, volume, muted,
+      position: () => audio.current?.currentTime ?? 0,
+      duration: () => (Number.isFinite(audio.current?.duration) ? audio.current!.duration : 0),
+      play: r ? (list: Track[], start = 0) => r.play(list, start) : play,
+      toggle: r ? r.toggle : toggle, next: r ? r.next : next, prev: r ? r.prev : prev, seek: r ? r.seek : seek, jump: r ? r.jump : jump,
+      playNext: r ? r.playNext : playNext, addToQueue: r ? r.addToQueue : addToQueue, remove: r ? r.remove : remove, move: r ? r.move : move,
+      setShuffle: r ? notInParty : setShuffle, cycleRepeat: r ? notInParty : cycleRepeat, setVolume, setMuted,
+      ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast, holdToast,
+      inParty: Boolean(r), setRemote, adopt, audioElement,
+    };
+  }, [remote, you, arriving, tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted, play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted, ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast, holdToast, setRemote, adopt, audioElement]);
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }
