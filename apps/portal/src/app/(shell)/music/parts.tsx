@@ -118,6 +118,25 @@ export function MoreButton({ label = "More", items, className }: { label?: strin
   </>;
 }
 
+/**
+ * "Add to playlist", where a song is: your playlists (and a new one) in a menu.
+ * As an icon in the bar, or a labelled button in Now Playing.
+ */
+export function AddToPlaylist({ keys, labelled = false, className }: { keys: string[]; labelled?: boolean; className?: string }) {
+  const p = usePlayer();
+  const [open, setOpen] = useState<{ at: HTMLElement; items: Item[] } | null>(null);
+  return <>
+    <button type="button" className={cx(labelled ? "km-pillbtn" : "km-iconbtn km-small", className)} aria-label="Add to playlist" title="Add to playlist" aria-haspopup="menu" aria-expanded={Boolean(open)}
+      onClick={async (e) => {
+        e.stopPropagation();
+        if (open) { setOpen(null); return; }
+        const at = e.currentTarget;
+        setOpen({ at, items: await playlistItems(keys, p.say)() });
+      }}><Icon name="add" />{labelled ? <span>Add to playlist</span> : null}</button>
+    {open ? <Menu anchor={open.at} items={open.items} onClose={() => setOpen(null)} /> : null}
+  </>;
+}
+
 function trackItems(t: Track, p: ReturnType<typeof usePlayer>, extra: Item[] = []): Item[] {
   return [
     { label: "Play next", icon: "next", run: () => p.playNext([t]) },
