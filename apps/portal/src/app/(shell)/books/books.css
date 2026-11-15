@@ -559,3 +559,10 @@
   .kb .kb-you-text{justify-items:center}
   .kb .kb-you-profile{margin-left:0}
 }
+
+/* Friends, before any share what they read: three empty seats on the shelf, and the way to find them. */
+.kb .kb-friends-empty{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:6px var(--gutter) 0;padding:16px 20px;border-radius:10px 22px 10px 22px;background:var(--surface-2, color-mix(in srgb, var(--fg) 5%, transparent))}
+.kb .kb-friends-empty p{flex:1;min-width:200px;margin:0;color:var(--fg-2)}
+.kb .kb-friends-seats{display:flex;flex:none}
+.kb .kb-friends-seats i{width:40px;height:40px;border-radius:50%;border:1.5px dashed color-mix(in srgb, var(--fg) 30%, transparent);background:var(--bg)}
+.kb .kb-friends-seats i + i{margin-left:-12px}
