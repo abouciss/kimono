@@ -261,13 +261,12 @@ function NowPlaying() {
   const view = p.panel === "queue" ? "queue" : p.panel === "lyrics" ? "lyrics" : "song";
   const from = p.source ? sourceHref(p.source) : null;
   const words = hasWords(lyrics);
-  /* Wide, the lyrics are there unless Up next is; on a phone they're one of three. */
-  const lyricsOn = wide ? view !== "queue" : view === "lyrics";
+  /* On a phone the lyrics and Up next take the art's place; wider, the bar's own Lyrics and Queue switch them. */
   const leaves = <span className="km-leaves" role="group" aria-label="Views">
-    <button type="button" className={cx("km-leaf", lyricsOn && "km-on", !words && "km-lifted")} aria-pressed={lyricsOn} title={words ? "Lyrics" : "No lyrics for this song"}
-      onClick={() => p.setPanel(wide ? "lyrics" : view === "lyrics" ? null : "lyrics")}><Icon name="lyrics" /><span>Lyrics</span></button>
+    <button type="button" className={cx("km-leaf", view === "lyrics" && "km-on", !words && "km-lifted")} aria-pressed={view === "lyrics"} title={words ? "Lyrics" : "No lyrics for this song"}
+      onClick={() => p.setPanel(view === "lyrics" ? null : "lyrics")}><Icon name="lyrics" /><span>Lyrics</span></button>
     <button type="button" className={cx("km-leaf", view === "queue" && "km-on")} aria-pressed={view === "queue"} title="Up next"
-      onClick={() => p.setPanel(view === "queue" ? (wide ? "lyrics" : null) : "queue")}><Icon name="queue" /><span>Up next</span></button>
+      onClick={() => p.setPanel(view === "queue" ? null : "queue")}><Icon name="queue" /><span>Up next</span></button>
   </span>;
   return <section className={cx("km-np", open ? "km-np-in" : "km-np-out", `km-np-view-${view}`)} aria-label="Now playing">
     <header className="km-np-head">
@@ -295,7 +294,6 @@ function NowPlaying() {
       </div>
     </div>
     <div className="km-np-side">
-      {wide ? leaves : null}
       {view === "queue" ? <QueueList /> : <LyricsView key={t.key} lyrics={lyrics} />}
     </div>
     {wide ? null : <div className="km-np-controls">

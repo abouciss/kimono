@@ -582,8 +582,10 @@
 .km-np-said { display: grid; justify-items: center; gap: 6px; min-width: 0; max-width: 100%; }
 .km-np-name > .km-rates { margin-top: var(--k-space-4); }
 .km-np-by a { color: var(--k-app-text, var(--k-accent)); }
-.km-np-side { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--k-space-3); min-height: 0; padding-top: var(--k-space-2); }
-.km-np-side > .km-leaves { justify-self: start; }
+/* Open, Now Playing covers the page: the page behind neither scrolls nor shows its bar down the right edge. */
+html:has(.km-np-in) { overflow: hidden; scrollbar-width: none; }
+html:has(.km-np-in)::-webkit-scrollbar { display: none; }
+.km-np-side { display: grid; grid-template-rows: minmax(0, 1fr); min-height: 0; padding-top: var(--k-space-2); }
 .km-np-side .km-queue-body { min-height: 0; max-width: 560px; overflow-y: auto; }
 .km-np-controls { display: none; }
 
