@@ -17,6 +17,8 @@ import { inkBrushD, inkFilters, inkRandom, mixHex, washGradient, type InkPoint }
  * - InkWave: the update's wavy bar, brushed, as on the phone (InkProgress.kt).
  *   Only for a real progress (an upload, a render with a percent): the wave
  *   fills as the value grows. Never for a wait without a measure.
+ * - InkMeter: the same wave, drawn once and still, for how far someone has
+ *   got (watched, read). Nothing is loading, so nothing moves.
  * - InkRing: the same wave drawn round a circle, for a real progress that
  *   sits in the middle of things (a stream starting, with its percent).
  */
@@ -137,10 +139,10 @@ function frame(w: number, h: number, t: number, value: number | undefined, calm 
 }
 
 /** The bar, drawn every frame into whatever box CSS gives it. */
-function Wave({ value, colour, label, className, still = false, glide = true }: { value?: number; colour?: string; label: string; className: string; still?: boolean; glide?: boolean }) {
+function Wave({ value, colour, label, className, still = false, glide = true, frozen = false }: { value?: number; colour?: string; label: string; className: string; still?: boolean; glide?: boolean; frozen?: boolean }) {
   const box = useRef<HTMLSpanElement>(null);
   const [size, setSize] = useState<[number, number]>([0, 0]);
-  const now = useClock();
+  const now = useClock(!frozen);
   useLayoutEffect(() => {
     const el = box.current; if (!el) return;
     const measure = () => setSize([Math.round(el.clientWidth), Math.round(el.clientHeight)]);
@@ -150,7 +152,7 @@ function Wave({ value, colour, label, className, still = false, glide = true }: 
   }, []);
   const target = typeof value === "number" ? Math.min(1, Math.max(0, value)) : undefined;
   const glided = useGlide(target, now);
-  const known = glide ? glided : target;
+  const known = glide && !frozen ? glided : target;
   const calm = useCalm(still, now);
   const [w, h] = size;
   const f = w && h ? frame(w, h, now, known, calm) : null;
@@ -196,17 +198,18 @@ function useCalm(still: boolean, now: number) {
   return h.v;
 }
 
-/** Milliseconds since mount, every frame; held at 500 for reduced motion (a known bar still fills, an unknown one shows one wave). */
-function useClock() {
+/** Milliseconds since mount, every frame; held at 500 for reduced motion (a known bar still fills, an unknown one shows one wave), and at 0 when not `running`. */
+function useClock(running = true) {
   const [now, setNow] = useState(0);
   useEffect(() => {
+    if (!running) return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) { setNow(500); return; }
     const begun = performance.now();
     let raf = 0;
     const tick = (at: number) => { setNow(Math.max(0, at - begun)); raf = requestAnimationFrame(tick); };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [running]);
   return now;
 }
 
@@ -233,6 +236,14 @@ export function InkWave({ value, label = "Loading", className, still, glide }: {
   glide?: boolean;
 }) {
   return <Wave value={value} label={label} className={cx("k-wave", className)} still={still} glide={glide}/>;
+}
+
+/**
+ * How far someone has got (watched, read): the bar's wave, drawn once and
+ * still. The moving wave is only for something that is loading (InkWave).
+ */
+export function InkMeter({ value, label, className }: { value: number; label: string; className?: string }) {
+  return <Wave value={value} label={label} className={cx("k-wave", className)} frozen/>;
 }
 
 /** One frame of the ring in a 100×100 box: the filled wave from the top, clockwise, then the track, brushed as the bar is. */

@@ -2,7 +2,7 @@
 
 import { useTabTitle } from "@/components/tab-title";
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AppLockup, InkPortraitFrame, InkWave, MorphLoader, type AppIdentity } from "@kimono/ui";
+import { AppLockup, InkPortraitFrame, InkWave, MorphLoader, type AppIdentity, InkMeter } from "@kimono/ui";
 import { Crossing, CrossingSeal } from "@/components/crossing";
 import { Portrait } from "@/components/portrait";
 import Markdown, { type Components } from "react-markdown";
@@ -304,7 +304,7 @@ function Shelf({ title, children, delay = 0, action }: { title: ReactNode; child
 function BookCaption({ book }: { book: Pick<Book, "key" | "title" | "authors" | "rating" | "readers"> }) {
   const mine = useContext(MyShelf)(book);
   if (mine?.state === "reading") return <span className="kb-caption">
-    <InkWave className="kb-cap-progress" value={mine.fraction} label="Read" />
+    <InkMeter className="kb-cap-progress" value={mine.fraction} label="Read" />
     <span className="kb-cap-title">{book.title}</span>
     <span className="kb-cap-continue">Continue reading · {Math.round(mine.fraction * 100)}%</span>
   </span>;
@@ -875,7 +875,7 @@ function PlaceControl({ fraction, pages, onSave }: { fraction: number; pages: nu
       : <>
         <div className="kb-place-now">
           <b>{placeLabel(fraction, pages)}</b>
-          <InkWave className="kb-cap-progress" value={fraction} label="Read" />
+          <InkMeter className="kb-cap-progress" value={fraction} label="Read" />
         </div>
         <button className="kb-btn kb-tonal" onClick={() => setEditing(true)}>Update</button>
       </>}
@@ -885,7 +885,7 @@ function PlaceControl({ fraction, pages, onSave }: { fraction: number; pages: nu
 /* ── Small parts ───────────────────────────────────────────────────────── */
 
 function Progress({ fraction }: { fraction: number }) {
-  return <div className="kb-progress"><InkWave value={fraction} label="Read" /><em>{Math.round(fraction * 100)}%</em></div>;
+  return <div className="kb-progress"><InkMeter value={fraction} label="Read" /><em>{Math.round(fraction * 100)}%</em></div>;
 }
 
 function Star() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { InkWave } from "@kimono/ui";
+import { InkMeter } from "@kimono/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { friendsApi, type Card, type Friend, type FriendHere, type FriendRated, type FriendsPage as Page, type FriendTaste, type JoinAsk, type Person } from "./api";
@@ -177,11 +177,11 @@ function FriendCard({ f, asking, onAsk, onCancel, onTaste, onRemove }: { f: Frie
       <button className="kw-iconbtn" aria-label={`Remove ${f.name || f.username}`} title="Remove" onClick={onRemove}><Icon name="close" /></button>
     </div>
     {now ? <button className="kw-fr-now" onClick={() => watch.openTitle(now.title.id)}>
-      <span className="kw-th"><Img src={now.title.backdrop ?? now.title.poster} /><InkWave className="kw-bar" value={now.progress} label="Watched" /></span>
+      <span className="kw-th"><Img src={now.title.backdrop ?? now.title.poster} /><InkMeter className="kw-bar" value={now.progress} label="Watched" /></span>
       <span><b>{now.title.name}</b><small>{[now.label, now.partyId ? "together" : null].filter(Boolean).join(" · ") || now.title.shelf}</small></span>
     </button> : null}
     {recent.length ? <div className="kw-fr-recent">{recent.map((s) => <div key={s.title.id}>
-      <div className="kw-fr-poster"><PosterCard card={s.title} plain poster />{!s.finished ? <InkWave className="kw-bar" value={s.progress} label="Watched" /> : null}</div>
+      <div className="kw-fr-poster"><PosterCard card={s.title} plain poster />{!s.finished ? <InkMeter className="kw-bar" value={s.progress} label="Watched" /> : null}</div>
       <small>{s.finished ? (s.label ? `${s.label} · done` : "Finished") : s.label ?? `${Math.round(s.progress * 100)}% in`}</small>
     </div>)}</div> : null}
   </article>;
@@ -202,7 +202,7 @@ export function FriendsHere({ friends, film }: { friends: FriendHere[]; film: bo
   return <div className="kw-fr-here">{friends.slice(0, 4).map((f) => <div key={f.username}>
     <Face person={f} />
     <span><b>{(f.name || f.username).split(" ")[0]}</b> · {f.now ? ["watching now", f.label].filter(Boolean).join(", ") : f.finished && (film || !f.label) ? "watched it" : f.finished ? `finished ${f.label}` : f.label ? `on ${f.label}` : `${Math.round(f.progress * 100)}% in`}</span>
-    {!f.finished ? <InkWave className="kw-bar" value={f.progress} label="Watched" /> : null}
+    {!f.finished ? <InkMeter className="kw-bar" value={f.progress} label="Watched" /> : null}
   </div>)}{friends.length > 4 ? <small>and {friends.length - 4} more friends</small> : null}</div>;
 }
 
@@ -300,7 +300,7 @@ export function FriendsRow({ onJoin, onAll }: { onJoin: (partyId: string) => voi
       <div className="kw-frpop-who"><span className={cx("kw-frt-ring", now && "kw-live")}><Face person={f} /></span>
         <span><b>{f.name || f.username}</b><small className={cx(now && "kw-on")}>{now ? "Watching now" : last ? `Watched ${ago(last.at)}` : "Hasn't watched anything yet"}</small></span></div>
       {now || last ? <button className="kw-frpop-what" onClick={() => { setPicked(null); watch.openTitle((now ?? last)!.title.id); }}>
-        <span className="kw-th"><Img src={(now ?? last)!.title.backdrop ?? (now ?? last)!.title.poster} /><InkWave className="kw-bar" value={((now ?? last)!.progress)} label="Watched" /></span>
+        <span className="kw-th"><Img src={(now ?? last)!.title.backdrop ?? (now ?? last)!.title.poster} /><InkMeter className="kw-bar" value={((now ?? last)!.progress)} label="Watched" /></span>
         <span><b>{(now ?? last)!.title.name}</b><small>{(now ?? last)!.label ?? ((now ?? last)!.finished ? "Finished" : `${Math.round((now ?? last)!.progress * 100)}% in`)}</small></span>
       </button> : null}
       <div className="kw-frpop-acts">

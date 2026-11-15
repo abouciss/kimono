@@ -1,6 +1,6 @@
 "use client";
 
-import { InkWave } from "@kimono/ui";
+import { InkMeter } from "@kimono/ui";
 import { useState, type ReactNode } from "react";
 import { Crossing } from "./crossing";
 import { LineIcon } from "./line-icon";
@@ -58,7 +58,7 @@ export function TitleArt({ item, size = "m", rating, progress }: { item: TitleTh
   return <span className={`ta ta-watch ta-${size}`}>
     <span className="ta-poster">
       <Picture src={item.cover} none={<span className="ta-none ta-named"><LineIcon name="film" /><b>{item.title}</b></span>} />
-      {progress ? <InkWave className="ta-bar" value={progress} label="Watched" /> : null}
+      {progress ? <InkMeter className="ta-bar" value={progress} label="Watched" /> : null}
     </span>
     {marks}
   </span>;
