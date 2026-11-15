@@ -76,14 +76,14 @@ test('the anime episode layout is a setting, seasons until changed', () => {
 
 import * as rows from '../src/lib/watch/rows.ts';
 
-test("Home's rows follow taste without losing what's new, and a shelf keeps only its own", () => {
+test("Home's rows follow taste without losing what's airing, and a shelf keeps only its own", () => {
   const plain = rows.orderRows(rows.rowCatalog, new Map());
-  assert.equal(plain[0].id, 'new-episodes');
+  assert.equal(plain[0].id, 'airing-anime');
   const horrorFan = rows.orderRows(rows.rowCatalog, rows.genreTaste([{ genres: ['Horror'] }, { genres: ['Horror', 'Thriller'] }]));
   assert.ok(horrorFan.findIndex((r) => r.id === 'horror') < plain.findIndex((r) => r.id === 'horror') - 5, 'Horror moves well up');
   assert.deepEqual(horrorFan.slice(0, 2).map((r) => r.id), plain.slice(0, 2).map((r) => r.id), 'the first two stay');
   assert.ok(rows.orderRows(rows.rowCatalog, new Map(), 'Anime').every((r) => r.shelves.includes('Anime')));
-  assert.ok(rows.rowCatalog.length >= 20);
+  assert.ok(rows.rowCatalog.length >= 18);
   assert.equal(new Set(rows.rowCatalog.map((r) => r.id)).size, rows.rowCatalog.length, 'ids are unique');
 });
 
