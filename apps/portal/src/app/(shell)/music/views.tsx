@@ -54,16 +54,16 @@ export function TopBar({ app }: { app: AppIdentity }) {
       {home ? null : <button type="button" className="km-iconbtn km-back" data-nav-back aria-label="Back"
         onClick={() => { if (steps.current > 0) { steps.current -= 2; history.back(); } else crossTo("kakejiku", "/music"); }}><Icon name="back" /></button>}
       <Crossing kind="kakejiku" href="/music" className="km-brand" aria-label="Kimono Music, home"><AppLockup identity={app} /></Crossing>
+      <nav className="km-tabs" aria-label="Music">
+        <Crossing kind="kakejiku" href="/music" aria-current={path === "/music" ? "page" : undefined}>Home</Crossing>
+        <Crossing kind="kakejiku" href="/music/you" aria-current={path === "/music/you" ? "page" : undefined}>You</Crossing>
+      </nav>
     </div>
     <label className="km-search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
       <input ref={input} type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Songs, albums, artists" aria-label="Search Music"
         onKeyDown={(e) => { if (e.key === "Escape") { setText(""); input.current?.blur(); } }} />
     </label>
-    <nav className="km-tabs" aria-label="Music">
-      <Crossing kind="kakejiku" href="/music" aria-current={path === "/music" ? "page" : undefined}>Home</Crossing>
-      <Crossing kind="kakejiku" href="/music/you" aria-current={path === "/music/you" ? "page" : undefined}>You</Crossing>
-    </nav>
   </div>;
 }
 

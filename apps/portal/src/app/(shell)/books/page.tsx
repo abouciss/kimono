@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { homeFor } from "@/lib/books";
 import { booksConfig, booksIdentity } from "@/lib/books/config";
+import { picturePathFor } from "@/lib/pictures";
 import { getPlatformSettings } from "@/lib/settings";
 import { BooksEntry, BooksOff } from "./books-entry";
 import type { Home } from "./api";
@@ -22,9 +23,10 @@ export default async function BooksPage() {
   const admin = session.user.role === "owner" || session.user.role === "admin";
   const enabled = booksConfig(settings).enabled;
   if (!enabled && admin) redirect("/admin/apps/kimono-books");
-  const [app, home] = await Promise.all([booksIdentity(settings), enabled ? inTime(homeFor(session.user.username), 1500) : null]);
+  const [app, home, picture] = await Promise.all([booksIdentity(settings), enabled ? inTime(homeFor(session.user.username), 1500) : null, picturePathFor(session.user.username)]);
   const firstName = (session.user.name?.trim() || session.user.username).split(/\s+/)[0];
+  const you = { username: session.user.username.toLowerCase(), name: session.user.name?.trim() || session.user.username, picture: picture ?? session.user.image ?? null };
   return <AppShell user={session.user} brandColors={settings.brand.colors} app={app}>
-    {enabled ? <BooksEntry app={app} accent={app.accent} firstName={firstName} home={home as Home | null} /> : <BooksOff />}
+    {enabled ? <BooksEntry app={app} you={you} accent={app.accent} firstName={firstName} home={home as Home | null} /> : <BooksOff />}
   </AppShell>;
 }

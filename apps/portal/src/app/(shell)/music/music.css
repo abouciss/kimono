@@ -30,7 +30,7 @@
 .km-back .km-icon { width: 22px; height: 22px; }
 .km-brand { display: inline-flex; align-items: center; padding: 6px 10px 6px 4px; border-radius: var(--k-r-l); transition: background var(--k-t-state); }
 .km-brand:hover { background: var(--k-container); text-decoration: none !important; }
-/* Search sits on the right; the rail already carries Home, Search and Library, so the tabs are for phones. */
+/* Home and You beside the name; search on the right. */
 .km-search {
   flex: 0 1 440px; min-width: 0; display: flex; align-items: center; gap: 10px;
   height: 48px; padding: 0 16px; border-radius: var(--k-r-full);
@@ -42,7 +42,7 @@
 .km-search input { flex: 1; min-width: 0; border: 0; background: none; outline: 0; font: 400 16px/24px var(--k-sans); color: var(--k-on-surface); }
 .km-search input::placeholder { color: var(--k-on-surface-variant); }
 .km-search input::-webkit-search-cancel-button { filter: grayscale(1); }
-.km-tabs { display: none; gap: 4px; }
+.km-tabs { display: flex; gap: 4px; margin-left: var(--k-space-3); }
 .km-tabs a { padding: 10px 16px; border-radius: var(--k-r-full); font: 700 14px/20px var(--k-sans); color: var(--k-on-surface-variant); }
 .km-tabs a:hover { text-decoration: none; background: var(--k-container); color: var(--k-on-surface); }
 .km-tabs a[aria-current="page"] { background: var(--k-secondary-container); color: var(--k-on-secondary-container, var(--k-plum)); }
@@ -443,9 +443,9 @@
 @media (max-width: 720px) {
   .km { --km-bar-h: 64px; --km-gutter: 16px; }
   .km-top { flex-wrap: wrap; gap: var(--k-space-2); }
-  .km-top-start { flex-basis: 100%; }
+  .km-top-start { flex-basis: 100%; flex-wrap: wrap; }
   .km-search { flex: 1 1 100%; }
-  .km-tabs { display: flex; flex-basis: 100%; }
+  .km-tabs { flex-basis: 100%; order: 3; margin-left: 0; }
   .km-head { flex-direction: column; align-items: flex-start; gap: var(--k-space-4); }
   .km-head-art { width: min(64vw, 240px); }
   .km-head-cover, .km-head-art > .km-mosaic { width: 100%; height: auto; }
