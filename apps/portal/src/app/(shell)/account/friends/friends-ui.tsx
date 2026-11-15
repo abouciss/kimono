@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InkBlot, InkPortraitFrame, Seal } from "@kimono/ui";
 import { Crossing, CrossingSeal } from "@/components/crossing";
@@ -15,6 +15,7 @@ import { LinkMark } from "./link-marks";
 import { TitleCard, TitleRow } from "@/components/title-art";
 import "./recommend-sheet.css";
 import { LinksEditor } from "./links-editor";
+import { BannerSheet } from "./banner-sheet";
 
 /*
  * 友 Friends, profiles and recommendations on the web (lib/friends has the
@@ -35,7 +36,7 @@ export type Section = { app: string; appName: string; kind: string; title: strin
 /** Private until you're friends: then only `open: false` and who they are comes back (lib/friends/model.ts profileFor). */
 export type Profile = Person & { you: boolean; visitor?: boolean; link: "friends" | "asked" | "asking" | null } & (
   | { open: false }
-  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string; show?: LinkShow }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
+  | { open: true; bio: string; pronouns: string; color: ProfileColor | null; banner?: string | null; links: { title: string; url: string; icon?: string; show?: LinkShow }[]; widgets?: Widget[] | null; music?: MusicExtras; books?: BooksExtras; sections: Section[]; recommendations: Recommendation[]; friends: number; friendList?: Person[] | null; hidden?: string[]; kept?: string[]; privacy?: Privacy; off?: Off[]; kimonoRead?: { since: string } | null }
 );
 /** What you let friends see (your own profile only): lib/friends/model.ts privacyOf. */
 export type Privacy = { invisible: boolean; visibility: "friends" | "public" | "private"; friends: boolean; apps: { app: string; name: string; shown: boolean; rows: { kind: string; title: string; shown: boolean }[] }[] };
@@ -233,6 +234,7 @@ export function ProfileView({ username, home = false, standalone = false }: { us
   const [privacyOpen, setPrivacyOpen] = useState(() => typeof window !== "undefined" && new URLSearchParams(location.search).get("sheet") === "privacy");
   const [editing, setEditing] = useState(false);
   const [editingLinks, setEditingLinks] = useState(false);
+  const [bannerOpen, setBannerOpen] = useState(false);
   /* Your own profile as a friend sees it. */
   const [asFriend, setAsFriend] = useState(false);
   /* Arranging the home screen's widgets (the board saves when it's done). */
@@ -241,6 +243,14 @@ export function ProfileView({ username, home = false, standalone = false }: { us
   const [offOpen, setOffOpen] = useState(false);
   const load = useCallback(() => call<Profile>(`/api/v1/profiles/${encodeURIComponent(username)}`).then(setProfile, (e) => setProblem(message(e))), [username]);
   useEffect(() => { void load(); }, [load]);
+  /* Live: what they're playing and watching changes under you, so the profile reads itself again while it's on screen (and the moment you come back to it). */
+  useEffect(() => {
+    const url = `/api/v1/profiles/${encodeURIComponent(username)}`;
+    const tick = () => { if (document.visibilityState === "visible") call<Profile>(url).then(setProfile, () => {}); };
+    const every = setInterval(tick, 12_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(every); document.removeEventListener("visibilitychange", tick); };
+  }, [username]);
   const own = profile?.you ?? false;
   useEffect(() => { if (own) call<FriendsList>("/api/v1/friends").then((l) => setAsked(l.asked.length), () => {}); }, [own]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2600); return () => clearTimeout(t); }, [toast]);
@@ -273,13 +283,15 @@ export function ProfileView({ username, home = false, standalone = false }: { us
 
   return <div className={`you fr fr-profile fr-profile-v2${p.open && !closedToFriends ? "" : " is-closed"}`} style={{ "--fr-color": color.hex } as React.CSSProperties}>
     <header className="fr-hero">
-      <div className="fr-band" aria-hidden="true" />
+      <div className={`fr-band${p.open && p.banner ? " has-photo" : ""}`} aria-hidden="true" style={p.open && p.banner ? { backgroundImage: `url(${p.banner})` } : undefined} />
+      {p.you && !preview && p.open ? <button type="button" className="fr-band-edit" onClick={() => setBannerOpen(true)}><LineIcon name="camera" />{p.banner ? "Change banner" : "Add a banner"}</button> : null}
       {home && !p.you ? null : <div className="fr-top">
         {home ? <span /> : <Crossing kind="kakejiku" className="fr-back" href={p.you ? "/account" : "/account/friends"} aria-label="Back"><LineIcon name="back" /></Crossing>}
         {standalone && !p.you ? <AppearanceFlip className="fr-back fr-look" /> : null}
         {p.you ? <span className="fr-top-end">
           {standalone ? <AppearanceFlip className="fr-back fr-look" /> : null}
           <label className="fr-asfriend"><span>View as a friend</span><JointSwitch name="as-friend" label="View your profile as a friend sees it" defaultChecked={false} onChange={setAsFriend} /></label>
+          {!preview ? <Seal tone="quiet" compact className="fr-wsw-open" onClick={() => setPrivacyOpen(true)}><LineIcon name="eye" />Who sees what</Seal> : null}
           <CrossingSeal tone="quiet" compact className="fr-settings" href="/account/settings"><LineIcon name="cog" />Settings</CrossingSeal>
         </span> : null}
       </div>}
@@ -288,25 +300,21 @@ export function ProfileView({ username, home = false, standalone = false }: { us
           <Face person={p} size={148} /><span className="you-camera"><LineIcon name="camera" /></span></Crossing>
           : <span className="you-picture fr-hero-face" data-named=""><Face person={p} size={148} /></span>}
         <div className="fr-hero-words">
-          <h1 className="fr-name">{p.name}{p.open && p.pronouns && !closedToFriends ? <small className="fr-pronouns">{p.pronouns}</small> : null}</h1>
+          <h1 className="fr-name">{p.you && !preview && p.open ? <button type="button" className="fr-name-edit" onClick={() => setEditing(true)} title="Edit name, pronouns and colour">{p.name}<LineIcon name="brush" /></button> : p.name}{p.open && p.pronouns && !closedToFriends ? <small className="fr-pronouns">{p.pronouns}</small> : null}</h1>
           <p className="fr-handle">@{p.username}{p.open && !closedToFriends ? ` · ${p.friends === 1 ? "1 friend" : `${p.friends} friends`}` : ""}</p>
-          {p.open && !closedToFriends && p.links.some(underName) ? <nav className="fr-socials" aria-label="Elsewhere">
+          {p.open && !closedToFriends && (p.links.some(underName) || (p.you && !preview)) ? <nav className="fr-socials" aria-label="Elsewhere">
             {/* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */}
             {p.links.filter(underName).map((l, i) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" title={l.title} aria-label={l.title} style={{ "--i": i } as React.CSSProperties}>
               <LinkMark url={l.url} icon={l.icon} fallback={linkMark(l.url)} />
             </a>)}
+            {p.you && !preview ? <button type="button" className="fr-socials-add" onClick={() => setEditingLinks(true)} title="Add a link" aria-label="Add a link" style={{ "--i": p.links.filter(underName).length } as React.CSSProperties}><LineIcon name="plus" /></button> : null}
           </nav> : null}
         </div>
-        <div className="fr-actions">
-          {p.you && !preview ? <>
-            <Seal compact onClick={() => setEditing(true)}><LineIcon name="brush" />Edit profile</Seal>
-            <Seal tone="quiet" compact onClick={() => setPrivacyOpen(true)}><LineIcon name="eye" />Who sees what</Seal>
-            {p.open ? <Seal tone="quiet" compact onClick={() => setArranging(!arranging)}><LineIcon name={arranging ? "check" : "pin"} />{arranging ? "Done" : "Arrange"}</Seal> : null}
-          </> : p.you ? null : action}
-        </div>
+        {p.you ? null : <div className="fr-actions">{action}</div>}
       </div>
       <div className="fr-hero-more">
-        {p.open && p.bio && !closedToFriends ? <p className="fr-bio">{p.bio}</p> : p.you && !preview && p.open ? <button type="button" className="fr-bio fr-bio-empty" onClick={() => setEditing(true)}>Add a few words about you</button> : null}
+        {p.you && !preview && p.open ? <BioInPlace bio={p.bio} onSaved={(bio) => { setProfile({ ...p, bio }); setToast("Saved"); }} onProblem={setProblem} />
+          : p.open && p.bio && !closedToFriends ? <p className="fr-bio">{p.bio}</p> : null}
         {p.open && p.kimonoRead && !closedToFriends ? <SilkscreenBadge since={p.kimonoRead.since} you={p.you} name={p.name || p.username} /> : null}
         {p.you && invisible && !preview ? <button type="button" className="fr-only fr-only-big" onClick={() => setPrivacyOpen(true)}><LineIcon name="lock" />You&rsquo;re invisible: friends only see your name and picture</button> : null}
         {closedToFriends ? <p className="fr-quiet">You&rsquo;re invisible, so this is all friends see.</p> : null}
@@ -335,7 +343,8 @@ export function ProfileView({ username, home = false, standalone = false }: { us
 
     {privacyOpen && privacy ? <WhoSeesWhat privacy={privacy} offCount={off.length} onClose={() => setPrivacyOpen(false)} onOff={() => { setPrivacyOpen(false); setOffOpen(true); }}
       onChanged={(r) => { if (p.open) setProfile({ ...p, privacy: r.privacy, hidden: r.hidden, kept: keptFrom(r.privacy) }); }} /> : null}
-    {editing && p.open ? <EditProfileSheet profile={p} onClose={() => setEditing(false)} onSaved={(next) => { setProfile(next); setToast("Saved"); }} onLinks={() => setEditingLinks(true)} /> : null}
+    {editing && p.open ? <EditProfileSheet profile={p} onClose={() => setEditing(false)} onSaved={(next) => { setProfile(next); setToast("Saved"); }} onLinks={() => setEditingLinks(true)} onBanner={() => setBannerOpen(true)} /> : null}
+    {bannerOpen && p.open ? <BannerSheet banner={p.banner ?? null} color={color.hex} onClose={() => setBannerOpen(false)} onSaved={(banner) => { setProfile((was) => was && was.open ? { ...was, banner } : was); setToast(banner ? "Banner up" : "Banner off"); }} /> : null}
     {editingLinks && p.open ? <LinksEditor links={p.links} onClose={() => setEditingLinks(false)}
       onSave={(links) => call<{ links: { title: string; url: string; icon?: string; show?: LinkShow }[] }>("/api/v1/profile", "PATCH", { links }).then((r) => { setProfile((was) => was && was.open ? { ...was, links: r.links } : was); return true; }, (e) => { setProblem(message(e)); return false; })} /> : null}
     {removing ? <InkSheet title={`Remove ${first(p)}?`} icon="people" onClose={() => setRemoving(false)} actions={<>
@@ -422,10 +431,28 @@ function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy
 
 /* ── Editing your profile ──────────────────────────────────────────────── */
 
+/** Your bio, edited where it sits: click it, type, and it saves when you leave it (Enter saves, Shift+Enter is a new line, Escape lets go). */
+function BioInPlace({ bio, onSaved, onProblem }: { bio: string; onSaved: (bio: string) => void; onProblem: (p: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const done = useRef(false);
+  const save = async (text: string) => {
+    if (done.current) return;
+    done.current = true;
+    setDraft(null);
+    if (text.trim() === bio) return;
+    try { const r = await call<{ bio: string }>("/api/v1/profile", "PATCH", { bio: text.trim() }); onSaved(r.bio); } catch (e) { onProblem(message(e)); }
+  };
+  if (draft === null) return <button type="button" className={`fr-bio fr-bio-edit${bio ? "" : " fr-bio-empty"}`} onClick={() => { done.current = false; setDraft(bio); }} title="Edit">{bio || "Add a few words about you"}</button>;
+  return <textarea className="fr-bio fr-bio-input" autoFocus rows={Math.max(2, draft.split("\n").length)} maxLength={280} value={draft} placeholder="A few words about you"
+    onChange={(e) => setDraft(e.target.value)} onBlur={() => void save(draft)}
+    onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void save(draft); } else if (e.key === "Escape") { e.stopPropagation(); done.current = true; setDraft(null); } }} />;
+}
+
 type Look = { pronouns: string; color: ProfileColor | null; links: { title: string; url: string; icon?: string; show?: LinkShow }[] };
 
 /** Your name, pronouns, words, colour and links, in one place, saved together. */
-function EditProfileSheet({ profile, onClose, onSaved, onLinks }: { profile: Profile & { open: true }; onClose: () => void; onSaved: (p: Profile) => void; onLinks: () => void }) {
+function EditProfileSheet({ profile, onClose, onSaved, onLinks, onBanner }: { profile: Profile & { open: true }; onClose: () => void; onSaved: (p: Profile) => void; onLinks: () => void; onBanner: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(profile.name);
   const [pronouns, setPronouns] = useState(profile.pronouns);
@@ -458,6 +485,11 @@ function EditProfileSheet({ profile, onClose, onSaved, onLinks }: { profile: Pro
         <div>{profileColors.map((c) => <button key={c.id} type="button" role="radio" aria-checked={(color ?? "suo") === c.id} aria-label={c.name} title={c.name}
           style={{ "--swatch": c.hex } as React.CSSProperties} className={(color ?? "suo") === c.id ? "is-on" : undefined} onClick={() => setColor(c.id)} />)}</div>
       </div>
+      <button type="button" className="fr-edit-linksrow" onClick={() => { onClose(); onBanner(); }}>
+        <span className="fr-link-mark fr-banner-mark" style={profile.banner ? { backgroundImage: `url(${profile.banner})` } : undefined}>{profile.banner ? null : <LineIcon name="camera" />}</span>
+        <span><b>Banner</b><small>{profile.banner ? "A photo across the top" : "Your colour, or a photo of your own"}</small></span>
+        <LineIcon name="out" />
+      </button>
       <button type="button" className="fr-edit-linksrow" onClick={() => { onClose(); onLinks(); }}>
         <span className="fr-link-mark"><LineIcon name="link" /></span>
         <span><b>Links</b><small>{profile.links.length ? `${profile.links.length} on your profile` : "Your Instagram, your site, your playlist"}</small></span>

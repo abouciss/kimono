@@ -8,9 +8,10 @@ import { apiError } from "../api-v1";
 import { portalOrigin } from "../account";
 import { listAccounts } from "../directory";
 import { picturePaths } from "../pictures";
+import { dropBanner, writeBanner } from "../banners";
 import { stateDir } from "../state";
 import {
-  answerFriend, apps, askFriend, setLook, keptOf, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
+  answerFriend, apps, askFriend, setLook, setBannerFile, keptOf, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
   isInvisible, isOffProfile, offProfileList, offProfileOf, privacyOf, profileFor, putBackOnProfile, takeOffProfile, receivedBy, recommend, recommendedTo, removeFriend, seesProfile, sentBy, setAppHidden, setBio, setInvisible, setKept, unseenCount, setVisibility, visibilityOf, decideSharing, decidedOf, sharingAsks, type Visibility,
   type LinkState, type Recommendation, type Section,
 } from "./model";
@@ -221,6 +222,12 @@ export async function profileOf(viewer: string, username: string, origin: string
 export const saveBio = (username: string, bio: unknown) => setBio(friendsDb(), username, bio);
 /** Your pronouns, colour and links: `{ pronouns?, color?, links? }`. */
 export const saveLook = (username: string, raw: Record<string, unknown>) => setLook(friendsDb(), username, raw);
+/** Puts a cropped banner up (or, with null, takes it down); the one it replaces is deleted. Answers the profile's look. */
+export async function saveBanner(username: string, upload: Uint8Array | null) {
+  const file = upload ? await writeBanner(upload) : null;
+  await dropBanner(setBannerFile(friendsDb(), username, file));
+  return setLook(friendsDb(), username, {});
+}
 export const showApp = (username: string, app: string, shown: boolean) => setAppHidden(friendsDb(), username, app, !shown);
 
 /**

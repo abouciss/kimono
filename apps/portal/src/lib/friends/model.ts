@@ -20,6 +20,7 @@
  * Pure logic over SQLite, tested in scripts/test-friends.mjs; ./index.ts serves it.
  */
 import type { DatabaseSync } from "node:sqlite";
+import { bannerPath } from "../banner-jpeg";
 
 export function migrateSocial(db: DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS friends (a TEXT NOT NULL, b TEXT NOT NULL, asked_by TEXT NOT NULL, state TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (a, b));
@@ -44,6 +45,8 @@ export function migrateSocial(db: DatabaseSync) {
   if (!columns.includes("pronouns")) db.exec("ALTER TABLE profiles ADD COLUMN pronouns TEXT NOT NULL DEFAULT ''");
   if (!columns.includes("color")) db.exec("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT ''");
   if (!columns.includes("links")) db.exec("ALTER TABLE profiles ADD COLUMN links TEXT NOT NULL DEFAULT '[]'");
+  /* A banner photo across the top of the profile: its file in lib/banners (empty for the colour alone). */
+  if (!columns.includes("banner")) db.exec("ALTER TABLE profiles ADD COLUMN banner TEXT NOT NULL DEFAULT ''");
   /* A profile's home screen: its widgets, in order, each with a size (JSON; empty means the default set). */
   if (!columns.includes("widgets")) db.exec("ALTER TABLE profiles ADD COLUMN widgets TEXT");
   /* Public: anyone with the address sees the profile as a friend would. */
@@ -306,14 +309,23 @@ export function widgetsOf(db: DatabaseSync, username: string): Widget[] | null {
   try { return widgetsFrom(JSON.parse(row.widgets)); } catch { return null; }
 }
 
-export type ProfileLook = { pronouns: string; color: ProfileColor | null; links: ProfileLink[] };
+export type ProfileLook = { pronouns: string; color: ProfileColor | null; links: ProfileLink[]; banner: string | null };
 
 export function lookOf(db: DatabaseSync, username: string): ProfileLook {
-  const row = db.prepare("SELECT pronouns, color, links FROM profiles WHERE username = ?").get(username.toLowerCase()) as { pronouns?: string; color?: string; links?: string } | undefined;
+  const row = db.prepare("SELECT pronouns, color, links, banner FROM profiles WHERE username = ?").get(username.toLowerCase()) as { pronouns?: string; color?: string; links?: string; banner?: string } | undefined;
   let links: ProfileLink[] = [];
   try { links = JSON.parse(row?.links || "[]") as ProfileLink[]; } catch { /* none */ }
   const color = (profileColors as readonly string[]).includes(row?.color ?? "") ? row!.color as ProfileColor : null;
-  return { pronouns: row?.pronouns ?? "", color, links };
+  return { pronouns: row?.pronouns ?? "", color, links, banner: bannerPath(row?.banner) };
+}
+
+/** Puts [file] up as someone's banner (or takes it down, for null) and answers the file it replaced, to be deleted. */
+export function setBannerFile(db: DatabaseSync, username: string, file: string | null, now = Date.now()): string | null {
+  const u = username.toLowerCase();
+  db.prepare("INSERT OR IGNORE INTO profiles (username, bio, updated_at) VALUES (?, '', ?)").run(u, now);
+  const was = (db.prepare("SELECT banner FROM profiles WHERE username = ?").get(u) as { banner?: string } | undefined)?.banner || null;
+  db.prepare("UPDATE profiles SET banner = ?, updated_at = ? WHERE username = ?").run(file ?? "", now, u);
+  return was && was !== file ? was : null;
 }
 
 /** Changes what's given: `{ pronouns?, color?, links? }`. Answers the look as it now is. */

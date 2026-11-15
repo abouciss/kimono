@@ -35,26 +35,8 @@ a.wg-card:hover { background: var(--k-container); transform: translateY(-2px); }
 .wg-progress .wg-wave { flex: 1; height: 10px; color: var(--fr-color, var(--k-suo)); }
 .wg-progress small { font-size: 12px; color: var(--k-on-surface-variant); }
 
-/* ── The record: just the disc, turning while they listen ─────────────── */
 
-.wg-deck { position: relative; flex: none; width: 140px; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 18px 34px -16px rgba(0, 0, 0, .6); transition: transform .8s var(--k-spring); }
-.wg-l .wg-deck { width: min(78%, 250px); }
-.wg-xl .wg-deck { width: 290px; }
-.wg-s .wg-deck { width: 112px; }
-a.wg-card:hover .wg-deck { transform: scale(1.04) rotate(-8deg); }
-.wg-disc { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, #16130f 0 30%, transparent 30.5%), repeating-radial-gradient(circle, #1d1915 0 1.2px, #0d0b09 1.2px 2.6px); box-shadow: inset 0 0 0 2px #2b251f; }
-/* The light on the grooves stays where it is while the record turns under it. */
-.wg-grooves { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 30deg, transparent 0 10%, rgba(255, 255, 255, .16) 16%, transparent 24% 60%, rgba(255, 255, 255, .1) 66%, transparent 74%); pointer-events: none; }
-.wg-label { position: absolute; inset: 32%; border-radius: 50%; overflow: hidden; background: var(--fr-color, var(--k-suo)); box-shadow: 0 0 0 2px rgba(0, 0, 0, .45); }
-.wg-label img { width: 100%; height: 100%; object-fit: cover; }
-.wg-spindle { position: absolute; left: 50%; top: 50%; width: 5%; height: 5%; margin: -2.5% 0 0 -2.5%; border-radius: 50%; background: #ddd6ca; box-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
-/* Playing: it spins up and keeps turning. Stopped: it slows and rests. */
-.wg-deck.is-live .wg-disc { animation: wg-spinup 1.2s cubic-bezier(.5, 0, .9, .6) both, wg-spin 1.8s 1.2s linear infinite; }
-.wg-deck:not(.is-live) .wg-disc { animation: wg-spindown 2.4s cubic-bezier(.15, .6, .3, 1) both; }
 @keyframes wg-spin { to { transform: rotate(360deg); } }
-@keyframes wg-spinup { to { transform: rotate(360deg); } }
-@keyframes wg-spindown { from { transform: rotate(-540deg); } }
-@media (prefers-reduced-motion: reduce) { .wg-deck .wg-disc { animation: none !important; } }
 
 /* ── Favourites: a song's cover; an album's sleeve with its record peeking out ── */
 
@@ -216,8 +198,6 @@ a.wg-watching:hover .wg-poster { transform: scale(1.04); }
   .wg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 150px; gap: 10px; }
   .wg-xl { grid-column: span 2; }
   .wg-m .wg-card { padding: 12px; gap: 12px; }
-  .wg-deck { width: 100px; }
-  .wg-xl .wg-deck { width: 180px; }
   .wg-fav-art { width: 92px; }
   .wg-words b { font-size: 16px; }
   .wg-xl .wg-artist-row { grid-template-columns: repeat(3, 1fr); }
@@ -349,47 +329,7 @@ a.wg-card:hover .wg-play-mark { transform: scale(1.08); }
 .wg-preview { position: relative; display: block; }
 .wg-preview .wg-cell.wg-s, .wg-preview .wg-cell.wg-m { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
 
-
-/* ── Watching: a little television ────────────────────────────────────── */
-
-.wg-tv-card { gap: 18px; }
-.wg-tv { position: relative; flex: none; width: 170px; padding-top: 16%; }
-.wg-l .wg-tv { width: min(86%, 300px); }
-.wg-m .wg-tv { width: 132px; padding-top: 22px; }
-.wg-s .wg-tv { width: 112px; padding-top: 18px; }
-.wg-tv-ears { position: absolute; left: 50%; top: 0; width: 46%; height: 30%; margin-left: -23%; }
-.wg-tv-ears i { position: absolute; bottom: 0; left: 50%; width: 2px; height: 100%; border-radius: 2px; background: #6f6259; transform-origin: bottom center; transition: transform .6s var(--k-spring); }
-.wg-tv-ears i:first-child { transform: rotate(-32deg); }
-.wg-tv-ears i:last-child { transform: rotate(28deg); }
-.wg-tv-ears i::after { content: ""; position: absolute; top: -3px; left: -2px; width: 6px; height: 6px; border-radius: 50%; background: #6f6259; }
-a.wg-card:hover .wg-tv-ears i:first-child { transform: rotate(-22deg); }
-a.wg-card:hover .wg-tv-ears i:last-child { transform: rotate(38deg); }
-.wg-tv-ears::after { content: ""; position: absolute; left: 50%; bottom: -3px; width: 16px; height: 6px; margin-left: -8px; border-radius: 6px 6px 0 0; background: #4b3f39; }
-.wg-tv-body {
-  position: relative; display: flex; gap: 6%; padding: 7%; border-radius: 14%;
-  background: #6b4a35; box-shadow: inset 0 0 0 2px #7d583f, inset 0 -4px 0 #573b2a, 0 10px 22px -10px rgba(0, 0, 0, .6);
-}
-.wg-tv-screen {
-  position: relative; flex: 1; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 16% / 20%;
-  background: #121513; box-shadow: inset 0 0 0 3px #2b2420, inset 0 0 18px rgba(0, 0, 0, .9);
-}
-.wg-tv-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; filter: saturate(1.15) contrast(1.05); }
 /* Switching on: a bright line opens into the picture. */
-.wg-tv.is-on .wg-tv-screen img { animation: wg-tv-on .9s .15s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes wg-tv-on { 0% { transform: scale(1, .01); filter: brightness(6); } 45% { transform: scale(1, .02); filter: brightness(4); } 100% { transform: none; } }
-.wg-tv-scan { position: absolute; inset: 0; background: repeating-linear-gradient(transparent 0 2px, rgba(0, 0, 0, .22) 2px 3px); mix-blend-mode: multiply; pointer-events: none; animation: wg-flicker 3.5s steps(2) infinite; }
-@keyframes wg-flicker { 0%, 96% { opacity: 1; } 97% { opacity: .7; } }
-.wg-tv-glass { position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(120% 90% at 30% 20%, rgba(255, 255, 255, .18), transparent 45%); box-shadow: inset 0 0 26px rgba(0, 0, 0, .55); pointer-events: none; }
-.wg-tv-osd { position: absolute; left: 8%; top: 8%; font: 700 11px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .06em; color: #c8ffb8; text-shadow: 0 0 6px rgba(150, 255, 130, .8); }
-.wg-l .wg-tv-osd { font-size: 14px; }
-.wg-tv-bar { position: absolute; left: 8%; right: 8%; bottom: 8%; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .25); overflow: hidden; }
-.wg-tv-bar i { display: block; height: 100%; background: #c8ffb8; box-shadow: 0 0 6px rgba(150, 255, 130, .9); }
-.wg-tv-side { display: grid; align-content: center; justify-items: center; gap: 22%; width: 16%; }
-.wg-tv-side i { width: 100%; aspect-ratio: 1; border-radius: 50%; background: #e2dbcf; box-shadow: inset 0 0 0 3px #bdb4a7, 0 2px 0 #4a3122; }
-.wg-tv-side b { width: 30%; aspect-ratio: 1; border-radius: 50%; background: #4a3122; }
-.wg-tv.is-on .wg-tv-side b { background: #8fd16a; box-shadow: 0 0 6px #8fd16a; }
-.wg-l .wg-tv-card { flex-direction: column; }
-@media (prefers-reduced-motion: reduce) { .wg-tv-screen img, .wg-tv-scan { animation: none !important; } }
 
 /* ── A favourite: a cinema ticket ─────────────────────────────────────── */
 
@@ -440,3 +380,78 @@ a.wg-ticket-card:hover { background: none; transform: rotate(-1.5deg) translateY
 .wg-chip:hover { background: color-mix(in srgb, var(--fr-color, #a84d63) 22%, transparent); }
 .wg-chip .line-icon { width: 14px; height: 14px; }
 .wg-chip.is-new i { width: 7px; height: 7px; border-radius: 50%; background: var(--k-moss, #5f8a4e); }
+
+/* Your own board: a dashed [ + ] at the end adds a widget; a pin in a widget's corner (on hover) starts arranging; Done sits under the board. */
+.wg-add-dashed { background: none; box-shadow: none; border: 2px dashed color-mix(in srgb, var(--k-on-surface-variant) 38%, transparent); color: var(--k-on-surface-variant); }
+.wg-add-dashed:hover { background: color-mix(in srgb, var(--k-accent, var(--k-suo)) 8%, transparent); border-color: var(--k-accent, var(--k-suo)); color: var(--k-accent, var(--k-suo)); }
+.wg-add-dashed .line-icon { width: 34px; height: 34px; transition: transform .4s var(--k-spring); }
+.wg-add-dashed:hover .line-icon { transform: rotate(90deg) scale(1.1); }
+.wg-arrange { position: absolute; z-index: 3; top: 10px; right: 10px; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 10px 4px 10px 4px; background: color-mix(in srgb, var(--k-surface) 82%, transparent); color: var(--k-on-surface-variant); cursor: pointer; opacity: 0; transform: scale(.85); transition: opacity var(--k-t-state), transform .3s var(--k-spring), color var(--k-t-state); backdrop-filter: blur(6px); }
+.wg-cell:hover > .wg-arrange, .wg-arrange:focus-visible { opacity: 1; transform: none; }
+.wg-arrange:hover { color: var(--k-on-surface); }
+.wg-arrange .line-icon { width: 17px; height: 17px; }
+@media (hover: none) { .wg-arrange { opacity: .85; transform: none; } }
+.wg-done { position: sticky; bottom: 16px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px auto 0; max-width: 560px; padding: 8px 8px 8px 18px; border-radius: 16px 6px 16px 6px; background: var(--k-container-highest); box-shadow: 0 8px 28px rgba(0, 0, 0, .28); font: 600 13.5px/18px var(--k-sans); color: var(--k-on-surface-variant); }
+.wg-done .line-icon { width: 18px; height: 18px; margin-right: 6px; }
+
+/* ── Now playing (2026-11-15): the sleeve on a wash of the cover's own colours; listening, the record slides out and turns ── */
+.wg-np { isolation: isolate; gap: 18px; padding: 16px 18px; background: #16110e; color: #fff; text-align: left; }
+.wg-np-wash { position: absolute; inset: -40%; z-index: -1; background: center / cover no-repeat; filter: blur(38px) saturate(1.6) brightness(.62); transform: scale(1.1); transition: opacity .6s; }
+.wg-np::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(100deg, rgba(10, 8, 6, .35), rgba(10, 8, 6, .05) 60%); pointer-events: none; }
+.wg-np-sleeve { position: relative; flex: none; height: 100%; aspect-ratio: 1.42; }
+.wg-np-cover { position: absolute; left: 0; top: 0; z-index: 1; display: grid; place-items: center; height: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 6px 3px 3px 6px; background: #2a221d; color: rgba(255, 255, 255, .5); box-shadow: 0 14px 26px -12px rgba(0, 0, 0, .7), inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.wg-np-cover img { width: 100%; height: 100%; object-fit: cover; }
+.wg-np-cover .line-icon { width: 30%; height: 30%; }
+/* The record: grooves, a still sheen, and the label (the cover again) that turns. */
+.wg-np-record { position: absolute; left: 0; top: 4%; height: 92%; aspect-ratio: 1; border-radius: 50%; transform: translateX(16%); transition: transform 1s var(--k-spring);
+  background: radial-gradient(circle, #0c0a08 0 3%, transparent 3.5%), repeating-radial-gradient(circle, #1b1714 0 1px, #0b0908 1px 2.4px); box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .8), inset 0 0 0 2px #2b251f; }
+.wg-np-record::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 30deg, transparent 0 10%, rgba(255, 255, 255, .13) 14%, transparent 20% 60%, rgba(255, 255, 255, .09) 64%, transparent 70%); pointer-events: none; }
+.wg-np-label { position: absolute; inset: 32%; border-radius: 50%; background: #a84d63 center / cover; box-shadow: 0 0 0 2px #0c0a08; }
+.wg-np-label::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12%; height: 12%; translate: -50% -50%; border-radius: 50%; background: #0c0a08; }
+.wg-np.is-live .wg-np-record { transform: translateX(56%); }
+.wg-np.is-live .wg-np-label { animation: wg-spin 2.2s linear infinite; }
+a.wg-np:hover .wg-np-record { transform: translateX(26%); }
+a.wg-np.is-live:hover .wg-np-record { transform: translateX(62%); }
+.wg-np-words { display: grid; justify-items: start; gap: 3px; min-width: 0; max-width: 100%; }
+.wg-np-words b { font: 600 19px/1.22 var(--k-display); color: #fff; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wg-np-words em { font-style: normal; font-size: 13.5px; color: rgba(255, 255, 255, .72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wg-np-state { display: inline-flex; align-items: center; gap: 7px; font: 700 12px/16px var(--k-sans); letter-spacing: .02em; color: rgba(255, 255, 255, .78); }
+.wg-np-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.wg-np-bars i { width: 3px; height: 100%; border-radius: 1px 1px 0 0; background: #fff; transform-origin: bottom; animation: wg-np-bar 1s ease-in-out infinite alternate; }
+.wg-np-bars i:nth-child(2) { animation-duration: .7s; animation-delay: -.3s; }
+.wg-np-bars i:nth-child(3) { animation-duration: 1.2s; animation-delay: -.6s; }
+.wg-np-bars i:nth-child(4) { animation-duration: .85s; animation-delay: -.15s; }
+@keyframes wg-np-bar { from { transform: scaleY(.2); } to { transform: scaleY(1); } }
+.wg-l .wg-np { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 14px; padding: 18px; }
+.wg-l .wg-np-sleeve { height: auto; width: min(100%, 360px); flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
+.wg-l .wg-np-cover { height: 100%; }
+.wg-l .wg-np-words b, .wg-xl .wg-np-words b { font-size: 24px; }
+.wg-s .wg-np { justify-content: center; padding: 14px; }
+.wg-s .wg-np-sleeve { height: 86%; }
+.wg-np.is-empty { background: var(--k-container-low); color: var(--k-on-surface-variant); }
+@media (prefers-reduced-motion: reduce) { .wg-np-label, .wg-np-bars i { animation: none !important; } }
+
+/* ── Watching (2026-11-15): a strip of film, the poster its frame between the sprocket holes; the episode stamped, how far inked along the foot ── */
+.wg-fs { --holes: repeating-linear-gradient(90deg, transparent 0 5px, #e9e2d6 5px 11px, transparent 11px 16px); gap: 18px; padding: 0 18px 0 0; }
+.wg-fs-strip { position: relative; flex: none; height: 100%; aspect-ratio: .78; padding: 15px 7px; background: #15110e; transform: rotate(-2deg) scale(1.06); transition: transform .6s var(--k-spring); overflow: hidden; }
+.wg-fs-strip::before, .wg-fs-strip::after { content: ""; position: absolute; left: -6px; right: -6px; height: 7px; background: var(--holes); border-radius: 2px; opacity: .85; transition: background-position .9s var(--k-spring); }
+.wg-fs-strip::before { top: 4px; }
+.wg-fs-strip::after { bottom: 4px; }
+a.wg-fs:hover .wg-fs-strip { transform: rotate(0deg) scale(1.06); }
+a.wg-fs:hover .wg-fs-strip::before, a.wg-fs:hover .wg-fs-strip::after { background-position: 32px 0; }
+.wg-fs-frame { position: relative; display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: 3px; background: #2a221d; color: rgba(255, 255, 255, .5); }
+.wg-fs-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
+.wg-fs-frame .line-icon { width: 28px; height: 28px; }
+.wg-fs-words { display: grid; align-content: center; justify-items: start; gap: 4px; min-width: 0; padding: 12px 0 16px; }
+.wg-fs-words .wg-kicker .line-icon { width: 14px; height: 14px; }
+.wg-fs-words b { font: 600 19px/1.22 var(--k-display); color: var(--k-on-surface); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* The episode, stamped. */
+.wg-fs-ep { margin-top: 4px; padding: 2px 7px; border: 1.5px solid currentColor; border-radius: 3px; color: var(--fr-color, var(--k-suo)); font: 700 12px/16px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .06em; transform: rotate(-3deg); }
+.wg-fs-line { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: color-mix(in srgb, var(--k-on-surface-variant) 18%, transparent); }
+.wg-fs-line i { display: block; height: 100%; border-radius: 0 3px 3px 0; background: var(--fr-color, var(--k-suo)); }
+.wg-l .wg-fs { flex-direction: column; align-items: stretch; padding: 0 0 4px; gap: 4px; }
+.wg-l .wg-fs-strip { height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; padding: 15px 7px; transform: rotate(-1deg) scale(1.04); }
+.wg-l .wg-fs-words { padding: 6px 18px 12px; }
+.wg-s .wg-fs { padding: 0; justify-content: center; }
+.wg-s .wg-fs-strip { height: 100%; }
+.wg-fs.is-empty { padding: 16px; }

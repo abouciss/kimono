@@ -516,3 +516,74 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 /* /p/you: with no app frame around it, the page stands on the surface the frame would give it, so the widget cards read as cards. */
 .fr-public { min-height: 100vh; padding: 12px 16px 48px; background: var(--k-surface); }
 .fr-public .fr-top-end .fr-look { flex: none; }
+
+/* ── Zoomed out (2026-11-15): the profile fills a wide window and fits more widgets; the hero is compact, the band still tall enough for a photo ── */
+.fr-profile.fr-profile-v2 { --fr-band-h: clamp(150px, 12vw, 210px); --fr-face: 132px; max-width: 1600px; }
+.fr-profile-v2 .fr-band { height: var(--fr-band-h); }
+.fr-profile-v2 .fr-band.has-photo { background-size: cover; background-position: center; }
+.fr-profile-v2 .fr-band.has-photo::after { display: none; }
+/* A photo under the white back and top buttons: a soft shade at the top keeps them readable. */
+.fr-profile-v2 .fr-band.has-photo::before { content: ""; position: absolute; inset: 0 0 auto; height: 96px; background: linear-gradient(rgba(0, 0, 0, .28), transparent); border-radius: inherit; }
+.fr-profile-v2 .fr-hero-body { margin-top: calc(var(--fr-face) * -.5); padding: 0 24px; gap: 20px; }
+.fr-profile-v2 .fr-hero-face .k-ink-portrait { width: var(--fr-face); height: var(--fr-face); box-shadow: 0 0 0 5px var(--k-surface); }
+.fr-profile-v2 .fr-hero-face .k-ink-portrait .portrait { width: calc(var(--fr-face) * .83); height: calc(var(--fr-face) * .83); font-size: calc(var(--fr-face) * .37); }
+.fr-profile-v2 .fr-hero-face .you-camera { width: 36px; height: 36px; right: 0; bottom: 4px; }
+.fr-profile-v2 .fr-hero-words { margin-top: calc(var(--fr-face) * .5 + 8px); gap: 4px; }
+.fr-profile-v2 .fr-name { font-size: clamp(26px, 2.4vw, 36px); }
+.fr-profile-v2 .fr-handle { font-size: 14.5px; }
+.fr-profile-v2 .fr-hero-more { padding: 10px 24px 0 calc(24px + var(--fr-face) + 20px); }
+.fr-profile-v2 .fr-hero-more .fr-bio { font-size: 15.5px; max-width: 680px; }
+.fr-profile-v2 .fr-socials a, .fr-socials-add { width: 36px !important; height: 36px !important; }
+.fr-profile-v2 .fr-socials .line-icon, .fr-profile-v2 .fr-socials .wg-favicon { width: 18px; height: 18px; }
+/* More columns as the board widens: a small widget stays about 200px, so a wide window shows six across. */
+.fr-profile-v2 .wg { container: wg / inline-size; padding: 0 24px; }
+.fr-profile-v2 .wg-grid { grid-auto-rows: 140px; gap: 12px; }
+@container wg (min-width: 1000px) { .fr-profile-v2 .wg-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@container wg (min-width: 1240px) { .fr-profile-v2 .wg-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+/* Your own: the banner's button sits in the band's bottom corner. */
+.fr-band-edit { position: absolute; z-index: 2; right: 14px; top: calc(12px + var(--fr-band-h) - 48px); display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px 0 10px; border: 0; border-radius: 10px 4px 10px 4px; background: color-mix(in srgb, #000 34%, transparent); color: #fff; font: 700 13.5px/1 var(--k-sans); cursor: pointer; backdrop-filter: blur(6px); transition: background var(--k-t-state), transform var(--k-t-tap); }
+.fr-band-edit:hover { background: color-mix(in srgb, #000 50%, transparent); }
+.fr-band-edit:active { transform: translateY(1px); }
+.fr-band-edit .line-icon { width: 18px; height: 18px; }
+@media (max-width: 720px) {
+  .fr-profile.fr-profile-v2 { --fr-band-h: 128px; --fr-face: 112px; }
+  .fr-profile-v2 .fr-hero-body { padding: 0 16px; gap: 10px; }
+  .fr-profile-v2 .fr-hero-words { margin-top: 0; }
+  .fr-profile-v2 .fr-hero-more { padding: 12px 16px 0; }
+  .fr-profile-v2 .wg { padding: 0 8px; }
+  .fr-profile-v2 .wg-grid { grid-auto-rows: 136px; gap: 10px; }
+  .fr-band-edit { top: calc(8px + var(--fr-band-h) - 46px); right: 16px; height: 34px; }
+  .fr-band-edit { font-size: 0; gap: 0; padding: 0 9px; }
+}
+
+/* ── The banner sheet: the 3:1 frame, as the profile will show it ── */
+.fr-banner-edit { display: grid; gap: 12px; width: min(640px, 80vw); }
+.fr-banner-stage { position: relative; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: 0; padding: 0; border-radius: var(--k-r-l); background: var(--k-container-high) center / cover no-repeat; cursor: grab; touch-action: none; }
+.fr-banner-stage:active { cursor: grabbing; }
+.fr-banner-stage:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 3px; }
+.fr-banner-stage img { position: absolute; top: 50%; left: 50%; max-width: none; pointer-events: none; }
+.fr-banner-stage.is-current { cursor: pointer; display: grid; place-items: center; }
+.fr-banner-stage.is-current > span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--k-r-full); background: color-mix(in srgb, #000 30%, transparent); color: #fff; font: 600 14px/1 var(--k-sans); }
+.fr-banner-stage.is-current .line-icon { width: 18px; height: 18px; }
+.fr-banner-zoom { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; font: 600 12.5px/1.4 var(--k-sans); color: var(--k-on-surface-variant); }
+.fr-banner-zoom input { width: 100%; accent-color: var(--fr-color, var(--k-accent)); }
+.fr-banner-mark { background-size: cover; background-position: center; }
+@media (max-width: 720px) { .fr-banner-edit { width: 100%; } }
+
+/* ── Your own hero: no button row; each thing is edited where it is ── */
+.fr-name-edit { display: inline-flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.fr-name-edit .line-icon { width: 22px; height: 22px; opacity: 0; color: var(--k-on-surface-variant); transform: translateX(-4px) rotate(-12deg); transition: opacity var(--k-t-state), transform .35s var(--k-spring); }
+.fr-name-edit:hover .line-icon, .fr-name-edit:focus-visible .line-icon { opacity: 1; transform: none; }
+@media (hover: none) { .fr-name-edit .line-icon { opacity: .6; transform: none; } }
+.fr-socials-add { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 2px dashed color-mix(in srgb, var(--k-on-surface-variant) 45%, transparent); border-radius: 50%; background: none; color: var(--k-on-surface-variant); cursor: pointer; animation: fr-pop .6s var(--k-spring) both; animation-delay: calc(.25s + var(--i, 0) * 60ms); transition: border-color var(--k-t-state), color var(--k-t-state), transform .35s var(--k-spring); }
+.fr-socials-add:hover { border-color: var(--fr-color); color: var(--fr-color); transform: rotate(90deg); }
+.fr-socials-add .line-icon { width: 20px; height: 20px; }
+.fr-bio-edit { display: block; padding: 4px 10px; margin-left: -10px !important; border: 0; border-radius: 10px 4px 10px 4px; background: none; font: inherit; text-align: left; cursor: text; transition: background var(--k-t-state); }
+.fr-bio-edit:hover { background: var(--k-container-low); }
+.fr-bio-input { display: block; width: 100%; max-width: 680px; padding: 4px 10px; margin-left: -10px !important; border: 0; border-radius: 10px 4px 10px 4px; background: var(--k-container-low); box-shadow: inset 0 0 0 2px var(--fr-color); font: inherit; font-size: 15.5px; line-height: 1.5; color: var(--k-on-surface); resize: none; outline: none; }
+.fr-wsw-open .line-icon, .fr-top-end .fr-settings .line-icon { width: 18px; height: 18px; margin-right: 6px; }
+@media (max-width: 720px) {
+  .fr-bio-edit, .fr-bio-input { margin-left: 0 !important; text-align: center; }
+  .fr-top-end .fr-wsw-open { font-size: 0; }
+  .fr-top-end .fr-wsw-open .line-icon { margin-right: 0; }
+}
