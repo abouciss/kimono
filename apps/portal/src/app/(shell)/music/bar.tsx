@@ -4,7 +4,7 @@ import { Crossing } from "@/components/crossing";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { cx, InkWave } from "@kimono/ui";
-import { byline, clock, hrefOf, musicApi, type Lyrics } from "./api";
+import { byline, clock, hrefOf, musicApi, share, type Lyrics } from "./api";
 import { Asker } from "./ask";
 import { Icon } from "./icons";
 import { AddToPlaylist, ArtistLinks, Bars, Cover, RateMarks } from "./parts";
@@ -132,9 +132,10 @@ function NowPlaying() {
     <div className="km-np-song">
       <Cover src={t.album?.cover} quality="full" className="km-np-art" alt={t.album?.title ?? ""} />
       <div className="km-np-name">
-        <h2 className="km-np-title">{t.title}</h2>
+        <h2 className="km-np-title"><Crossing kind="kakejiku" href={hrefOf.song(t.key)} onClick={() => p.setNowPlaying(false)}>{t.title}</Crossing></h2>
         <p className="km-np-by"><ArtistLinks artists={t.artists} />{t.album ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)} onClick={() => p.setNowPlaying(false)}>{t.album.title}</Crossing></> : null}</p>
-        <div className="km-np-actions"><RateMarks kind="track" keyOf={t.key} /><AddToPlaylist keys={[t.key]} labelled /></div>
+        <div className="km-np-actions"><RateMarks kind="track" keyOf={t.key} /><AddToPlaylist keys={[t.key]} labelled />
+          <button type="button" className="km-pillbtn" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" /><span>Share</span></button></div>
       </div>
     </div>
     <LyricsView key={t.key} trackKey={t.key} />

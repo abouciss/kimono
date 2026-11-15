@@ -5,11 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppLockup, cx, InkPortraitFrame, Seal, type AppIdentity } from "@kimono/ui";
 import { useTabTitle } from "@/components/tab-title";
-import { ago, byline, clock, forget, hrefOf, length, musicApi, useMusic, type Album, type FriendListening, type Track } from "./api";
+import { ago, byline, clock, forget, hrefOf, length, musicApi, share, useMusic, type Album, type FriendListening, type Track } from "./api";
 import { askName, askSure } from "./ask";
 import { Icon } from "./icons";
 import { Portrait } from "@/components/portrait";
-import { AlbumCard, ArtistCard, Bars, Cover, Head, Loading, MoreButton, Mosaic, PlayActions, playlistItems, Problem, RateMarks, SetCard, Shelf, Songs } from "./parts";
+import { AddToPlaylist, AlbumCard, ArtistCard, Bars, Cover, Head, Loading, MoreButton, Mosaic, PlayActions, playlistItems, Problem, RateMarks, SetCard, Shelf, Songs } from "./parts";
 import { usePlayer } from "./player";
 
 /* ── Along the top of every page: search, and where you are ────────────── */
@@ -238,6 +238,56 @@ export function AlbumView({ id }: { id: string }) {
     </Head>
     <Songs tracks={album.tracks} source={source} numbered art={false} album={false} />
   </div>;
+}
+
+/* ── A song: its own address, to send ───────────────────────────────────── */
+
+export function SongView({ id }: { id: string }) {
+  const key = `dz:${id}`;
+  const p = usePlayer();
+  const { data, error, retry } = useMusic(`song:${key}`, () => musicApi.track(key));
+  const t = data?.track ?? null;
+  const { data: album } = useMusic(t?.album ? `album:${t.album.key}` : null, () => musicApi.album(t!.album!.key));
+  const { data: artist } = useMusic(t?.artists[0] ? `artist:${t.artists[0].key}` : null, () => musicApi.artist(t!.artists[0].key));
+  const { data: lyrics } = useMusic(t ? `lyrics:${key}` : null, () => musicApi.lyrics(key).then((r) => r.lyrics));
+  const [allWords, setAllWords] = useState(false);
+  useTabTitle(t ? `${t.title} · ${byline(t)}` : undefined, "Kimono Music");
+  if (error) return <Problem text={error} onRetry={retry} />;
+  if (!t) return <Loading />;
+  const here = p.current?.key === t.key;
+  const words = lyrics ? (lyrics.synced ? lyrics.synced.map((l) => l.line) : (lyrics.plain ?? "").split(/\n/)) : [];
+  const more = (artist?.top ?? []).filter((x) => x.key !== t.key).slice(0, 5);
+  return <div className="km-page">
+    <Head kind={t.album && album?.album.year ? `Song · ${album.album.year}` : "Song"} title={t.title} art={<Cover src={t.album?.cover} quality="full" className="km-head-cover" />}
+      meta={<><ArtistLinksBold artists={t.artists} />{t.album ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)}>{t.album.title}</Crossing></> : null} · {clock(t.duration)}</>}>
+      <Seal onClick={() => (here ? p.toggle() : p.play([t], 0, { kind: "song", id: t.key, title: t.title }))}>
+        <Icon name={here && p.playing ? "pause" : "play"} />{here && p.playing ? "Pause" : "Play"}
+      </Seal>
+      <RateMarks kind="track" keyOf={t.key} />
+      <AddToPlaylist keys={[t.key]} labelled />
+      <button type="button" className="km-pillbtn" onClick={async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); }}><Icon name="share" /><span>Share</span></button>
+    </Head>
+
+    {words.some((w) => w.trim()) ? <section className="km-song-words">
+      <h2 className="k-heading">Lyrics</h2>
+      <div className={cx("km-words", !allWords && "km-words-short")}>{(allWords ? words : words.slice(0, 12)).map((w, i) => <p key={i}>{w || "\u00a0"}</p>)}</div>
+      {words.length > 12 ? <button type="button" className="km-textbtn" onClick={() => setAllWords(!allWords)}>{allWords ? "Show less" : "Show all"}</button> : null}
+    </section> : null}
+
+    {album && album.album.tracks.length > 1 ? <section>
+      <header className="km-section-head"><h2 className="k-heading">From {album.album.title}</h2><Crossing kind="kakejiku" className="km-shelf-all" href={hrefOf.album(album.album.key)}>Show album</Crossing></header>
+      <Songs tracks={album.album.tracks} source={{ kind: "album", id: album.album.key, title: album.album.title }} numbered art={false} album={false} />
+    </section> : null}
+
+    {more.length && t.artists[0] ? <section>
+      <header className="km-section-head"><h2 className="k-heading">More by {t.artists[0].name}</h2><Crossing kind="kakejiku" className="km-shelf-all" href={hrefOf.artist(t.artists[0].key)}>Show artist</Crossing></header>
+      <Songs tracks={more} source={{ kind: "artist", id: t.artists[0].key, title: t.artists[0].name }} album={false} />
+    </section> : null}
+  </div>;
+}
+
+function ArtistLinksBold({ artists }: { artists: Track["artists"] }) {
+  return <span>{artists.filter((a, i, all) => all.findIndex((b) => b.key === a.key) === i).map((a, i) => <span key={a.key}>{i ? ", " : ""}<Crossing kind="kakejiku" href={hrefOf.artist(a.key)}>{a.name}</Crossing></span>)}</span>;
 }
 
 /* ── A playlist ────────────────────────────────────────────────────────── */
