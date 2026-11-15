@@ -1,0 +1,41 @@
+{
+  "apiVersion": "apps.kimono.dev/v1alpha1",
+  "kind": "AppDefinition",
+  "metadata": {
+    "id": "kimono-music",
+    "name": "Kimono Music",
+    "shortName": "Music",
+    "description": "Play any song, with its lyrics, and find more you'll like.",
+    "category": "Media",
+    "version": "0.1.0",
+    "icon": "icon.svg",
+    "colors": [
+      "#2e5e8a",
+      "#16222e",
+      "#c3d5e6"
+    ],
+    "glyph": "music"
+  },
+  "spec": {
+    "integration": "native",
+    "portalPath": "/music",
+    "services": [],
+    "volumes": [],
+    "configuration": [
+      {
+        "key": "lastfm_key",
+        "label": "Last.fm API key",
+        "kind": "secret",
+        "group": "sources",
+        "target": "settings",
+        "description": "From last.fm/api/account/create (no callback URL needed). Finds songs like the one playing and learns genres. Music works without it."
+      }
+    ],
+    "managedEnvironment": [],
+    "defaultNetworkPolicy": {
+      "internetAccess": true,
+      "allowedApps": []
+    },
+    "setupReady": true
+  }
+}
