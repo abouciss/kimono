@@ -239,6 +239,9 @@ class Session(private val platform: Platform, private val http: HttpClient) {
 
     private suspend fun token(): String = access?.takeIf { it.second - now() > 60_000 }?.first ?: renew()
 
+    /** A fresh access token, for a player that fetches a stream itself (Music's audio). */
+    suspend fun bearer(): String = token()
+
     private suspend fun failureOf(response: HttpResponse, fallback: String): String =
         runCatching { json.decodeFromString<ApiFailure>(response.bodyAsText()).error }.getOrNull()?.takeIf { it.isNotBlank() } ?: fallback
 

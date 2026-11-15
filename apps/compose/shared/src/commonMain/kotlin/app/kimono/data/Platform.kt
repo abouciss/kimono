@@ -24,6 +24,10 @@ interface Platform {
     val os: String
     /** Opens a web page, or a store page in the store. */
     fun openUrl(url: String)
+    /** Music's player: background audio with the system's media controls; null where there is none. */
+    val musicAudio: app.kimono.music.MusicAudio? get() = null
+    /** A directory the OS keeps (Music's downloads); the cache where there's no other. */
+    fun keepDir(): String = cacheDir()
     /** A directory for files opened from Drive; the OS may clear it. */
     fun cacheDir(): String
     /** Shows a downloaded file in the system's own viewer (Quick Look, or the app that opens it). */

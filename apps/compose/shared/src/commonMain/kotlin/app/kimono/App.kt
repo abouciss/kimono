@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -168,6 +169,17 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         app.kimono.screens.phoneAppHere(target, platform, target.phoneApp?.let { phone -> flights?.let { it.appFor(phone, target.fullName)?.latest } })
     val notes = remember(session) { app.kimono.screens.NotesModel(app.kimono.data.Notes(session, platform), model.drive, platform) }
     val books = remember(session) { app.kimono.data.Books(session) }
+    /* Music's player lives as long as you're signed in, so a song plays on wherever you go in the app. */
+    val musicScope = rememberCoroutineScope()
+    val player = remember(session) {
+        val music = app.kimono.data.Music(session)
+        app.kimono.music.MusicPlayer(music, platform, app.kimono.music.MusicDownloads(music, platform, musicScope), musicScope)
+    }
+    androidx.compose.runtime.DisposableEffect(player) { onDispose { player.stop() } }
+    player.me = me?.username
+    val inMusic = route?.startsWith("music") == true
+    LaunchedEffect(inMusic) { if (inMusic) player.restore() }
+    val musicBar = inMusic && player.current != null
     /*
      * Where you were: every screen on the way there is kept as you move, and the app
      * opens on them again, so Back still leads where it did. A notification's screen wins.
@@ -207,6 +219,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             target.id == "kimono-vpn" -> goTab("vpn")
             target.id == app.kimono.data.Notes.APP_ID -> goTab("notes")
             target.id == app.kimono.data.Books.APP_ID -> goTab("books")
+            target.id == app.kimono.data.Music.APP_ID -> goTab("music")
             /* An app with a phone app of its own: open it when it's here, and when it isn't, its page here to get it. Never its website. */
             /* With a newer version waiting (its tile says Update), its page, which has the update. */
             target.phoneApp != null -> {
@@ -221,17 +234,22 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     LaunchedEffect(driveOn) {
         val on = driveOn ?: return@LaunchedEffect
         platform.driveAvailable(on)
-        if (!on && route != null && route !in setOf("home", "you", "details", "devices", "password", "code", "code/{id}", "code/{id}/app", "ai/new", "ai/new/{in}", "ai/connections", "ai/connections/{app}", "ai/memory", "ai/archived", "ai/a/{token}", "ai/c/{token}", "manage", "manage/{id}", "friends", "people/{username}", "vpn", "vpn/people", "vpn/connect", "app/{id}", "notes", "notes/{notebook}", "note/{id}", "books", "books/shelf", "books/search")) goTab("home")
+        if (!on && route != null && route !in setOf("home", "you", "details", "devices", "password", "code", "code/{id}", "code/{id}/app", "ai/new", "ai/new/{in}", "ai/connections", "ai/connections/{app}", "ai/memory", "ai/archived", "ai/a/{token}", "ai/c/{token}", "manage", "manage/{id}", "friends", "people/{username}", "vpn", "vpn/people", "vpn/connect", "app/{id}", "notes", "notes/{notebook}", "note/{id}", "books", "books/shelf", "books/search") && !route.startsWith("music")) goTab("home")
     }
+    val chrome = tab || musicBar
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         bottomBar = {
+            Column {
+            if (musicBar) AppAccentTheme(app.kimono.data.Music.GOLD) { app.kimono.screens.MusicBar(player, hem = roomApp == null) }
             if (roomApp != null) RoomBar(
                 roomApp, route, launcherApp = model.drive.launcher.collectAsState().value?.firstOrNull { it.id == roomApp.id }, me = me,
                 /* Notes' Home is all its notes. */
                 go = { to -> if (to == "notes") notes.go(app.kimono.screens.NotePlace.All); goTab(to) },
                 startTask = { when (roomApp.id) { app.kimono.data.Notes.APP_ID -> notes.askSearch(); app.kimono.data.Code.APP_ID -> { AiDrawerAsk.open.value = true; if (route == "ai/connections" || route == "ai/memory") goTab("code") } } }, openApps = { appsOpen = true },
             )
+            }
         },
     ) { padding ->
         if (appsOpen) app.kimono.screens.AppsSheet(model.drive, here = ::here, onDismiss = { appsOpen = false }, home = { appsOpen = false; goTab("home") }) { appsOpen = false; openApp(it) }
@@ -251,7 +269,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         NavHost(
             nav, startDestination = "home",
             /* The bar takes the bottom inset, so a composer under it doesn't stand a whole hem higher. */
-            modifier = Modifier.padding(bottom = if (tab) padding.calculateBottomPadding() else 0.dp).then(if (tab) Modifier.consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())) else Modifier),
+            modifier = Modifier.padding(bottom = if (chrome) padding.calculateBottomPadding() else 0.dp).then(if (chrome) Modifier.consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())) else Modifier),
             enterTransition = { if (between(initialState.destination.route, targetState.destination.route)) throughIn else slideInHorizontally(axis) { it / 8 } + arrive },
             exitTransition = { if (between(initialState.destination.route, targetState.destination.route)) leave else slideOutHorizontally(axis) { -it / 8 } + leave },
             popEnterTransition = { if (between(initialState.destination.route, targetState.destination.route)) throughIn else slideInHorizontally(axis) { -it / 8 } + arrive },
@@ -353,6 +371,20 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             composable("books/search") {
                 AppAccentTheme(booksAccent()) { app.kimono.screens.BooksSearchScreen(books, platform, back = { goTab("books") }) }
             }
+            /* Music: Home, You and Search in the bar; an artist, album, song, playlist or party opened over them. */
+            fun musicGo(to: String) { if (to == "music" || to == "music/you" || to == "music/search") goTab(to) else nav.navigate(to) }
+            val gold = app.kimono.data.Music.GOLD
+            composable("music") { AppAccentTheme(gold) { app.kimono.screens.MusicHomeScreen(player, me?.name?.substringBefore(' ')?.takeIf { it.isNotBlank() }, ::musicGo) { goTab("music/search") } } }
+            composable("music/you") { AppAccentTheme(gold) { app.kimono.screens.MusicYouScreen(player, me, ::musicGo) { goTab("music/search") } } }
+            composable("music/search") { AppAccentTheme(gold) { app.kimono.screens.MusicSearchScreen(player, ::musicGo) { goTab("music") } } }
+            composable("music/liked") { AppAccentTheme(gold) { app.kimono.screens.MusicLikedScreen(player, ::musicGo) { nav.popBackStack() } } }
+            composable("music/history") { AppAccentTheme(gold) { app.kimono.screens.MusicHistoryScreen(player, ::musicGo) { nav.popBackStack() } } }
+            composable("music/downloads") { AppAccentTheme(gold) { app.kimono.screens.MusicDownloadsScreen(player, ::musicGo) { nav.popBackStack() } } }
+            composable("music/artist/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicArtistScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
+            composable("music/album/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicAlbumScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
+            composable("music/song/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicSongScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
+            composable("music/playlist/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicPlaylistScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
+            composable("music/party/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicPartyScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
             /* Notes: the list with its drawer of notebooks, and a note full screen over it. */
             fun notesAccent() = model.drive.launcher.value?.firstOrNull { it.id == app.kimono.data.Notes.APP_ID }?.accent ?: "#b56d78"
             composable("notes") {
@@ -409,6 +441,11 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
                 app.kimono.screens.AppScreen(appAdmin, id) { nav.popBackStack() }
             }
         }
+    }
+    AppAccentTheme(app.kimono.data.Music.GOLD) {
+        app.kimono.screens.NowPlaying(player) { to -> nav.navigate(to) }
+        if (inMusic && !player.nowPlayingOpen) player.toast?.let { app.kimono.screens.Toast(it, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (chrome) 150.dp else 24.dp)) }
+    }
     }
 }
 
