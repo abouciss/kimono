@@ -12,7 +12,11 @@ export function NameTips() {
   const [tip, setTip] = useState<{ name: string; x: number; y: number; below: boolean } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    const find = (target: EventTarget | null) => (target as Element | null)?.closest?.<HTMLElement>("[data-name]") ?? null;
+    /* Not where the name is already written beside the face (a profile's own portrait). */
+    const find = (target: EventTarget | null) => {
+      const element = (target as Element | null)?.closest?.<HTMLElement>("[data-name]") ?? null;
+      return element?.closest("[data-named]") ? null : element;
+    };
     const show = (event: Event) => {
       const element = find(event.target);
       if (!element) return;
