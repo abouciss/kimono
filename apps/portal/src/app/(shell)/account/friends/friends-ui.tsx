@@ -310,12 +310,14 @@ export function ProfileView({ username, home = false, standalone = false }: { us
             {p.you && !preview ? <button type="button" className="fr-socials-add" onClick={() => setEditingLinks(true)} title="Add a link" aria-label="Add a link" style={{ "--i": p.links.filter(underName).length } as React.CSSProperties}><LineIcon name="plus" /></button> : null}
           </nav> : null}
         </div>
-        {p.you ? null : <div className="fr-actions">{action}</div>}
+        {p.you && !(p.open && p.kimonoRead && !closedToFriends) ? null : <div className="fr-hero-end">
+          {p.open && p.kimonoRead && !closedToFriends ? <SilkscreenBadge since={p.kimonoRead.since} you={p.you} name={p.name || p.username} /> : null}
+          {p.you ? null : <div className="fr-actions">{action}</div>}
+        </div>}
       </div>
       <div className="fr-hero-more">
         {p.you && !preview && p.open ? <BioInPlace bio={p.bio} onSaved={(bio) => { setProfile({ ...p, bio }); setToast("Saved"); }} onProblem={setProblem} />
           : p.open && p.bio && !closedToFriends ? <p className="fr-bio">{p.bio}</p> : null}
-        {p.open && p.kimonoRead && !closedToFriends ? <SilkscreenBadge since={p.kimonoRead.since} you={p.you} name={p.name || p.username} /> : null}
         {p.you && invisible && !preview ? <button type="button" className="fr-only fr-only-big" onClick={() => setPrivacyOpen(true)}><LineIcon name="lock" />You&rsquo;re invisible: friends only see your name and picture</button> : null}
         {closedToFriends ? <p className="fr-quiet">You&rsquo;re invisible, so this is all friends see.</p> : null}
       </div>

@@ -43,6 +43,7 @@ export function InkSheet({ title, icon, tint = "#a84d63", onClose, actions, chil
       <div className="ink-sheet-head">
         {icon ? <InkBlot tint={tint} seed={`head:${title}`}><LineIcon name={icon} /></InkBlot> : null}
         <h3>{title}</h3>
+        <button type="button" className="ink-sheet-x" aria-label="Close" onClick={onClose}><LineIcon name="close" /></button>
       </div>
       <div className="ink-sheet-body">{children}</div>
       {actions ? <div className="ink-sheet-actions">{actions}</div> : null}

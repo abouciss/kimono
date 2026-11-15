@@ -243,8 +243,19 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   const b = itemOf(d, "books", "reading");
   if (!b) return <div className="wg-card"><Empty icon="book" text="Not reading anything right now" /></div>;
   const author = b.subtitle?.split(" · ")[0]?.trim();
-  return <Crossing kind="kakejiku" href={b.href ?? "/books"} className="wg-card wg-reading">
-    <span className="wg-book"><Book3D book={{ key: b.itemId, title: b.title, authors: author ? [author] : [], cover: b.cover, pages: null }} /></span>
+  /* The book leans toward the pointer, as if held up to look at. */
+  const tilt = (e: React.PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - .5) * -14}deg`);
+    e.currentTarget.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - .5) * 26}deg`);
+  };
+  const rest = (e: React.PointerEvent<HTMLElement>) => { e.currentTarget.style.removeProperty("--rx"); e.currentTarget.style.removeProperty("--ry"); };
+  return <Crossing kind="kakejiku" href={b.href ?? "/books"} className="wg-card wg-reading" onPointerMove={tilt} onPointerLeave={rest}>
+    <span className="wg-book">
+      <span className="wg-book-glow" aria-hidden="true" />
+      <span className="wg-book-float"><Book3D book={{ key: b.itemId, title: b.title, authors: author ? [author] : [], cover: b.cover, pages: null }} progress={b.progress ?? undefined} /></span>
+      <span className="wg-motes" aria-hidden="true">{[0, 1, 2, 3, 4, 5, 6].map((i) => <i key={i} style={{ "--i": i } as React.CSSProperties} />)}</span>
+    </span>
     {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Reading</small><b>{b.title}</b>{author ? <em>{author}</em> : null}
       {b.progress ? <span className="wg-progress"><InkMeter className="wg-wave" value={b.progress} label="Read" /><small>{Math.round(b.progress * 100)}%</small></span> : null}</span> : null}
   </Crossing>;

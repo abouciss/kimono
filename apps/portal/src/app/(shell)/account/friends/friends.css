@@ -531,15 +531,18 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 .fr-profile-v2 .fr-hero-words { margin-top: calc(var(--fr-face) * .5 + 8px); gap: 4px; }
 .fr-profile-v2 .fr-name { font-size: clamp(26px, 2.4vw, 36px); }
 .fr-profile-v2 .fr-handle { font-size: 14.5px; }
-.fr-profile-v2 .fr-hero-more { padding: 10px 24px 0 calc(24px + var(--fr-face) + 20px); }
+.fr-profile-v2 .fr-hero-more { padding: 14px 24px 0 calc(24px + var(--fr-face) + 20px); }
 .fr-profile-v2 .fr-hero-more .fr-bio { font-size: 15.5px; max-width: 680px; }
 .fr-profile-v2 .fr-socials a, .fr-socials-add { width: 36px !important; height: 36px !important; }
 .fr-profile-v2 .fr-socials .line-icon, .fr-profile-v2 .fr-socials .wg-favicon { width: 18px; height: 18px; }
 /* More columns as the board widens: a small widget stays about 200px, so a wide window shows six across. */
 .fr-profile-v2 .wg { container: wg / inline-size; padding: 0 24px; }
-.fr-profile-v2 .wg-grid { grid-auto-rows: 140px; gap: 12px; }
-@container wg (min-width: 1000px) { .fr-profile-v2 .wg-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-@container wg (min-width: 1240px) { .fr-profile-v2 .wg-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.fr-profile-v2 .wg-grid { grid-auto-rows: 160px; gap: 20px; }
+@container wg (min-width: 1100px) { .fr-profile-v2 .wg-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@container wg (min-width: 1440px) { .fr-profile-v2 .wg-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.fr-profile-v2 .wg-card { padding: 18px 20px; }
+.fr-profile-v2 .wg-s .wg-card { padding: 14px; }
+.fr-profile-v2 .fr-hero { margin-bottom: 32px; }
 /* Your own: the banner's button sits in the band's bottom corner. */
 .fr-band-edit { position: absolute; z-index: 2; right: 14px; top: calc(12px + var(--fr-band-h) - 48px); display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px 0 10px; border: 0; border-radius: 10px 4px 10px 4px; background: color-mix(in srgb, #000 34%, transparent); color: #fff; font: 700 13.5px/1 var(--k-sans); cursor: pointer; backdrop-filter: blur(6px); transition: background var(--k-t-state), transform var(--k-t-tap); }
 .fr-band-edit:hover { background: color-mix(in srgb, #000 50%, transparent); }
@@ -572,9 +575,8 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 
 /* ── Your own hero: no button row; each thing is edited where it is ── */
 .fr-name-edit { display: inline-flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
-.fr-name-edit .line-icon { width: 22px; height: 22px; opacity: 0; color: var(--k-on-surface-variant); transform: translateX(-4px) rotate(-12deg); transition: opacity var(--k-t-state), transform .35s var(--k-spring); }
-.fr-name-edit:hover .line-icon, .fr-name-edit:focus-visible .line-icon { opacity: 1; transform: none; }
-@media (hover: none) { .fr-name-edit .line-icon { opacity: .6; transform: none; } }
+.fr-name-edit .line-icon { width: 20px; height: 20px; opacity: .55; color: var(--k-on-surface-variant); transition: opacity var(--k-t-state), transform .35s var(--k-spring), color var(--k-t-state); }
+.fr-name-edit:hover .line-icon, .fr-name-edit:focus-visible .line-icon { opacity: 1; color: var(--fr-color); transform: rotate(-12deg); }
 .fr-socials-add { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 2px dashed color-mix(in srgb, var(--k-on-surface-variant) 45%, transparent); border-radius: 50%; background: none; color: var(--k-on-surface-variant); cursor: pointer; animation: fr-pop .6s var(--k-spring) both; animation-delay: calc(.25s + var(--i, 0) * 60ms); transition: border-color var(--k-t-state), color var(--k-t-state), transform .35s var(--k-spring); }
 .fr-socials-add:hover { border-color: var(--fr-color); color: var(--fr-color); transform: rotate(90deg); }
 .fr-socials-add .line-icon { width: 20px; height: 20px; }
@@ -587,3 +589,27 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
   .fr-top-end .fr-wsw-open { font-size: 0; }
   .fr-top-end .fr-wsw-open .line-icon { margin-right: 0; }
 }
+/* The sheet fits the frame instead of the frame pushing the sheet sideways. */
+.ink-sheet:has(.fr-banner-edit) { width: min(760px, calc(100vw - 32px)); }
+.ink-sheet:has(.fr-banner-edit) .ink-sheet-body { overflow-x: hidden; }
+.fr-banner-edit { width: 100%; min-width: 0; }
+.fr-banner-stage { max-width: 100%; }
+/* Thirds, faintly, while you place it; and a word on what to do. */
+.fr-banner-thirds { position: absolute; inset: 0; pointer-events: none; opacity: .5; transition: opacity var(--k-t-state);
+  background: linear-gradient(90deg, transparent calc(33.33% - .5px), rgba(255, 255, 255, .5) calc(33.33% - .5px) calc(33.33% + .5px), transparent calc(33.33% + .5px) calc(66.66% - .5px), rgba(255, 255, 255, .5) calc(66.66% - .5px) calc(66.66% + .5px), transparent calc(66.66% + .5px)),
+    linear-gradient(transparent calc(33.33% - .5px), rgba(255, 255, 255, .5) calc(33.33% - .5px) calc(33.33% + .5px), transparent calc(33.33% + .5px) calc(66.66% - .5px), rgba(255, 255, 255, .5) calc(66.66% - .5px) calc(66.66% + .5px), transparent calc(66.66% + .5px));
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .7); border-radius: inherit; }
+.fr-banner-stage:active .fr-banner-thirds { opacity: 1; }
+.fr-banner-hint { position: absolute; left: 50%; bottom: 10px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--k-r-full); background: rgba(0, 0, 0, .45); color: #fff; font: 600 12.5px/1 var(--k-sans); pointer-events: none; transition: opacity .3s; }
+.fr-banner-hint .line-icon { width: 15px; height: 15px; }
+.fr-banner-stage:active .fr-banner-hint { opacity: 0; }
+.ink-sheet .fr-banner-edit ~ * .line-icon, .ink-sheet-actions .line-icon { width: 18px; height: 18px; margin-right: 6px; }
+/* The right of the header: the Silkscreen badge, level with the name, and (on someone else's) how you're linked. */
+.fr-profile-v2 .fr-hero-end { display: grid; justify-items: end; align-content: end; gap: 10px; padding-bottom: 10px; animation: fr-rise .7s .2s var(--k-spring) both; }
+.fr-hero-end .fr-silkscreen { display: inline-flex; align-items: center; gap: 10px; padding: 4px 16px 4px 4px; border-radius: var(--k-r-full); background: var(--k-container-low); }
+.fr-hero-end .fr-ss-stage { width: 30px; height: 40px; border-radius: 6px; }
+.fr-hero-end .fr-ss-words b { font-size: 14px; }
+.fr-hero-end .fr-ss-words small { font-size: 12.5px; }
+.fr-profile-v2 .fr-hero-end .fr-actions { padding-bottom: 0; }
+@container fr-hero (max-width: 940px) { .fr-profile-v2 .fr-hero-body > .fr-hero-end { grid-column: 2; justify-items: start; padding-bottom: 0; } }
+@media (max-width: 720px) { .fr-profile-v2 .fr-hero-end { justify-items: center; } }
