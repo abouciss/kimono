@@ -259,8 +259,10 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
                                     FriendPerson(p.username, p.name, p.picture), sections, p.links, friendList, p.music, p.books, color,
                                     own = if (p.you && !preview) OwnBoard(
                                         asked, friendsKept,
-                                        keptRows = privacy?.apps.orEmpty().flatMap { a -> a.rows.filter { !a.shown || !it.shown }.map { "${a.app}:${it.kind}" } }.toSet(),
-                                        friendsOnlyRows = if (visibility == "public") privacy?.apps.orEmpty().flatMap { a -> a.rows.filter { a.shown && it.shown && (a.everyone == false || it.everyone == false) }.map { "${a.app}:${it.kind}" } }.toSet() else emptySet(),
+                                        /* Warnings only where a widget is narrower than the profile: none when only you see it. */
+                                        keptRows = if (privacy?.invisible == true || visibility == "private") emptySet() else privacy?.apps.orEmpty().flatMap { a -> a.rows.filter { !a.shown || !it.shown }.map { "${a.app}:${it.kind}" } }.toSet(),
+                                        friendsOnlyRows = if (visibility == "public" && privacy?.invisible != true) privacy?.apps.orEmpty().flatMap { a -> a.rows.filter { a.shown && it.shown && (a.everyone == false || it.everyone == false) }.map { "${a.app}:${it.kind}" } }.toSet() else emptySet(),
+                                        publicProfile = visibility == "public",
                                         onShare = { row, to -> shareRow(row, to) },
                                     ) else null, server = server,
                                 )
@@ -516,7 +518,7 @@ private fun Privacy.withAudience(key: String, to: String): Privacy {
     val (app, kind) = key.split(":").let { it[0] to it.getOrNull(1) }
     return copy(apps = apps.map { a ->
         if (a.app != app) a
-        else if (kind == null) a.copy(shown = shown, everyone = wide)
+        else if (kind == null) a.copy(shown = shown, everyone = wide, rows = if (shown) a.rows.map { it.copy(shown = true, everyone = wide) } else a.rows)
         else a.copy(rows = a.rows.map { r -> if (r.kind == kind) r.copy(shown = shown, everyone = wide) else r })
     })
 }
@@ -562,7 +564,7 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, username: String?, o
             Text("Your profile", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             listOf(
                 Triple("friends", "people", "Friends" to "Your friends see what you choose below"),
-                Triple("public", "link", "Anyone with the link" to "You choose what's for friends and what's for everyone"),
+                Triple("public", "link", "Public" to "Anyone with the link; you choose what's for friends and what's for everyone"),
                 Triple("private", "lock", "Only me" to "Friends see your name and picture"),
             ).forEach { (id, icon, words) ->
                 val on = visibility == id
@@ -586,6 +588,8 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, username: String?, o
                 PrivacyLine("Your friends list", "Who you're friends with", audience(now.friends, now.friendsEveryone), pub, !closed) { set("friends", it) }
                 now.apps.forEach { a ->
                     val unfolded = open == a.app
+                    /* The app reads Only me when none of its rows are shared. */
+                    val appValue = if (a.rows.none { it.shown }) "me" else audience(a.shown, a.everyone != false && a.rows.any { it.shown && it.everyone != false })
                     val turn by animateFloatAsState(if (unfolded) 180f else 0f, label = "fold")
                     Box(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
                     /* The app's head opens its rows; the choice beside it sets the whole app. */
@@ -601,11 +605,11 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, username: String?, o
                                 Text(summaryOf(a, pub), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             Icon(kimonoIcon("down"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = turn })
-                            if (!pub) Who(audience(a.shown, a.everyone), false, !closed) { set(a.app, it) }
+                            if (!pub) Who(appValue, false, !closed) { set(a.app, it) }
                         }
                         /* Three choices don't fit beside the name on a phone: they sit under it. */
                         if (pub) Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.CenterEnd) {
-                            Who(audience(a.shown, a.everyone), true, !closed) { set(a.app, it) }
+                            Who(appValue, true, !closed) { set(a.app, it) }
                         }
                     }
                     androidx.compose.animation.AnimatedVisibility(unfolded) {
