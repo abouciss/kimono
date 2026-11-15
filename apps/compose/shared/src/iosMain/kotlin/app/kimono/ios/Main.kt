@@ -130,6 +130,14 @@ private class IosPlatform(private val host: IosHost) : Platform {
     override fun installedBuild(packageId: String): String? = host.installedApp(packageId)?.lines()?.getOrNull(1)?.takeIf { it.isNotBlank() }
     override fun canOpen(url: String): Boolean? = platform.Foundation.NSURL.URLWithString(url)?.let { platform.UIKit.UIApplication.sharedApplication.canOpenURL(it) }
     override fun cacheDir() = host.cacheDir()
+    override val musicAudio: app.kimono.music.MusicAudio by lazy { IosMusicAudio() }
+    /* Application Support: kept, and not shown in the Files app. */
+    override fun keepDir(): String {
+        val url = platform.Foundation.NSFileManager.defaultManager.URLsForDirectory(platform.Foundation.NSApplicationSupportDirectory, platform.Foundation.NSUserDomainMask).firstOrNull() as? platform.Foundation.NSURL
+        val path = url?.path ?: return host.cacheDir()
+        platform.Foundation.NSFileManager.defaultManager.createDirectoryAtPath(path, true, null, null)
+        return path
+    }
     override fun openFile(path: String, mimeType: String?) = host.openFile(path)
     override fun share(text: String) = host.share(text)
     override fun driveAvailable(on: Boolean) = host.driveAvailable(on)
