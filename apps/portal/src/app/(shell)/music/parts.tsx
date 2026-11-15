@@ -1,7 +1,7 @@
 "use client";
 
 import { Crossing, useCrossTo } from "@/components/crossing";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { blotPath, cx, inkRandom, MorphLoader, ringPath, Seal } from "@kimono/ui";
 import { byline, clock, forget, hrefOf, musicApi, share, type Album, type Artist, type Playlist, type RatedKind, type Rating, type Track } from "./api";
@@ -75,10 +75,12 @@ export function RateMarks({ kind, keyOf, size = "bar", className }: { kind: Rate
 
 /* ── Menus ─────────────────────────────────────────────────────────────── */
 
-export type Item = { label: string; icon?: Parameters<typeof Icon>[0]["name"]; run?: () => void | Promise<void>; href?: string; sub?: () => Promise<Item[]>; danger?: boolean };
+/** A menu's line. `divide` starts a new group: a divider goes above it. */
+export type Item = { label: string; icon?: Parameters<typeof Icon>[0]["name"]; run?: () => void | Promise<void>; href?: string; sub?: () => Promise<Item[]>; danger?: boolean; divide?: boolean };
 
 /** A menu that opens beside what it belongs to, raised over the page. */
-export function Menu({ anchor, items, onClose }: { anchor: HTMLElement; items: Item[]; onClose: () => void }) {
+/** `head` sits above the items in their own group: a song's marks, as one row. */
+export function Menu({ anchor, items, head, onClose }: { anchor: HTMLElement; items: Item[]; head?: ReactNode; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const crossTo = useCrossTo();
   const [at, setAt] = useState<{ left: number; top: number } | null>(null);
@@ -101,13 +103,13 @@ export function Menu({ anchor, items, onClose }: { anchor: HTMLElement; items: I
     return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", esc, true); removeEventListener("scroll", onClose); };
   }, [anchor, onClose]);
   return createPortal(<div ref={box} className="km-menu" role="menu" style={at ? { left: at.left, top: at.top } : { visibility: "hidden" }}>
-    {title ? <div className="km-menu-title">{title}</div> : null}
-    {list.map((item) => <button key={item.label} type="button" role="menuitem" className={cx(item.danger && "km-danger")} onClick={async () => {
+    {title ? <div className="km-menu-title">{title}</div> : head ? <>{head}<div className="km-menu-sep" role="separator" /></> : null}
+    {list.map((item, i) => <Fragment key={item.label}>{item.divide && i > 0 ? <div className="km-menu-sep" role="separator" /> : null}<button type="button" role="menuitem" className={cx(item.danger && "km-danger")} onClick={async () => {
       if (item.sub) { setTitle(item.label); setList(await item.sub()); return; }
       onClose();
       if (item.href) crossTo("kakejiku", item.href);
       void item.run?.();
-    }}>{item.icon ? <Icon name={item.icon} /> : <span className="km-menu-gap" />}<span>{item.label}</span>{item.sub ? <span className="km-menu-more">›</span> : null}</button>)}
+    }}>{item.icon ? <Icon name={item.icon} /> : <span className="km-menu-gap" />}<span>{item.label}</span>{item.sub ? <span className="km-menu-more">›</span> : null}</button></Fragment>)}
   </div>, document.querySelector(".app-frame") ?? document.body);
 }
 
@@ -128,12 +130,12 @@ export function playlistItems(keys: string[], say: (t: string) => void): () => P
   };
 }
 
-export function MoreButton({ label = "More", items, className }: { label?: string; items: () => Item[]; className?: string }) {
+export function MoreButton({ label = "More", items, head, className }: { label?: string; items: () => Item[]; head?: () => ReactNode; className?: string }) {
   const [open, setOpen] = useState<HTMLElement | null>(null);
   return <>
     <button type="button" className={cx("km-iconbtn", className)} aria-label={label} title={label} aria-haspopup="menu" aria-expanded={Boolean(open)}
       onClick={(e) => { e.stopPropagation(); setOpen(open ? null : e.currentTarget); }}><Icon name="more" /></button>
-    {open ? <Menu anchor={open} items={items()} onClose={() => setOpen(null)} /> : null}
+    {open ? <Menu anchor={open} items={items()} head={head?.()} onClose={() => setOpen(null)} /> : null}
   </>;
 }
 
@@ -161,25 +163,28 @@ export function AddToPlaylist({ keys, compact = true, className }: { keys: strin
  * first, then where to go. `withRates` puts the marks in it, for when the bar
  * has no room for them.
  */
-export function songMenuItems(t: Track, p: ReturnType<typeof usePlayer>, withRates = false): Item[] {
-  const rating = p.ratingOf("track", t.key);
-  const marks = withRates ? rates.map(([r, label]): Item => ({ label: rating === r ? `${label} (undo)` : label, icon: r, run: () => p.rate("track", t.key, rating === r ? null : r) })) : [];
+export function songMenuItems(t: Track, p: ReturnType<typeof usePlayer>): Item[] {
   const all = trackItems(t, p);
   const pick = (label: string) => all.filter((i) => i.label === label);
-  return [...marks, ...pick("Add to playlist"), ...pick("Song radio"), ...pick("Share"), ...pick("Go to song"), ...pick("Go to artist"), ...pick("Go to album")];
+  return [...pick("Add to playlist"), ...pick("Song radio"), ...pick("Share"), ...pick("Go to song"), ...pick("Go to artist"), ...pick("Go to album")];
+}
+
+/** A song's marks as one row at the top of its menu, for where they aren't already beside it. */
+export function MenuRates({ t }: { t: Track }) {
+  return <div className="km-menu-rates"><span>Rate</span><RateMarks kind="track" keyOf={t.key} /></div>;
 }
 
 function trackItems(t: Track, p: ReturnType<typeof usePlayer>, extra: Item[] = []): Item[] {
   return [
     { label: "Play next", icon: "next", run: () => p.playNext([t]) },
     { label: "Add to queue", icon: "queue", run: () => p.addToQueue([t]) },
-    { label: "Add to playlist", icon: "playlistAdd", sub: playlistItems([t.key], p.say) },
+    { label: "Add to playlist", icon: "playlistAdd", sub: playlistItems([t.key], p.say), divide: true },
     { label: "Song radio", icon: "radio", run: () => { musicApi.radio(t.key, []).then(({ tracks }) => p.play([t, ...tracks], 0, { kind: "radio", id: t.key, title: `Like ${t.title}` })).catch(() => p.say("No radio for that one right now.")); } },
-    { label: "Go to song", icon: "note", href: hrefOf.song(t.key) },
+    { label: "Go to song", icon: "note", href: hrefOf.song(t.key), divide: true },
     { label: "Share", icon: "share", run: async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); } },
     ...(t.artists[0] ? [{ label: "Go to artist", icon: "person" as const, href: hrefOf.artist(t.artists[0].key) }] : []),
     ...(t.album ? [{ label: "Go to album", icon: "album" as const, href: hrefOf.album(t.album.key) }] : []),
-    ...extra,
+    ...extra.map((item, i) => (i ? item : { ...item, divide: true })),
   ];
 }
 
@@ -226,10 +231,7 @@ export function Songs({ tracks, source, numbered = false, art = true, album = tr
         <span className="km-song-end">
           {loved ? <Icon name="love" className="km-song-loved" /> : null}
           <span className="km-song-time">{clock(t.duration)}</span>
-          <MoreButton label={`More for ${t.title}`} items={() => [
-            ...rates.map(([r, label]): Item => ({ label: p.ratingOf("track", t.key) === r ? `${label} (undo)` : label, icon: r, run: () => p.rate("track", t.key, p.ratingOf("track", t.key) === r ? null : r) })),
-            ...trackItems(t, p, rowExtra?.(t, i)),
-          ]} />
+          <MoreButton label={`More for ${t.title}`} head={() => <MenuRates t={t} />} items={() => trackItems(t, p, rowExtra?.(t, i))} />
         </span>
       </li>;
     })}
