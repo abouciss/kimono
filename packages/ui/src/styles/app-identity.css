@@ -31,7 +31,6 @@
   flex-wrap: wrap;
   gap: var(--k-space-5);
   padding: var(--k-space-7) 0 var(--k-space-5);
-  border-bottom: var(--k-hairline) solid var(--k-hair);
 }
 .k-app-header-identity { display: grid; gap: var(--k-space-2); min-width: 0; }
 .k-app-header-identity > p { margin: 0; max-width: 68ch; font: 16px/1.5 var(--k-sans); color: var(--k-ink-soft); }

@@ -1,6 +1,6 @@
 # ADR 0006: Material 3 foundations, Kata personality
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-04
 - Sheet: `specimens/11-m3-foundations.html`
 
@@ -58,8 +58,11 @@ its own.
 
 ## Consequences
 
-- `docs/design-system.md` sections on depth-by-edge, 0–2px radii and
-  rationed accent are superseded once this is accepted.
+- `docs/design-system.md` is rewritten on these foundations. Its depth-by-edge,
+  0–2px radii and rationed-accent sections are gone.
+- The old paper tokens (`--k-ground`, `--k-sheet`, `--k-fold`, `--k-lift`,
+  `--k-hair`) resolve to the tonal roles, so older pages follow. The grain
+  token is `none`.
 - The following go: hairline enclosures, paper grain, and the ema, cord and
   tassel ornaments.
 - The 2026-10-05 "no generic pills" ruling still holds for buttons. Only

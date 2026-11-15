@@ -15,7 +15,7 @@
 @keyframes k-busy-in { from { opacity: 0; scale: .4; } }
 
 /* A busy Seal still looks like itself: it's working, not turned off. */
-.k-seal.is-busy[disabled] { color: var(--k-lift); background: var(--k-accent); box-shadow: inset 0 -3px 0 var(--k-seal-base); cursor: progress; opacity: 1; }
+.k-seal.is-busy[disabled] { color: var(--k-on-accent); background: var(--k-accent); box-shadow: inset 0 -3px 0 var(--k-seal-base); cursor: progress; opacity: 1; }
 .k-seal.is-busy[disabled]::before { display: block; }
 .k-seal.k-tone-quiet.is-busy[disabled] { color: var(--k-on-surface); background: var(--k-container-high); }
 .k-seal.k-tone-quiet.is-busy[disabled]::before { display: none; }

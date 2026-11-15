@@ -1,8 +1,8 @@
 /* ─────────────────────────────────────────────────────────────
    障子 Door — goes somewhere. Chrome only, never in content.
-   Two paper leaves on a fold; the nameplate is mounted on the door. Reaching
-   for it parts the leaves. The room you are in stands open, washed in sakura,
-   its plate inked plum.
+   Two lattice leaves on a tonal container; the nameplate is mounted on the
+   door. Reaching for it parts the leaves. The room you are in stands open on
+   the primary container, its plate inked in the house colour.
    ───────────────────────────────────────────────────────────── */
 
 .k-door {
@@ -15,12 +15,12 @@
   justify-content: center;
   padding: 0 var(--k-space-6);
   overflow: hidden;
-  border: var(--k-hairline) solid var(--k-hair);
-  border-radius: var(--k-r-2);
-  background: var(--k-fold);
+  border: 0;
+  border-radius: var(--k-r-l);
+  background: var(--k-container-high);
   cursor: pointer;
   text-decoration: none;
-  transition: background-color var(--k-t-state) var(--k-ease-settle), border-color var(--k-t-state) var(--k-ease-settle);
+  transition: background-color var(--k-t-state) var(--k-ease-settle), border-radius var(--k-t-fold) var(--k-spring);
 }
 
 .k-door > i {
@@ -28,17 +28,15 @@
   top: 0;
   bottom: 0;
   width: 51%;
-  background-color: var(--k-sheet);
+  background-color: var(--k-container-low);
   background-image:
-    linear-gradient(90deg, var(--k-hair) 0 1px, transparent 1px),
-    linear-gradient(var(--k-hair) 0 1px, transparent 1px);
+    linear-gradient(90deg, var(--k-outline-variant) 0 1px, transparent 1px),
+    linear-gradient(var(--k-outline-variant) 0 1px, transparent 1px);
   background-size: 12px 11px;
-  transition: transform var(--k-t-fold) var(--k-ease-settle);
+  transition: transform var(--k-t-fold) var(--k-spring);
 }
-.k-door > i:nth-of-type(1) { left: 0; border-right: var(--k-hairline) solid var(--k-hair); }
-.k-door > i:nth-of-type(2) { right: 0; border-left: var(--k-hairline) solid var(--k-hair); }
 
-.k-door:hover, .k-door:focus-visible { border-color: var(--k-hair-deep); background: var(--k-hover); }
+.k-door:hover, .k-door:focus-visible { background: var(--k-container-highest); border-radius: var(--k-r-m); }
 .k-door:hover > i:nth-of-type(1), .k-door:focus-visible > i:nth-of-type(1) { transform: translateX(-30%); }
 .k-door:hover > i:nth-of-type(2), .k-door:focus-visible > i:nth-of-type(2) { transform: translateX(30%); }
 .k-door:focus-visible { outline: var(--k-rule) solid var(--k-accent); outline-offset: 3px; }
@@ -48,18 +46,19 @@
   position: relative;
   z-index: 2;
   padding: 6px 10px;
-  border-radius: var(--k-r-1);
-  background: var(--k-lift);
-  color: var(--k-ink);
-  font: 600 13px/1 var(--k-sans);
+  border-radius: var(--k-r-s);
+  background: var(--k-container-lowest);
+  color: var(--k-on-surface);
+  font: 700 13px/16px var(--k-sans);
+  letter-spacing: .03em;
   white-space: nowrap;
-  box-shadow: 0 1px 0 var(--k-hair), 0 3px 8px -4px rgba(78, 43, 55, .3);
+  box-shadow: 0 1px 2px rgba(78, 43, 55, .14);
   transition: color var(--k-t-state) var(--k-ease-settle), box-shadow var(--k-t-state) var(--k-ease-settle);
 }
 .k-door:hover > .k-plate { color: color-mix(in srgb, var(--k-accent-deep) var(--k-tint), var(--k-night-ink)); }
 
 /* You are inside this room: the screens stand open and the plate is inked. */
-.k-door.k-here { cursor: default; background: color-mix(in srgb, var(--k-accent-pale) 55%, var(--k-sheet)); border-color: color-mix(in srgb, var(--k-accent-pale) 60%, var(--k-hair)); }
+.k-door.k-here { cursor: default; background: var(--k-primary-container); }
 .k-door.k-here > i:nth-of-type(1) { transform: translateX(-72%); }
 .k-door.k-here > i:nth-of-type(2) { transform: translateX(72%); }
-.k-door.k-here > .k-plate { color: color-mix(in srgb, var(--k-accent-deep) var(--k-tint), var(--k-night-ink)); box-shadow: inset 0 0 0 1px var(--k-accent-pale), 0 1px 0 var(--k-hair); }
+.k-door.k-here > .k-plate { color: color-mix(in srgb, var(--k-accent-deep) var(--k-tint), var(--k-night-ink)); box-shadow: 0 1px 2px rgba(78, 43, 55, .14); }
