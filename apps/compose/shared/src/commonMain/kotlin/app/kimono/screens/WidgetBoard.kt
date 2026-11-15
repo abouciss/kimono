@@ -291,7 +291,7 @@ fun WidgetBoard(
                     val wiggle = if (arranging && !still && !lifted) rememberInfiniteTransition(label = "wiggle").animateFloat(-.7f, .7f, infiniteRepeatable(tween(160 + (n % 3) * 20), RepeatMode.Reverse), label = "w") else null
                     Box(
                         Modifier.offset { place }.size(with(density) { r.width.toDp() }, with(density) { r.height.toDp() })
-                            .zIndex(if (lifted) 2f else 0f)
+                            .zIndex(if (lifted) 2f else if (d.own != null && widgetRow[w.kind].let { it != null && (it in d.own.keptRows || it in d.own.friendsOnlyRows) }) 1f else 0f)
                             .graphicsLayer {
                                 alpha = arrive.value * if (lifted) .9f else 1f
                                 translationY = (1 - arrive.value) * 18.dp.toPx()
@@ -302,17 +302,18 @@ fun WidgetBoard(
                     ) {
                         val row = widgetRow[w.kind]
                         val own = d.own
-                        val mark = when {
+                        /* Only a warning: where your settings keep a widget from people who can see your profile. */
+                        val warn = when {
                             arranging || row == null || own == null -> null
-                            row in own.keptRows -> "me"
-                            row in own.friendsOnlyRows -> "friends"
+                            row in own.keptRows -> if (own.publicProfile) "Nobody else sees this" to "everyone" else "Friends don't see this" to "friends"
+                            row in own.friendsOnlyRows -> "Public doesn't see this" to "everyone"
                             else -> null
                         }
-                        Box(Modifier.matchParentSize().graphicsLayer { if (mark == "me") alpha = .62f }) {
-                            androidx.compose.runtime.CompositionLocalProvider(LocalArranging provides arranging) { WidgetView(w, d, if (arranging) BoardActions() else act) }
+                        androidx.compose.runtime.CompositionLocalProvider(LocalArranging provides arranging) { WidgetView(w, d, if (arranging) BoardActions() else act) }
+                        if (warn != null && row != null) {
+                            Box(Modifier.matchParentSize().border(2.dp, WarnGold.copy(alpha = .7f), RoundedCornerShape(28.dp)))
+                            KeptMark(warn.first, Modifier.align(Alignment.BottomCenter).offset(y = 11.dp), own?.onShare?.let { share -> { share(row, warn.second) } })
                         }
-                        /* Kept to yourself, or for friends only: said on the widget, with the way to share it right there. */
-                        if (mark != null && row != null) KeptMark(mark == "me", Modifier.align(Alignment.TopStart).padding(10.dp), own?.onShare?.let { share -> { share(row, if (mark == "me") "friends" else "everyone") } })
                         if (arranging) {
                             /* While arranging, a widget is something to move: what's in it doesn't open. */
                             Box(Modifier.matchParentSize().pointerInput(Unit) {})
@@ -361,19 +362,21 @@ fun WidgetBoard(
     }
 }
 
-/** A quiet mark on a widget's corner: only you see it (Show), or only friends do (Everyone). */
+private val WarnGold = Color(0xFFE8B04A)
+private val WarnInk = Color(0xFF3A2A12)
+
+/** A gold tag on a widget's foot: your settings keep it from some who see your profile, and Share is right there. */
 @Composable
-private fun KeptMark(onlyYou: Boolean, modifier: Modifier, share: (() -> Unit)?) {
-    val notch = RoundedCornerShape(10.dp, 4.dp, 10.dp, 4.dp)
+private fun KeptMark(says: String, modifier: Modifier, share: (() -> Unit)?) {
     Row(
-        modifier.height(28.dp).clip(notch).background(MaterialTheme.colorScheme.surface.copy(alpha = .9f)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, notch).padding(start = 8.dp, end = 3.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
+        modifier.height(26.dp).shadow(6.dp, RoundedCornerShape(10.dp, 4.dp, 10.dp, 4.dp)).clip(RoundedCornerShape(10.dp, 4.dp, 10.dp, 4.dp)).background(WarnGold).padding(start = 9.dp, end = 3.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(kimonoIcon(if (onlyYou) "lock" else "people"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
-        Text(if (onlyYou) "Only you" else "Friends only", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Icon(kimonoIcon("lock"), null, tint = WarnInk, modifier = Modifier.size(13.dp))
+        Text(says, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = WarnInk, maxLines = 1)
         if (share != null) Text(
-            if (onlyYou) "Show" else "Everyone", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color.White, maxLines = 1,
-            modifier = Modifier.clip(RoundedCornerShape(7.dp, 3.dp, 7.dp, 3.dp)).background(LocalBoardColor.current).clickable(onClick = share).padding(horizontal = 8.dp, vertical = 5.dp),
+            "Share", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFFF6E2B8), maxLines = 1,
+            modifier = Modifier.clip(RoundedCornerShape(7.dp, 3.dp, 7.dp, 3.dp)).background(WarnInk).clickable(onClick = share).padding(horizontal = 8.dp, vertical = 4.dp),
         ) else Spacer(Modifier.width(3.dp))
     }
 }

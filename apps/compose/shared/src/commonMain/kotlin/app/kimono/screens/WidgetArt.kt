@@ -129,6 +129,8 @@ class OwnBoard(
     val keptRows: Set<String> = emptySet(),
     /** On a public profile: rows friends see and the link doesn't. */
     val friendsOnlyRows: Set<String> = emptySet(),
+    /** Your profile is public: what's kept to you, nobody else sees. */
+    val publicProfile: Boolean = false,
     /** Shares one row with "friends" or "everyone". */
     val onShare: ((String, String) -> Unit)? = null,
 )
