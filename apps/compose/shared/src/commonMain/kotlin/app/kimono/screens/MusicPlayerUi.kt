@@ -307,8 +307,11 @@ private fun LyricsPanel(player: MusicPlayer) {
         l == null || (l.synced.isNullOrEmpty() && l.plain.isNullOrBlank()) -> Center(if (l?.instrumental == true) "Instrumental — no words to follow." else "No lyrics for this one.")
         !l.synced.isNullOrEmpty() -> {
             val lines = l.synced
-            val at = player.position + .25
-            val now = lines.indexOfLast { it.at <= at }
+            /* Read from the engine every frame, so the line keeps time with the voice and lands at once after a seek. */
+            var playing by remember(key) { mutableDoubleStateOf(player.livePosition()) }
+            LaunchedEffect(key) { while (true) { withFrameMillis { playing = player.livePosition() } } }
+            /* A touch early, so the line lights as it's sung; only a new line redraws the list. */
+            val now by remember(lines) { derivedStateOf { lines.indexOfLast { it.at <= playing + .25 } } }
             val state = rememberLazyListState()
             LaunchedEffect(now) { if (now >= 0) state.animateScrollToItem((now - 2).coerceAtLeast(0)) }
             LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
