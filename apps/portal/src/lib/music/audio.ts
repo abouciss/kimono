@@ -117,7 +117,8 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
   const fd = openSync(part, "w", 0o600);
   try {
     let source: Source | null = null;
-    if (Date.now() >= s.fastOffUntil) {
+    /* KIMONO_MUSIC_YOUTUBEJS=off sends every song through yt-dlp (to test it, or while YouTube.js misbehaves). */
+    if (process.env.KIMONO_MUSIC_YOUTUBEJS !== "off" && Date.now() >= s.fastOffUntil) {
       try { source = await viaYoutubeJs(videoId); }
       catch (error) {
         /* Sits out ten minutes, then gets another go. */
