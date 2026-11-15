@@ -455,7 +455,7 @@ function WhoSeesWhat({ privacy, offCount, onClose, onOff, onChanged }: { privacy
               <span><b>{a.name}</b><small>{summary(a)}</small></span>
               <LineIcon name="down" />
             </button>
-            <Who value={audience(a.shown, a.everyone)} everyone={pub} label={`${a.name} on your profile`} disabled={hidden} onChange={set(a.app)} />
+            <Who value={a.rows.some((r) => r.shown) ? audience(a.shown, a.everyone !== false && a.rows.some((r) => r.shown && r.everyone !== false)) : "me"} everyone={pub} label={`${a.name} on your profile`} disabled={hidden} onChange={set(a.app)} />
           </div>
           {open === a.app ? <div className="fr-wsw-subs">{a.rows.map((r) => <div key={r.kind} className={`fr-wsw-row fr-wsw-sub${a.shown ? "" : " is-off"}`}>
             <span>{rowWords[`${a.app}:${r.kind}`] ?? r.title}</span>

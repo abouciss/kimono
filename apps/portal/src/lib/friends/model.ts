@@ -486,7 +486,11 @@ export function setAudience(db: DatabaseSync, username: string, key: string, to:
   const u = username.toLowerCase();
   if (apps[key]) setAppHidden(db, u, key, to === "me", now);
   else setKept(db, u, key, to === "me", now);
-  const next = [...new Set([...friendsOnlyOf(db, u).filter((k) => k !== key), ...(to === "friends" ? [key] : [])])].sort();
+  /* Sharing a whole app shares each of its rows that far (Only me just folds the app away, keeping its rows' choices). */
+  const rows = apps[key] && to !== "me" ? (rowsOf[key] ?? []).map(([kind]) => `${key}:${kind}`) : [];
+  for (const row of rows) setKept(db, u, row, false, now);
+  const touched = [key, ...rows];
+  const next = [...new Set([...friendsOnlyOf(db, u).filter((k) => !touched.includes(k)), ...(to === "friends" ? touched : [])])].sort();
   saveProfile(db, u, "friends_only", next.join(","), now);
 }
 
