@@ -221,6 +221,15 @@ fun MusicDownloadsScreen(player: MusicPlayer, free: Long?, go: MusicGo, back: ()
                         modifier = Modifier.padding(start = 12.dp, top = 20.dp).clip(RoundedCornerShape(12.dp)).clickable { clearing = true }.padding(horizontal = 8.dp, vertical = 10.dp))
                 }
             }
+            /* Songs kept from playing them, so they start at once next time. */
+            val played = d.played.collectAsState().value
+            if (played.isNotEmpty()) item(key = "played") {
+                Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Played songs · ${megabytes(played.values.sumOf { it.size })}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text("Clear", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { d.clearPlayed() }.padding(horizontal = 8.dp, vertical = 10.dp))
+                }
+            }
             if (tracks.isEmpty() && coming.isEmpty() && failed.isEmpty()) item(key = "empty") {
                 Text("Download a song, album or playlist from its menu, and it plays here with no connection.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))

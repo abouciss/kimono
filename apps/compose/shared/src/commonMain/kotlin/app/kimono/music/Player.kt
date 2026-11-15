@@ -56,7 +56,7 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
     var offline by mutableStateOf(false)
 
     /** Whether [track] can play now: always online, and offline only once it's downloaded. */
-    fun playable(track: Track) = !offline || downloads.has(track.key)
+    fun playable(track: Track) = !offline || downloads.here(track.key)
 
     /** Says the connection's back (or isn't): what failed to download for want of one is tried again. */
     fun connected(on: Boolean) {
@@ -118,6 +118,7 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
             engine.load(if (local != null) "file://$local" else music.streamUrl(track.key), headers, at, autoplay, infoOf(track))
         }
         if (local == null && autoplay) watchArrival(track.key, seq)
+        downloads.keepPlayed(track)
         startTicker()
     }
 
@@ -190,9 +191,9 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         val song = current
         scope.launch {
             /* Not here and no answer: the phone's offline. Downloaded songs play on, the rest are passed over. */
-            if (song != null && !downloads.has(song.key) && runCatching { music.status(song.key) }.exceptionOrNull()?.message == app.kimono.data.OFFLINE) {
+            if (song != null && !downloads.here(song.key) && runCatching { music.status(song.key) }.exceptionOrNull()?.message == app.kimono.data.OFFLINE) {
                 offline = true
-                if (tracks.drop(index + 1).any { downloads.has(it.key) }) { say("Offline · playing your downloads"); failures = 0; advance(true) }
+                if (tracks.drop(index + 1).any { downloads.here(it.key) }) { say("Offline · playing your downloads"); failures = 0; advance(true) }
                 else { audio?.pause(); say("Offline · only downloaded songs play") }
                 return@launch
             }
@@ -241,7 +242,7 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
 
     /** The next two get ready on the server now, so they start the moment this one ends. */
     private fun upcoming() {
-        val next = tracks.drop(index + 1).take(2).map { it.key }.filter { !downloads.has(it) }
+        val next = tracks.drop(index + 1).take(2).map { it.key }.filter { !downloads.here(it) }
         if (next.isNotEmpty()) scope.launch { music.ready(next) }
     }
 
