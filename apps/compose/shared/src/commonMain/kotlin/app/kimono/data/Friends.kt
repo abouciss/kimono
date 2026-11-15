@@ -26,7 +26,7 @@ data class FoundPeople(val people: List<FriendPerson> = emptyList())
 
 /** A title from one app, as a profile or a recommendation shows it. */
 @Serializable
-data class ShareItem(val app: String, val itemId: String, val title: String, val subtitle: String? = null, val cover: String? = null, val href: String? = null, val progress: Double? = null, val rating: String? = null)
+data class ShareItem(val app: String, val itemId: String, val title: String, val subtitle: String? = null, val cover: String? = null, val href: String? = null, val progress: Double? = null, val rating: String? = null, val at: Long? = null)
 
 @Serializable
 data class ProfileSection(val app: String, val appName: String, val kind: String, val title: String, val items: List<ShareItem> = emptyList())
@@ -52,7 +52,72 @@ data class KimonoProfile(
     val kimonoRead: KimonoRead? = null,
     /** On your own profile: the titles you took off its rows, to put back. */
     val off: List<OffProfile> = emptyList(),
+    /* What makes it theirs: pronouns, a colour, links, and the home screen of widgets (null: the default set). */
+    val pronouns: String = "",
+    val color: String? = null,
+    val links: List<ProfileLink> = emptyList(),
+    val widgets: List<Widget>? = null,
+    val music: MusicExtras? = null,
+    val books: BooksExtras? = null,
 )
+
+@Serializable
+data class ProfileLink(val title: String = "", val url: String)
+
+/** One widget on a profile's home screen: a kind, a size ("s", "m", "l", "xl") and what it keeps (lib/friends/model.ts widgetsFrom). */
+@Serializable
+data class Widget(val id: String, val kind: String, val size: String, val config: Map<String, String>? = null)
+
+@Serializable
+data class MusicArtistRef(val key: String = "", val name: String = "")
+
+@Serializable
+data class MusicAlbumRef(val key: String = "", val title: String = "", val cover: String? = null)
+
+@Serializable
+data class MusicTrack(val key: String, val title: String = "", val artists: List<MusicArtistRef> = emptyList(), val album: MusicAlbumRef? = null) {
+    val by get() = artists.joinToString(", ") { it.name }
+}
+
+@Serializable
+data class Listening(val track: MusicTrack, val at: String = "", val live: Boolean = false)
+
+@Serializable
+data class TopArtist(val key: String, val name: String = "", val picture: String? = null, val plays: Int? = null)
+
+@Serializable
+data class OnRepeat(val track: MusicTrack, val plays: Int = 0)
+
+/** Music's widgets on a profile (lib/music/social.ts musicExtras): the record, this month, top artists, play counts. */
+@Serializable
+data class MusicExtras(
+    val listening: Listening? = null, val plays: Int = 0, val minutes: Int = 0, val artists: List<TopArtist> = emptyList(),
+    val counts: Map<String, Int> = emptyMap(), val onRepeat: OnRepeat? = null,
+)
+
+@Serializable
+data class ReadBook(val key: String, val title: String = "", val author: String = "", val cover: String? = null, val rating: String? = null, val at: Long = 0, val review: String = "")
+
+/** Books' widgets (lib/friends/books-section.ts booksExtras): reviews, and what they've read. */
+@Serializable
+data class BooksExtras(val reviews: List<ReadBook> = emptyList(), val read: List<ReadBook> = emptyList())
+
+/** Something found to put on a widget: a song, an album, a book, a film or show, a playlist. */
+data class Pick(val key: String, val title: String, val subtitle: String, val cover: String?)
+
+@Serializable private data class Look(val pronouns: String = "", val color: String? = null, val links: List<ProfileLink> = emptyList(), val bio: String? = null)
+@Serializable private data class MusicSearch(val tracks: List<MusicTrack> = emptyList(), val albums: List<MusicAlbumHit> = emptyList())
+@Serializable private data class MusicAlbumHit(val key: String, val title: String = "", val artist: MusicArtistRef? = null, val cover: String? = null)
+@Serializable private data class BookSearch(val books: List<BookHit> = emptyList())
+@Serializable private data class BookHit(val key: String, val title: String = "", val authors: List<String> = emptyList(), val cover: String? = null)
+@Serializable private data class WatchSearch(val results: List<WatchHit> = emptyList())
+@Serializable private data class WatchHit(val id: String, val name: String = "", val year: Int? = null, val poster: String? = null)
+@Serializable private data class Playlists(val playlists: List<PlaylistHit> = emptyList())
+@Serializable private data class PlaylistHit(val id: String, val name: String = "", val count: Int = 0, val covers: List<String> = emptyList())
+
+/** Whether an app asks you, the first time you open it, to share it with friends (GET /api/v1/profile/sharing). */
+@Serializable
+data class SharingAsk(val ask: Boolean = false, val app: String = "", val name: String = "", val rows: List<PrivacyRow> = emptyList(), val friends: Int = 0)
 
 /** A title you took off one row of your profile (lib/friends/model.ts offProfileList). */
 @Serializable
@@ -69,7 +134,10 @@ data class KimonoRead(val since: String)
 
 /** What you let friends see (lib/friends/model.ts privacyOf): going invisible, your friends list, and each app and its rows. */
 @Serializable
-data class Privacy(val invisible: Boolean = false, val friends: Boolean = true, val apps: List<PrivacyApp> = emptyList()) {
+data class Privacy(
+    /** Who sees your profile: "friends", "link" (anyone with the link) or "private" (only you). */
+    val visibility: String? = null,
+    val invisible: Boolean = false, val friends: Boolean = true, val apps: List<PrivacyApp> = emptyList()) {
     val kept: List<String> get() = (if (friends) emptyList() else listOf("friends")) + apps.flatMap { a -> a.rows.filter { !it.shown }.map { "${a.app}:${it.kind}" } }
 }
 
@@ -156,6 +224,44 @@ class Friends(private val session: Session) {
     private suspend fun privacy(body: String): PrivacyNow = json.decodeFromString(session.call("/api/v1/profile", HttpMethod.Patch) {
         contentType(ContentType.Application.Json); setBody(body)
     })
+
+    /** Your home screen of widgets, as arranged. */
+    suspend fun saveWidgets(widgets: List<Widget>) {
+        session.call("/api/v1/profile", HttpMethod.Patch) { contentType(ContentType.Application.Json); setBody(buildJsonObject { put("widgets", json.encodeToJsonElement(kotlinx.serialization.builtins.ListSerializer(Widget.serializer()), widgets)) }.toString()) }
+    }
+
+    /** Your links, in order; answers them as kept (named and made whole). */
+    suspend fun saveLinks(links: List<ProfileLink>): List<ProfileLink> = json.decodeFromString<Look>(session.call("/api/v1/profile", HttpMethod.Patch) {
+        contentType(ContentType.Application.Json); setBody(buildJsonObject { put("links", json.encodeToJsonElement(kotlinx.serialization.builtins.ListSerializer(ProfileLink.serializer()), links)) }.toString())
+    }).links
+
+    /** Your pronouns, colour and words, saved together. */
+    suspend fun saveLook(pronouns: String, color: String?, bio: String): Triple<String, String?, String> = json.decodeFromString<Look>(session.call("/api/v1/profile", HttpMethod.Patch) {
+        contentType(ContentType.Application.Json); setBody(buildJsonObject { put("pronouns", pronouns); put("color", color ?: ""); put("bio", bio) }.toString())
+    }).let { Triple(it.pronouns, it.color, it.bio ?: bio) }
+
+    /** Who sees your profile: "friends", "link" or "private". */
+    suspend fun setVisibility(visibility: String): PrivacyNow = privacy(buildJsonObject { put("visibility", visibility) }.toString())
+
+    /** Whether [app] should ask you about sharing it with friends now. */
+    suspend fun sharingAsk(app: String): SharingAsk = json.decodeFromString(session.call("/api/v1/profile/sharing?app=${app.encodeURLQueryComponent()}"))
+    /** Your answer: share [app] with friends, or keep it to yourself. Either way it doesn't ask again. */
+    suspend fun answerSharing(app: String, on: Boolean) {
+        session.call("/api/v1/profile", HttpMethod.Patch) { contentType(ContentType.Application.Json); setBody(buildJsonObject { put("share", app); put("on", on) }.toString()) }
+    }
+
+    /* What can go on a widget, found by search. */
+    suspend fun findMusic(q: String, album: Boolean): List<Pick> = json.decodeFromString<MusicSearch>(session.call("/api/v1/music/search?q=${q.trim().encodeURLQueryComponent()}")).let { r ->
+        if (album) r.albums.take(8).map { Pick(it.key, it.title, it.artist?.name ?: "", it.cover) }
+        else r.tracks.take(8).map { Pick(it.key, it.title, it.by, it.album?.cover) }
+    }
+    suspend fun findBooks(q: String): List<Pick> = json.decodeFromString<BookSearch>(session.call("/api/v1/books/search?q=${q.trim().encodeURLQueryComponent()}")).books.take(8).map { Pick(it.key, it.title, it.authors.firstOrNull() ?: "", it.cover) }
+    suspend fun findShows(q: String): List<Pick> = json.decodeFromString<WatchSearch>(session.call("/api/v1/watch/search?q=${q.trim().encodeURLQueryComponent()}")).results.take(8).map { hit ->
+        /* A poster on this Kimono is kept by its path, as the website keeps it. */
+        val local = server?.let { s -> hit.poster?.takeIf { it.startsWith(s) }?.removePrefix(s) } ?: hit.poster
+        Pick(hit.id, hit.name, hit.year?.toString() ?: "", local)
+    }
+    suspend fun playlists(): List<Pick> = json.decodeFromString<Playlists>(session.call("/api/v1/music/playlists")).playlists.map { Pick(it.id, it.name, "${it.count} ${if (it.count == 1) "song" else "songs"}", it.covers.firstOrNull()) }
 
     /** What friends are up to, the latest first, for Home. */
     suspend fun activity(): List<FriendActivity> = json.decodeFromString<Activity>(session.fetch(ACTIVITY)).items
