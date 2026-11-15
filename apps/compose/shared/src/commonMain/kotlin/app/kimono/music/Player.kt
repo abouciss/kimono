@@ -77,6 +77,9 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
     private var loadSeq = 0
     private var restored = false
     private var loadedKey: String? = null
+    /* A seek the engine may not have caught up with yet: where to, and when (ms). */
+    private var seekedTo = -1.0
+    private var seekedMark = kotlin.time.TimeSource.Monotonic.markNow()
     private var ticker: Job? = null
     private var asking: Job? = null
     private var toastJob: Job? = null
@@ -271,6 +274,24 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         if (loadedKey != t.key) { position = seconds; return }
         audio?.seek(seconds)
         position = seconds; last = seconds
+        seekedTo = seconds; seekedMark = kotlin.time.TimeSource.Monotonic.markNow()
+    }
+
+    /**
+     * Seconds into the song right now, read from the engine rather than the
+     * twice-a-second tick: for what follows the music closely (the lyrics).
+     * Just after a seek, an engine still reporting the old place is ignored.
+     */
+    fun livePosition(): Double {
+        val engine = audio ?: return position
+        if (loadedKey != current?.key) return position
+        val now = engine.position
+        if (seekedTo >= 0) {
+            val since = seekedMark.elapsedNow().inWholeMilliseconds / 1000.0
+            if (since < 2.0 && kotlin.math.abs(now - seekedTo) > since + .75) return seekedTo + if (engine.isPlaying) since else 0.0
+            if (since >= 2.0) seekedTo = -1.0
+        }
+        return now
     }
 
     fun jump(to: Int) {

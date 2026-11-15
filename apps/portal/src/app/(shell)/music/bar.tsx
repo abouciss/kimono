@@ -320,10 +320,23 @@ function LyricsView({ lyrics }: { lyrics: Lyrics | null | undefined }) {
   const box = useRef<HTMLDivElement>(null);
   /* The sung line keeps to a third of the way down, unless you've scrolled to read ahead. */
   const reading = useRef(0);
+  /* A seek (the bar, the keys, a line) is someone following the song again: the sung line comes straight back, without the glide. */
+  const jumped = useRef(false);
+  useEffect(() => {
+    const el = p.audioElement();
+    if (!el) return;
+    const onSeek = () => { reading.current = 0; jumped.current = true; };
+    el.addEventListener("seeking", onSeek);
+    return () => el.removeEventListener("seeking", onSeek);
+  }, [p.audioElement]);
+  const shownAt = useRef(-1);
   useEffect(() => {
     if (here < 0 || Date.now() - reading.current < 4000) return;
     const el = box.current?.querySelector<HTMLElement>(`[data-line="${here}"]`);
-    if (el && box.current) box.current.scrollTo({ top: el.offsetTop - box.current.clientHeight / 3, behavior: "smooth" });
+    const far = jumped.current || Math.abs(here - shownAt.current) > 2;
+    jumped.current = false; shownAt.current = here;
+    const b = box.current;
+    if (el && b) b.scrollTo({ top: b.scrollTop + el.getBoundingClientRect().top - b.getBoundingClientRect().top - b.clientHeight / 3, behavior: far ? "instant" : "smooth" });
   }, [here]);
 
   if (lyrics === undefined) return <div className="km-lyrics km-lyrics-quiet" />;
