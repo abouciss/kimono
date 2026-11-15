@@ -62,7 +62,7 @@ data class KimonoProfile(
 )
 
 @Serializable
-data class ProfileLink(val title: String = "", val url: String)
+data class ProfileLink(val title: String = "", val url: String, val icon: String? = null)
 
 /** One widget on a profile's home screen: a kind, a size ("s", "m", "l", "xl") and what it keeps (lib/friends/model.ts widgetsFrom). */
 @Serializable
@@ -115,9 +115,12 @@ data class Pick(val key: String, val title: String, val subtitle: String, val co
 @Serializable private data class Playlists(val playlists: List<PlaylistHit> = emptyList())
 @Serializable private data class PlaylistHit(val id: String, val name: String = "", val count: Int = 0, val covers: List<String> = emptyList())
 
-/** Whether an app asks you, the first time you open it, to share it with friends (GET /api/v1/profile/sharing). */
+/** Whether an app asks you, the first time you open it with a friend, what friends see of it (GET /api/v1/profile/sharing); each choice starts [on] or off. */
 @Serializable
-data class SharingAsk(val ask: Boolean = false, val app: String = "", val name: String = "", val rows: List<PrivacyRow> = emptyList(), val friends: Int = 0)
+data class SharingAsk(val ask: Boolean = false, val asks: List<ShareChoice> = emptyList())
+
+@Serializable
+data class ShareChoice(val key: String, val says: String = "", val on: Boolean = false)
 
 /** A title you took off one row of your profile (lib/friends/model.ts offProfileList). */
 @Serializable
@@ -135,7 +138,7 @@ data class KimonoRead(val since: String)
 /** What you let friends see (lib/friends/model.ts privacyOf): going invisible, your friends list, and each app and its rows. */
 @Serializable
 data class Privacy(
-    /** Who sees your profile: "friends", "link" (anyone with the link) or "private" (only you). */
+    /** Who sees your profile: "friends", "public" (anyone with the link) or "private" (only you). */
     val visibility: String? = null,
     val invisible: Boolean = false, val friends: Boolean = true, val apps: List<PrivacyApp> = emptyList()) {
     val kept: List<String> get() = (if (friends) emptyList() else listOf("friends")) + apps.flatMap { a -> a.rows.filter { !it.shown }.map { "${a.app}:${it.kind}" } }
@@ -240,15 +243,13 @@ class Friends(private val session: Session) {
         contentType(ContentType.Application.Json); setBody(buildJsonObject { put("pronouns", pronouns); put("color", color ?: ""); put("bio", bio) }.toString())
     }).let { Triple(it.pronouns, it.color, it.bio ?: bio) }
 
-    /** Who sees your profile: "friends", "link" or "private". */
+    /** Who sees your profile: "friends", "public" or "private". */
     suspend fun setVisibility(visibility: String): PrivacyNow = privacy(buildJsonObject { put("visibility", visibility) }.toString())
 
     /** Whether [app] should ask you about sharing it with friends now. */
     suspend fun sharingAsk(app: String): SharingAsk = json.decodeFromString(session.call("/api/v1/profile/sharing?app=${app.encodeURLQueryComponent()}"))
-    /** Your answer: share [app] with friends, or keep it to yourself. Either way it doesn't ask again. */
-    suspend fun answerSharing(app: String, on: Boolean) {
-        session.call("/api/v1/profile", HttpMethod.Patch) { contentType(ContentType.Application.Json); setBody(buildJsonObject { put("share", app); put("on", on) }.toString()) }
-    }
+    /** Your answer: the choices of [app] friends see ([on]; none shares nothing). It doesn't ask again. */
+    suspend fun answerSharing(app: String, on: List<String>): PrivacyNow = privacy(buildJsonObject { put("share", app); put("on", JsonArray(on.map { JsonPrimitive(it) })) }.toString())
 
     /* What can go on a widget, found by search. */
     suspend fun findMusic(q: String, album: Boolean): List<Pick> = json.decodeFromString<MusicSearch>(session.call("/api/v1/music/search?q=${q.trim().encodeURLQueryComponent()}")).let { r ->

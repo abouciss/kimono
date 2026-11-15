@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -118,14 +119,17 @@ private fun Color.hex(): String { val v = (value shr 32).toLong() and 0xFFFFFF; 
 /** What each row of a profile says, in plain words, for Who sees what. */
 private val rowWords = mapOf(
     "watch:watching" to "What you're watching, and how far",
-    "watch:watched" to "What you've watched, and how you rated it",
+    "watch:watched" to "What you've watched",
+    "watch:rated" to "How you rated what you watched",
+    "books:reviews" to "Your reviews",
+    "music:stats" to "Your top artists and how much you listen",
     "watch:listed" to "Your watchlist",
     "books:reading" to "Books you're reading, and how far",
     "books:want" to "Books you want to read",
     "books:read" to "Books you've read, and how you rated them",
     "music:playing" to "Songs you've been listening to, and what's on now",
     "music:loved" to "Songs you love",
-    "music:playlists" to "Your playlists (friends can open and play them)",
+    "music:playlists" to "Your public playlists",
 )
 internal fun appTint(app: String) = when (app) { "books" -> Color(0xFF5C7150); "music" -> Color(0xFF2E5E8A); else -> Color(0xFFA84D63) }
 internal fun appIcon(app: String) = when (app) { "books" -> "book"; "music" -> "music"; else -> "film" }
@@ -249,7 +253,7 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
                 }
             }
             val privacy = p?.privacy
-            if (privacyOpen && p != null && privacy != null) WhoSeesWhat(friends, privacy, p.off.size, onDismiss = { privacyOpen = false }, onOff = { privacyOpen = false; offOpen = true }) { now ->
+            if (privacyOpen && p != null && privacy != null) WhoSeesWhat(friends, privacy, p.username, p.off.size, onDismiss = { privacyOpen = false }, onOff = { privacyOpen = false; offOpen = true }) { now ->
                 profile = profile?.copy(privacy = now.privacy, hidden = now.hidden, kept = now.privacy.kept)
             }
             if (editing && p != null) EditProfileSheet(friends, p, own, onDismiss = { editing = false }, onLinks = { editing = false; editingLinks = true }) { next -> profile = next; toast = "Saved" }
@@ -294,7 +298,9 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Band(color, still)
         Box(Modifier.pullUp(66.dp).graphicsLayer { scaleX = .7f + .3f * pop.value; scaleY = .7f + .3f * pop.value; alpha = pop.value }) {
-            Box(Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surface).padding(6.dp)) {
+            val ring = MaterialTheme.colorScheme.surface
+            /* A ring of paper round the portrait, cut into the band; the camera on your own may hang over it. */
+            Box(Modifier.drawBehind { drawCircle(ring, radius = size.minDimension / 2) }.padding(6.dp)) {
                 if (own != null) own.portrait() else Portrait(p.picture, p.name, p.username, 128.dp)
             }
         }
@@ -316,7 +322,7 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
                         Modifier.size(42.dp).graphicsLayer { scaleX = arrive.value; scaleY = arrive.value }.clip(CircleShape).background(Color(0xFFFBF6EF))
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape).clickable { runCatching { uri.openUri(l.url) } }.semantics { contentDescription = l.title },
                         contentAlignment = Alignment.Center,
-                    ) { Favicon(l.url, 20.dp, color) }
+                    ) { LinkMark(l.url, l.icon, 20.dp, color) }
                 }
             }
             if (p.open && !closed && p.bio.isNotBlank()) Text(p.bio, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
@@ -388,7 +394,7 @@ private fun Who(friends: Boolean, enabled: Boolean = true, onChange: (Boolean) -
  * of its rows. Each choice saves as it's made.
  */
 @Composable
-private fun WhoSeesWhat(friends: Friends, privacy: Privacy, offCount: Int, onDismiss: () -> Unit, onOff: () -> Unit, onChanged: (PrivacyNow) -> Unit) {
+private fun WhoSeesWhat(friends: Friends, privacy: Privacy, username: String?, offCount: Int, onDismiss: () -> Unit, onOff: () -> Unit, onChanged: (PrivacyNow) -> Unit) {
     val scope = rememberCoroutineScope()
     var now by remember { mutableStateOf(privacy) }
     var problem by remember { mutableStateOf<String?>(null) }
@@ -408,14 +414,14 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, offCount: Int, onDis
             Text("Your profile", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             listOf(
                 Triple("friends", "people", "Friends" to "Your friends see what you choose below"),
-                Triple("link", "link", "Anyone with the link" to "Friends, and anyone you send it to"),
-                Triple("private", "lock", "Only me" to "Everyone else sees your name and picture"),
+                Triple("public", "link", "Anyone with the link" to "Like friends do, even without an account"),
+                Triple("private", "lock", "Only me" to "Friends see your name and picture"),
             ).forEach { (id, icon, words) ->
                 val on = visibility == id
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(if (on) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
                         .then(if (on) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp)) else Modifier)
-                        .clickable { if (!on) save(now.copy(visibility = id, invisible = id == "private")) { setVisibility(friends, id) } }.padding(14.dp),
+                        .clickable { if (!on) save(now.copy(visibility = id, invisible = id == "private")) { friends.setVisibility(id) } }.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Icon(kimonoIcon(icon), null, tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
@@ -426,6 +432,8 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, offCount: Int, onDis
                     if (on) Icon(kimonoIcon("check"), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
             }
+            val server = friends.server
+            if (visibility == "public" && server != null && username != null) PublicLink("${server.trimEnd('/')}/p/$username")
             Column(Modifier.alpha(if (closed) .45f else 1f).padding(top = 10.dp)) {
                 PrivacyLine("Your friends list", "Who you're friends with", now.friends, !closed) { f -> save(now.copy(friends = f)) { friends.showPart("friends", f) } }
                 now.apps.forEach { a ->
@@ -460,10 +468,20 @@ private fun WhoSeesWhat(friends: Friends, privacy: Privacy, offCount: Int, onDis
     }
 }
 
-/** Says who sees your profile; a Kimono from before the choice of three only knows invisible or not. */
-private suspend fun setVisibility(friends: Friends, id: String): PrivacyNow = try { friends.setVisibility(id) } catch (e: KimonoProblem) {
-    if (id == "link") throw e
-    friends.setInvisible(id == "private")
+/** Your public profile's address, to copy. */
+@Composable
+private fun PublicLink(href: String) {
+    @Suppress("DEPRECATION") val clip = androidx.compose.ui.platform.LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { delay(1600); copied = false } }
+    Row(
+        Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(kimonoIcon("link"), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Text(href.removePrefix("https://").removePrefix("http://"), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Seal(if (copied) "Copied" else "Copy", compact = true, tone = SealTone.Quiet, onClick = { clip.setText(androidx.compose.ui.text.AnnotatedString(href)); copied = true })
+    }
 }
 
 @Composable
@@ -649,7 +667,7 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
                             }.semantics { contentDescription = "Hold to move" },
                             contentAlignment = Alignment.Center,
                         ) { Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { repeat(3) { Box(Modifier.size(14.dp, 2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant)) } } }
-                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFFBF6EF)), contentAlignment = Alignment.Center) { if (whole != null) Favicon(whole, 18.dp) else Icon(kimonoIcon("link"), null, modifier = Modifier.size(18.dp)) }
+                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFFBF6EF)), contentAlignment = Alignment.Center) { if (whole != null) LinkMark(whole, l.icon, 18.dp) else Icon(kimonoIcon("link"), null, modifier = Modifier.size(18.dp)) }
                         Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable { openAt = if (openAt == i) null else i }.padding(horizontal = 6.dp, vertical = 6.dp)) {
                             Text(l.title.ifBlank { nameFor(whole ?: l.url) }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
@@ -673,11 +691,60 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
                     if (openAt == i) Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(l.title, { t -> if (t.length <= 40) links = links.mapIndexed { j, x -> if (j == i) x.copy(title = t) else x } }, label = { Text("Title") }, singleLine = true, colors = kataFieldColors(), modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(l.url.removePrefix("mailto:"), { u -> links = links.mapIndexed { j, x -> if (j == i) x.copy(url = u) else x } }, label = { Text("Address") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), colors = kataFieldColors(), modifier = Modifier.fillMaxWidth())
+                        IconPick(whole, l.icon) { icon -> links = links.mapIndexed { j, x -> if (j == i) x.copy(icon = icon) else x } }
                     }
                 }
             }
         }
     }
+}
+
+/** What a link wears: the site's own icon, one of the drawn marks, or any emoji. */
+@Composable
+private fun IconPick(url: String?, icon: String?, pick: (String?) -> Unit) {
+    Text("Icon", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        @Composable fun Tile(on: Boolean, label: String, onClick: () -> Unit, content: @Composable () -> Unit) = Box(
+            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(if (on) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
+                .then(if (on) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)) else Modifier).clickable(onClick = onClick).semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
+        ) { content() }
+        Tile(icon == null, "The site's own", { pick(null) }) { if (url != null) Favicon(url, 20.dp) else Icon(kimonoIcon("link"), null, modifier = Modifier.size(20.dp)) }
+        linkGlyphs.forEach { (key, name) -> Tile(icon == key, name, { pick(key) }) { Icon(kimonoIcon("lk-$key"), null, tint = LocalBoardColor.current, modifier = Modifier.size(20.dp)) } }
+        /* Any emoji: the last one typed. */
+        val emoji = icon?.takeIf { it.startsWith("emoji:") }?.removePrefix("emoji:").orEmpty()
+        Box(
+            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(if (emoji.isNotEmpty()) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
+                .then(if (emoji.isNotEmpty()) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.foundation.text.BasicTextField(
+                emoji, { typed -> val last = lastGrapheme(typed); pick(if (last.isEmpty()) null else "emoji:$last") }, singleLine = true,
+                textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
+                modifier = Modifier.size(42.dp).padding(top = 6.dp).semantics { contentDescription = "An emoji instead" },
+                decorationBox = { inner -> Box(contentAlignment = Alignment.Center) { if (emoji.isEmpty()) Text("🙂", style = MaterialTheme.typography.titleLarge, modifier = Modifier.alpha(.45f)); inner() } },
+            )
+        }
+    }
+}
+
+/** The last character typed, whole enough for an emoji (with its joins, skin tone and flags kept together). */
+private fun lastGrapheme(v: String): String {
+    val t = v.trim()
+    if (t.isEmpty()) return ""
+    var i = t.length
+    fun prev(at: Int) = if (at >= 2 && t[at - 1].isLowSurrogate() && t[at - 2].isHighSurrogate()) at - 2 else at - 1
+    var start = prev(i)
+    /* Walk back over joiners, variation selectors and modifiers glued to what's before them. */
+    while (start > 0) {
+        val c = t.substring(start, i).let { if (it.length == 2) (((it[0].code - 0xD800) shl 10) + (it[1].code - 0xDC00) + 0x10000) else it[0].code }
+        val before = prev(start)
+        val bc = t.substring(before, start).let { if (it.length == 2) (((it[0].code - 0xD800) shl 10) + (it[1].code - 0xDC00) + 0x10000) else it[0].code }
+        val glued = c == 0xFE0F || c == 0x20E3 || c in 0x1F3FB..0x1F3FF || bc == 0x200D || c == 0x200D
+        if (!glued) break
+        i = start; start = before
+    }
+    return t.substring(start)
 }
 
 /* ── Sharing an app with friends, asked once ──────────────────────────── */
@@ -686,45 +753,39 @@ private fun LinksEditor(start: List<ProfileLink>, onDismiss: () -> Unit, onSave:
 private val askedThisRun = mutableSetOf<String>()
 
 /**
- * The first time you open Watch, Books or Music with at least one friend, it
- * asks whether friends see what you do there; it's off until you say yes.
- * The server knows whether you've answered (GET /api/v1/profile/sharing).
+ * The first time you open Watch, Books or Music with a friend to share with, it
+ * asks what of it your friends see (components/sharing-ask.tsx on the web).
+ * Until you answer, they see nothing of it; each choice starts where it should,
+ * and Save makes them yours. Who sees what changes them after.
  */
 @Composable
 fun SharingAsk(friends: Friends, app: String) {
     val scope = rememberCoroutineScope()
-    var ask by remember { mutableStateOf<app.kimono.data.SharingAsk?>(null) }
-    var busy by remember { mutableStateOf<Boolean?>(null) }
+    var asks by remember { mutableStateOf<List<app.kimono.data.ShareChoice>?>(null) }
+    var on by remember { mutableStateOf(setOf<String>()) }
+    var saving by remember { mutableStateOf(false) }
     LaunchedEffect(app) {
         if (app in askedThisRun) return@LaunchedEffect
-        val had = friends.known()?.friends?.size ?: runCatching { friends.list().friends.size }.getOrDefault(0)
-        if (had == 0) return@LaunchedEffect
         val now = runCatching { friends.sharingAsk(app) }.getOrNull() ?: return@LaunchedEffect
-        if (now.ask) { askedThisRun += app; ask = now }
+        if (!now.ask || now.asks.isEmpty()) return@LaunchedEffect
+        askedThisRun += app
+        on = now.asks.filter { it.on }.map { it.key }.toSet()
+        asks = now.asks
     }
-    val a = ask ?: return
-    val name = a.name.ifBlank { app.replaceFirstChar { it.uppercase() } }
-    fun answer(on: Boolean) {
-        busy = on
-        scope.launch { runCatching { friends.answerSharing(app, on) }; ask = null; busy = null }
+    val list = asks ?: return
+    fun save(keys: List<String>) {
+        saving = true
+        scope.launch { runCatching { friends.answerSharing(app, keys) }; asks = null; saving = false }
     }
-    InkDialog(title = "Share $name with friends?", icon = appIcon(app), tint = appTint(app), onDismiss = {}, actions = {
-        Seal("Keep to myself", compact = true, tone = SealTone.Quiet, busy = busy == false, onClick = { answer(false) })
-        Seal("Share", compact = true, busy = busy == true, onClick = { answer(true) })
+    InkDialog(title = "What your friends can see", icon = "people", tint = appTint(app), onDismiss = { asks = null }, actions = {
+        Seal("Share nothing", compact = true, tone = SealTone.Quiet, enabled = !saving, onClick = { save(emptyList()) })
+        Seal("Save", compact = true, busy = saving, onClick = { save(list.filter { it.key in on }.map { it.key }) })
     }) {
-        val rows = a.rows.ifEmpty { listOf() }
-        Text(
-            if (a.friends == 1) "Your friend would see this on your profile:" else "Your friends would see this on your profile:",
-            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            (if (rows.isNotEmpty()) rows.map { rowWords["$app:${it.kind}"] ?: it.title } else rowWords.filterKeys { it.startsWith("$app:") }.values.toList()).forEach { line ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(appTint(app)))
-                    Text(line, style = MaterialTheme.typography.bodyMedium)
-                }
+        list.forEach { a ->
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(a.says, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(a.key in on, { v -> on = if (v) on + a.key else on - a.key })
             }
         }
-        Text("Change it any time in Who sees what.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
     }
 }
