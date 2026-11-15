@@ -455,3 +455,28 @@ a.wg-fs:hover .wg-fs-strip::before, a.wg-fs:hover .wg-fs-strip::after { backgrou
 .wg-s .wg-fs { padding: 0; justify-content: center; }
 .wg-s .wg-fs-strip { height: 100%; }
 .wg-fs.is-empty { padding: 16px; }
+
+/* ── Reading (2026-11-15): the book floats in its own lamplight, leans toward your pointer, and opens on hover with motes rising off the pages ── */
+.wg-reading { isolation: isolate; gap: 22px; overflow: visible; }
+.wg-reading .wg-book { position: relative; width: auto; padding: 0 6px; }
+.wg-book-float { position: relative; z-index: 1; display: block; animation: wg-float 6s ease-in-out infinite; }
+@keyframes wg-float { 0%, 100% { transform: translateY(2px) rotate(-1deg); } 50% { transform: translateY(-6px) rotate(1deg); } }
+.wg-reading .kb-book { --w: 84px; --turn: 24deg; }
+.wg-l .wg-reading .kb-book { --w: 148px; }
+.wg-s .wg-reading .kb-book { --w: 74px; }
+.wg-reading .kb-book-body { transition: transform .5s var(--b-spring, var(--k-spring)); }
+a.wg-reading:hover .kb-book { --open: -50deg; --b-shade: 1; --lift: -4px; }
+/* Lamplight: a warm pool behind and under the book that breathes, brighter when it opens. */
+.wg-book-glow { position: absolute; z-index: 0; left: 50%; top: 52%; width: 170%; height: 120%; translate: -50% -50%; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, #ffd38a 42%, transparent), color-mix(in srgb, var(--fr-color, #a84d63) 18%, transparent) 55%, transparent);
+  filter: blur(10px); opacity: .55; animation: wg-glow 5s ease-in-out infinite; transition: opacity .6s, scale .6s var(--k-spring); pointer-events: none; }
+@keyframes wg-glow { 50% { opacity: .8; scale: 1.08; } }
+a.wg-reading:hover .wg-book-glow { opacity: 1; scale: 1.25; }
+/* Motes: specks of gold drifting up off the pages, more of them while it's open. */
+.wg-motes { position: absolute; z-index: 2; inset: -10% 0 20%; pointer-events: none; }
+.wg-motes i { position: absolute; left: calc(18% + var(--i) * 11%); bottom: 10%; width: 4px; height: 4px; border-radius: 50%; background: #ffe2a6; box-shadow: 0 0 6px 2px rgba(255, 210, 130, .7);
+  opacity: 0; animation: wg-mote 4.2s ease-out infinite; animation-delay: calc(var(--i) * -0.63s); }
+.wg-motes i:nth-child(even) { width: 3px; height: 3px; animation-duration: 5.4s; }
+a.wg-reading:hover .wg-motes i { animation-duration: 2.2s; }
+@keyframes wg-mote { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(calc((var(--i) - 3) * 5px), -90px) scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .wg-book-float, .wg-book-glow, .wg-motes i { animation: none !important; } .wg-motes { display: none; } }

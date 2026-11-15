@@ -33,7 +33,7 @@ export function BannerSheet({ banner, color, onClose, onSaved }: { banner: strin
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  useEffect(() => () => { if (crop) URL.revokeObjectURL(crop.url); }, [crop?.url]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (crop?.url.startsWith("blob:")) URL.revokeObjectURL(crop.url); }, [crop?.url]);  
   useLayoutEffect(() => {
     const el = stage.current;
     if (!el) return;
@@ -44,15 +44,23 @@ export function BannerSheet({ banner, color, onClose, onSaved }: { banner: strin
     return () => watch.disconnect();
   }, [crop !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function open(url: string) {
+    const image = new Image();
+    image.onload = () => setCrop({ image, url, zoom: 1, x: 0, y: 0 });
+    image.onerror = () => { if (url.startsWith("blob:")) URL.revokeObjectURL(url); setProblem("This browser can't open that photo. Try a JPEG or PNG."); };
+    image.src = url;
+  }
   function choose(file: File | undefined) {
     setProblem(null);
     if (!file) return;
     if (file.size > 40 * 1024 * 1024) { setProblem("That photo is over 40 MB. Choose a smaller one."); return; }
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => setCrop({ image, url, zoom: 1, x: 0, y: 0 });
-    image.onerror = () => { URL.revokeObjectURL(url); setProblem("This browser can't open that photo. Try a JPEG or PNG."); };
-    image.src = url;
+    open(URL.createObjectURL(file));
+  }
+  /* The banner you have, back in the frame to move or zoom. */
+  async function adjust() {
+    if (!banner) return;
+    setProblem(null);
+    try { const blob = await fetch(banner).then((r) => r.blob()); open(URL.createObjectURL(blob)); } catch { setProblem("Your banner couldn't be opened."); }
   }
   useFileDrop(busy ? null : { label: "Drop to use as your banner", onDrop: (data) => {
     const photo = Array.from(data.files).find((f) => f.type.startsWith("image/"));
@@ -104,10 +112,12 @@ export function BannerSheet({ banner, color, onClose, onSaved }: { banner: strin
   const placed = crop ? fit(crop, size.w, size.h) : null;
   return <InkSheet title="Banner" icon="camera" onClose={onClose} actions={crop ? <>
     <Seal tone="quiet" compact onClick={() => setCrop(null)} disabled={busy}>Back</Seal>
+    <Seal tone="quiet" compact onClick={() => input.current?.click()} disabled={busy}>Another photo</Seal>
     <Seal compact busy={busy} onClick={() => void save()}>Use this banner</Seal>
   </> : <>
     {banner ? <Seal tone="quiet" compact busy={busy} onClick={() => void send("DELETE")}>Remove</Seal> : null}
-    <Seal compact onClick={() => input.current?.click()} disabled={busy}><LineIcon name="camera" />{banner ? "Change" : "Choose a photo"}</Seal>
+    {banner ? <Seal tone="quiet" compact onClick={() => void adjust()} disabled={busy}><LineIcon name="crop" />Crop</Seal> : null}
+    <Seal compact onClick={() => input.current?.click()} disabled={busy}><LineIcon name="camera" />{banner ? "New photo" : "Choose a photo"}</Seal>
   </>}>
     <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { choose(e.target.files?.[0]); e.target.value = ""; }} />
     <div className="fr-banner-edit">
@@ -116,9 +126,11 @@ export function BannerSheet({ banner, color, onClose, onSaved }: { banner: strin
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={onKeyDown}>
           {/* eslint-disable-next-line @next/next/no-img-element -- a local photo being cropped */}
           <img src={crop.url} alt="" draggable={false} style={{ width: placed.width, height: placed.height, transform: `translate(calc(-50% + ${placed.x}px), calc(-50% + ${placed.y}px))` }} />
+          <span className="fr-banner-thirds" aria-hidden="true" />
+          <span className="fr-banner-hint" aria-hidden="true"><LineIcon name="move" />Drag to move</span>
         </div>
         <label className="fr-banner-zoom"><span>Zoom</span><input type="range" min={1} max={4} step={0.01} value={crop.zoom} onChange={(e) => place({ ...crop, zoom: Number(e.target.value) })} /></label>
-      </> : <button type="button" className="fr-banner-stage is-current" style={{ backgroundColor: color, backgroundImage: banner ? `url(${banner})` : undefined }} onClick={() => input.current?.click()} aria-label={banner ? "Change your banner" : "Choose a photo for your banner"}>
+      </> : <button type="button" className="fr-banner-stage is-current" style={{ backgroundColor: color, backgroundImage: banner ? `url(${banner})` : undefined }} onClick={() => (banner ? void adjust() : input.current?.click())} aria-label={banner ? "Crop your banner" : "Choose a photo for your banner"}>
         {banner ? null : <span><LineIcon name="camera" />Drop a photo, or choose one</span>}
       </button>}
       {problem ? <p className="fr-problem" role="alert">{problem}</p> : null}

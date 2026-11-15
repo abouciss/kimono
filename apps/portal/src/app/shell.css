@@ -392,7 +392,10 @@ html, body, .app-frame { overflow-x: clip; }
 .ink-sheet-bleed { position: absolute; left: -70px; top: -70px; width: 380px; height: 380px; z-index: -1; pointer-events: none; overflow: visible; }
 .ink-sheet-head { display: flex; align-items: center; gap: 14px; }
 .ink-sheet-head .k-ink-blot { width: 44px; height: 44px; }
-.ink-sheet-head h3 { font-size: 24px; }
+.ink-sheet-head h3 { font-size: 24px; flex: 1; min-width: 0; }
+.ink-sheet-x { display: grid; place-items: center; flex: none; width: 40px; height: 40px; margin: -4px -6px 0 auto; border: 0; border-radius: 12px 4px 12px 4px; background: none; color: var(--k-on-surface-variant); cursor: pointer; transition: background var(--k-t-state), color var(--k-t-state), transform .3s var(--k-spring); }
+.ink-sheet-x:hover { background: var(--k-container-highest); color: var(--k-on-surface); transform: rotate(90deg); }
+.ink-sheet-x .line-icon { width: 20px; height: 20px; }
 .ink-sheet-body { display: grid; gap: 16px; }
 .ink-sheet-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .ink-scrim { z-index: 75; }
