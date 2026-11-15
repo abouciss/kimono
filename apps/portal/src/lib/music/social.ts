@@ -98,7 +98,10 @@ export async function musicExtras(username: string) {
     const picture = kept?.data ? (JSON.parse(kept.data) as { artist?: { picture?: string | null } }).artist?.picture ?? null : null;
     artists.push({ key: a.key, name: a.name, picture });
   }
-  return { listening, plays: month.n, minutes: Math.round(month.s / 60), artists };
+  /* The song played through most this month. */
+  const repeat = db.prepare("SELECT track, count(*) AS n FROM plays WHERE username = ? AND played_at > ? AND seconds >= length * 0.6 GROUP BY track ORDER BY n DESC LIMIT 1").get(u, now - 30 * DAY) as { track: string; n: number } | undefined;
+  const [onRepeat] = repeat ? await tracksFor([repeat.track], 1) : [];
+  return { listening, plays: month.n, minutes: Math.round(month.s / 60), artists, onRepeat: onRepeat ? { track: onRepeat, plays: repeat!.n } : null };
 }
 
 /* ── Friends on a song ─────────────────────────────────────────────────── */

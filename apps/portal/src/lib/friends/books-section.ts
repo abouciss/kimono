@@ -39,6 +39,25 @@ export async function booksSections(viewer: string, username: string): Promise<S
   return booksSectionsFrom(listShelf(username.toLowerCase()));
 }
 
+/**
+ * What a profile's Books widgets show: their latest reviews (with how they
+ * rated the book) and the books they've read. The profile asks only when
+ * friends may see their Read shelf.
+ */
+export async function booksExtras(username: string) {
+  if (!(await booksOn())) return null;
+  const { booksDb, getBook } = await import("../books");
+  const rows = booksDb().prepare("SELECT key, rating, review, reviewed_at, updated_at FROM shelf WHERE username = ? AND state = 'read' ORDER BY updated_at DESC LIMIT 60")
+    .all(username.toLowerCase()) as { key: string; rating: string | null; review: string | null; reviewed_at: number | null; updated_at: number }[];
+  const books = rows.flatMap((r) => { const b = getBook(r.key); return b ? [{ r, b }] : []; });
+  const view = ({ r, b }: (typeof books)[number]) => ({ key: b.key, title: b.title, author: b.authors[0] ?? "", cover: b.cover, rating: (r.rating as "down" | "up" | "love" | null) ?? null, at: r.updated_at });
+  return {
+    reviews: books.filter(({ r }) => r.review?.trim()).sort((x, y) => (y.r.reviewed_at ?? 0) - (x.r.reviewed_at ?? 0)).slice(0, 6)
+      .map((x) => ({ ...view(x), review: x.r.review!.trim().slice(0, 600) })),
+    read: books.slice(0, 40).map(view),
+  };
+}
+
 /** Since when they've read on a Kimono Read (the profile's badge), or null. It's about the device, so it shows whatever the Books switch says. */
 export async function kimonoReadOf(username: string): Promise<{ since: string } | null> {
   const { kimonoReadSince } = await import("../books");

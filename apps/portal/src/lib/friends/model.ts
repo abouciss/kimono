@@ -213,7 +213,12 @@ export function linksFrom(raw: unknown): ProfileLink[] {
 
 /* ── A profile's home screen: widgets ──────────────────────────────────── */
 
-export const widgetKinds = ["listening", "song", "album", "reading", "watching", "artists", "stats", "note", "status", "clock", "links", "friends"] as const;
+export const widgetKinds = [
+  "listening", "song", "album", "artists", "playlist", "loved", "onrepeat",
+  "reading", "book", "review", "bookshelf", "yearbooks",
+  "watching", "show", "watched",
+  "stats", "note", "status", "clock", "links", "friends", "countdown", "quote",
+] as const;
 export type WidgetKind = (typeof widgetKinds)[number];
 /** Small (one cell), medium (two wide), large (two by two), extra large (the full row, two high). */
 export const widgetSizes = ["s", "m", "l", "xl"] as const;
@@ -221,7 +226,9 @@ export type WidgetSize = (typeof widgetSizes)[number];
 export type Widget = { id: string; kind: WidgetKind; size: WidgetSize; config?: Record<string, string> };
 export const widgetsLimit = 16;
 
-const https = (v: unknown) => { const t = text(v, 600); return /^https:\/\/[^\s]+$/i.test(t) ? t : ""; };
+/* A picture's address: on the web over https, or on this Portal (Watch's posters). */
+const https = (v: unknown) => { const t = text(v, 600); return /^https:\/\/[^\s]+$/i.test(t) || /^\/[^\s/][^\s]*$/.test(t) ? t : ""; };
+const snapshot = (c: Record<string, unknown>, key: string) => ({ key, title: text(c.title, 120), subtitle: text(c.subtitle, 120), cover: https(c.cover) });
 
 /** Widgets as arranged, checked: known kinds and sizes, and only what each kind keeps (a favourite's snapshot, a note's words, a zone). */
 export function widgetsFrom(raw: unknown): Widget[] {
@@ -240,6 +247,29 @@ export function widgetsFrom(raw: unknown): Widget[] {
       const key = text(c.key, 40);
       if (!/^dz:\d{1,20}$/.test(key)) throw new FriendsProblem("Pick a song or an album for it.");
       config = { key, title: text(c.title, 120), subtitle: text(c.subtitle, 120), cover: https(c.cover) };
+    } else if (kind === "book") {
+      const key = text(c.key, 100);
+      if (!/^[a-z]{2}:[\w:./-]{1,90}$/.test(key)) throw new FriendsProblem("Pick a book for it.");
+      config = snapshot(c, key);
+    } else if (kind === "show") {
+      const key = text(c.key, 100);
+      if (!/^[\w:.-]{1,90}$/.test(key)) throw new FriendsProblem("Pick a film or a show for it.");
+      config = snapshot(c, key);
+    } else if (kind === "playlist") {
+      const key = text(c.key, 60);
+      if (!/^[\w-]{8,60}$/.test(key)) throw new FriendsProblem("Pick one of your playlists.");
+      config = snapshot(c, key);
+    } else if (kind === "countdown") {
+      const date = text(c.date, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) throw new FriendsProblem("Pick a day to count down to.");
+      config = { date, label: text(c.label, 40) };
+    } else if (kind === "quote") {
+      const words = text(c.text, 201);
+      if (!words || [...words].length > 200) throw new FriendsProblem("A quote is a few words, under 200 characters.");
+      config = { text: words, by: text(c.by, 60) };
+    } else if (kind === "yearbooks") {
+      const goal = text(c.goal, 3);
+      config = { goal: /^\d{1,3}$/.test(goal) ? goal : "" };
     } else if (kind === "note") {
       const words = text(c.text, 161);
       if ([...words].length > 160) throw new FriendsProblem("Keep a note under 160 characters.");
