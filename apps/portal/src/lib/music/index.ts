@@ -256,6 +256,25 @@ export function history(username: string, limit = 50): (Track & { playedAt: stri
   return rows.flatMap((r) => { const t = tracks.get(r.track); return t ? [{ ...t, playedAt: new Date(r.at).toISOString() }] : []; });
 }
 
+/**
+ * The songs you come back to: each play heard past 30s counts, less as it ages
+ * (half every 30 days), so this month's favourite beats last spring's.
+ */
+export function mostPlayed(username: string, limit = 27): Track[] {
+  const now = Date.now();
+  const rows = musicDb().prepare("SELECT track, played_at FROM plays WHERE username = ? AND seconds >= 30 AND played_at > ?").all(user(username), now - 180 * DAY) as { track: string; played_at: number }[];
+  const score = new Map<string, { s: number; last: number }>();
+  for (const r of rows) {
+    const x = score.get(r.track) ?? { s: 0, last: 0 };
+    x.s += Math.pow(0.5, (now - r.played_at) / (30 * DAY));
+    x.last = Math.max(x.last, r.played_at);
+    score.set(r.track, x);
+  }
+  const keys = [...score.entries()].sort((a, b) => b[1].s - a[1].s || b[1].last - a[1].last).slice(0, limit).map(([k]) => k);
+  const tracks = keptTracks(keys);
+  return keys.flatMap((k) => tracks.get(k) ?? []);
+}
+
 /* ── Ratings ───────────────────────────────────────────────────────────── */
 
 export type RatedItem = { kind: RatedKind; key: string; rating: Rating; title: string; subtitle: string; picture: string | null; updatedAt: string };
@@ -578,6 +597,10 @@ const shuffled = <T,>(list: T[], seed: number) => {
 export type Home = {
   greeting: "new" | "back";
   jumpBack: (Track & { playedAt: string })[];
+  /** Your most played, for the grid at the top (pages of nine). */
+  listenAgain: Track[];
+  /** The artists you play most. */
+  yourArtists: Artist[];
   mixes: Row[];
   artists: Artist[];
   charts: Row;
@@ -615,14 +638,18 @@ export async function homeFor(config: MusicConfig, username: string): Promise<Ho
   /* Artists like the ones you play that you haven't played yet. */
   const known = new Set(t.artists.map((a) => a.key));
   let artists: Artist[] = top.artists;
+  const pages = await Promise.all(t.artists.slice(0, 10).map((a) => getArtist(config, a.key).catch(() => null)));
+  const yourArtists = pages.flatMap((p) => p ? [p.artist] : []);
   if (t.artists.length) {
-    const related = await Promise.all(t.artists.slice(0, 4).map((a) => getArtist(config, a.key).then((p) => p?.related ?? []).catch(() => [])));
+    const related = pages.slice(0, 4).map((p) => p?.related ?? []);
     const fresh = related.flat().filter((a, i, all) => !known.has(a.key) && !t.disliked.has(a.key) && all.findIndex((b) => b.key === a.key) === i);
     if (fresh.length >= 4) artists = shuffled(fresh, daySeed).slice(0, 12);
   }
   return {
     greeting: t.plays ? "back" : "new",
     jumpBack: recent,
+    listenAgain: mostPlayed(username),
+    yourArtists: yourArtists.length >= 3 ? yourArtists : [],
     mixes,
     artists,
     charts: { id: "chart", title: "Top songs", items: mixed(top.tracks, username, t.disliked, heard.size > 30 ? heard : new Set()).slice(0, 20) },
