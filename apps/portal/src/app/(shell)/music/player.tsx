@@ -54,10 +54,16 @@ type Player = {
   panel: Panel;
   setPanel(p: Panel): void;
   nowPlaying: boolean;
+  /** Opening or closing the song in full starts it on its lyrics. */
   setNowPlaying(open: boolean): void;
   say(text: string): void;
-  toast: { text: string; at: number } | null;
+  toast: Toast | null;
+  /** Held while you're reaching for the toast (its menu is open), so it doesn't go mid-choice. */
+  holdToast(held: boolean): void;
 };
+
+/** A word along the bottom. `playlistFor` offers those songs a playlist: after a like, which already put them in Liked songs. */
+export type Toast = { text: string; at: number; playlistFor?: string[]; held?: boolean };
 
 const PlayerContext = createContext<Player | null>(null);
 export const usePlayer = () => {
@@ -103,8 +109,9 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
   const [volume, setVolumeState] = useState(() => stored("km-volume", 1));
   const [muted, setMutedState] = useState(() => stored("km-muted", false));
   const [panel, setPanel] = useState<Panel>(null);
-  const [nowPlaying, setNowPlaying] = useState(false);
-  const [toast, setToast] = useState<{ text: string; at: number } | null>(null);
+  const [nowPlaying, setNowPlayingState] = useState(false);
+  const setNowPlaying = useCallback((open: boolean) => { setNowPlayingState(open); setPanel(null); }, []);
+  const [toast, setToast] = useState<Toast | null>(null);
   const [rated, setRated] = useState<Map<string, Rating>>(new Map());
   const [arriving, setArriving] = useState<SongStatus | null>(null);
 
@@ -120,7 +127,12 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
   const current = tracks[index] ?? null;
 
   const say = useCallback((text: string) => setToast({ text, at: Date.now() }), []);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3200); return () => clearTimeout(t); }, [toast]);
+  const holdToast = useCallback((held: boolean) => setToast((t) => (t ? { ...t, held } : t)), []);
+  useEffect(() => {
+    if (!toast || toast.held) return;
+    const t = setTimeout(() => setToast(null), toast.playlistFor ? 5000 : 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   /* ── The audio element ─────────────────────────────────────────────── */
   /* Kept off the page: the page is copied while it slides between pages, and a copied player would play twice. */
@@ -359,6 +371,9 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
     const id = `${kind}:${key}`;
     const before = rated.get(id) ?? null;
     setRated((m) => { const n = new Map(m); if (rating) n.set(id, rating); else n.delete(id); return n; });
+    /* Up and love keep a song in Liked songs: the first time, say so, and offer a playlist too. */
+    const likes = (r: Rating | null) => r === "up" || r === "love";
+    if (kind === "track" && likes(rating) && !likes(before)) setToast({ text: "In Liked songs", at: Date.now(), playlistFor: [key] });
     musicApi.rate(kind, key, rating).catch(() => {
       setRated((m) => { const n = new Map(m); if (before) n.set(id, before); else n.delete(id); return n; });
       say("That rating didn't save.");
@@ -425,7 +440,7 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
-  }, [toggle, next, prev, seek, setMuted]);
+  }, [toggle, next, prev, seek, setMuted, setNowPlaying]);
 
   const value = useMemo<Player>(() => ({
     you, arriving,
@@ -433,8 +448,8 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
     position: () => audio.current?.currentTime ?? 0,
     duration: () => (Number.isFinite(audio.current?.duration) ? audio.current!.duration : 0),
     play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted,
-    ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast,
-  }), [you, arriving, tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted, play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted, ratingOf, rate, panel, nowPlaying, say, toast]);
+    ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast, holdToast,
+  }), [you, arriving, tracks, index, current, source, playing, waiting, shuffle, repeat, volume, muted, play, toggle, next, prev, seek, jump, playNext, addToQueue, remove, move, setShuffle, cycleRepeat, setVolume, setMuted, ratingOf, rate, panel, setPanel, nowPlaying, setNowPlaying, say, toast, holdToast]);
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }

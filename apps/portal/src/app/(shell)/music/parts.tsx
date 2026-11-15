@@ -3,7 +3,7 @@
 import { Crossing, useCrossTo } from "@/components/crossing";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { cx, MorphLoader, Seal } from "@kimono/ui";
+import { blotPath, cx, inkRandom, MorphLoader, ringPath, Seal } from "@kimono/ui";
 import { byline, clock, forget, hrefOf, musicApi, share, type Album, type Artist, type Playlist, type RatedKind, type Rating, type Track } from "./api";
 import { askName } from "./ask";
 import { Icon } from "./icons";
@@ -44,19 +44,38 @@ export function Problem({ text, onRetry }: { text: string; onRetry?: () => void 
 
 const rates: [Rating, string][] = [["down", "Not for me"], ["up", "I like this"], ["love", "Love this"]];
 
-/** The three marks, inline: pressing the one that's set takes it back. */
-export function RateMarks({ kind, keyOf }: { kind: RatedKind; keyOf: string }) {
+/* Seeds from a string, so a song's wash keeps its shape wherever it's drawn. */
+function seedOf(text: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+  return hash >>> 0;
+}
+
+/** The ink under a set mark: a puddle of Music's colour and an open brush ring, its own for each song. */
+function Wash({ seed }: { seed: string }) {
+  const random = inkRandom(seedOf(seed));
+  return <svg className="km-rate-wash" viewBox="0 0 100 100" aria-hidden="true">
+    <path className="km-rate-puddle" d={blotPath(random, 50, 50, 40)} />
+    <path className="km-rate-ring" d={ringPath(random, 42, .9)} />
+  </svg>;
+}
+
+/**
+ * The three marks as one object, a tray with nothing else in it: pressing the
+ * one that's set takes it back. `size` is the bar's, the phone's or Now Playing's.
+ */
+export function RateMarks({ kind, keyOf, size = "bar", className }: { kind: RatedKind; keyOf: string; size?: "bar" | "md" | "lg"; className?: string }) {
   const p = usePlayer();
   const rating = p.ratingOf(kind, keyOf);
-  return <span className="km-rates" role="group" aria-label="Rate">
+  return <span className={cx("km-rates", size !== "bar" && `km-rates-${size}`, className)} role="group" aria-label="Rate">
     {rates.map(([r, label]) => <button key={r} type="button" className={cx("km-rate", rating === r && "km-on", `km-rate-${r}`)} aria-pressed={rating === r} aria-label={label} title={label}
-      onClick={(e) => { e.stopPropagation(); p.rate(kind, keyOf, rating === r ? null : r); }}><Icon name={r} /></button>)}
+      onClick={(e) => { e.stopPropagation(); p.rate(kind, keyOf, rating === r ? null : r); }}>{rating === r ? <Wash seed={`${keyOf}:${r}`} /> : null}<Icon name={r} /></button>)}
   </span>;
 }
 
 /* ── Menus ─────────────────────────────────────────────────────────────── */
 
-type Item = { label: string; icon?: Parameters<typeof Icon>[0]["name"]; run?: () => void | Promise<void>; href?: string; sub?: () => Promise<Item[]>; danger?: boolean };
+export type Item = { label: string; icon?: Parameters<typeof Icon>[0]["name"]; run?: () => void | Promise<void>; href?: string; sub?: () => Promise<Item[]>; danger?: boolean };
 
 /** A menu that opens beside what it belongs to, raised over the page. */
 export function Menu({ anchor, items, onClose }: { anchor: HTMLElement; items: Item[]; onClose: () => void }) {
@@ -112,41 +131,54 @@ export function playlistItems(keys: string[], say: (t: string) => void): () => P
 export function MoreButton({ label = "More", items, className }: { label?: string; items: () => Item[]; className?: string }) {
   const [open, setOpen] = useState<HTMLElement | null>(null);
   return <>
-    <button type="button" className={cx("km-iconbtn", className)} aria-label={label} aria-haspopup="menu" aria-expanded={Boolean(open)}
+    <button type="button" className={cx("km-iconbtn", className)} aria-label={label} title={label} aria-haspopup="menu" aria-expanded={Boolean(open)}
       onClick={(e) => { e.stopPropagation(); setOpen(open ? null : e.currentTarget); }}><Icon name="more" /></button>
     {open ? <Menu anchor={open} items={items()} onClose={() => setOpen(null)} /> : null}
   </>;
 }
 
 /**
- * "Add to playlist", where a song is: your playlists (and a new one) in a menu.
- * As an icon in the bar, or a labelled button in Now Playing.
+ * "Add to playlist", worded: your playlists (and a new one) in a menu. A quiet
+ * seal in Now Playing's header, never beside the marks.
  */
-export function AddToPlaylist({ keys, labelled = false, className }: { keys: string[]; labelled?: boolean; className?: string }) {
+export function AddToPlaylist({ keys, compact = true, className }: { keys: string[]; compact?: boolean; className?: string }) {
   const p = usePlayer();
   const [open, setOpen] = useState<{ at: HTMLElement; items: Item[] } | null>(null);
   return <>
-    <button type="button" className={cx(labelled ? "km-pillbtn" : "km-iconbtn km-small", className)} aria-label="Add to playlist" title="Add to playlist" aria-haspopup="menu" aria-expanded={Boolean(open)}
+    <Seal tone="quiet" compact={compact} className={cx("km-seal-icon", className)} aria-haspopup="menu" aria-expanded={Boolean(open)}
       onClick={async (e) => {
         e.stopPropagation();
         if (open) { setOpen(null); return; }
         const at = e.currentTarget;
         setOpen({ at, items: await playlistItems(keys, p.say)() });
-      }}><Icon name="add" />{labelled ? <span>Add to playlist</span> : null}</button>
+      }}><Icon name="playlistAdd" />Add to playlist</Seal>
     {open ? <Menu anchor={open.at} items={open.items} onClose={() => setOpen(null)} /> : null}
   </>;
+}
+
+/**
+ * A song's own menu where it's playing (the bar, Now Playing): Add to playlist
+ * first, then where to go. `withRates` puts the marks in it, for when the bar
+ * has no room for them.
+ */
+export function songMenuItems(t: Track, p: ReturnType<typeof usePlayer>, withRates = false): Item[] {
+  const rating = p.ratingOf("track", t.key);
+  const marks = withRates ? rates.map(([r, label]): Item => ({ label: rating === r ? `${label} (undo)` : label, icon: r, run: () => p.rate("track", t.key, rating === r ? null : r) })) : [];
+  const all = trackItems(t, p);
+  const pick = (label: string) => all.filter((i) => i.label === label);
+  return [...marks, ...pick("Add to playlist"), ...pick("Song radio"), ...pick("Share"), ...pick("Go to song"), ...pick("Go to artist"), ...pick("Go to album")];
 }
 
 function trackItems(t: Track, p: ReturnType<typeof usePlayer>, extra: Item[] = []): Item[] {
   return [
     { label: "Play next", icon: "next", run: () => p.playNext([t]) },
     { label: "Add to queue", icon: "queue", run: () => p.addToQueue([t]) },
-    { label: "Add to playlist", icon: "playlist", sub: playlistItems([t.key], p.say) },
+    { label: "Add to playlist", icon: "playlistAdd", sub: playlistItems([t.key], p.say) },
     { label: "Song radio", icon: "radio", run: () => { musicApi.radio(t.key, []).then(({ tracks }) => p.play([t, ...tracks], 0, { kind: "radio", id: t.key, title: `Like ${t.title}` })).catch(() => p.say("No radio for that one right now.")); } },
     { label: "Go to song", icon: "note", href: hrefOf.song(t.key) },
     { label: "Share", icon: "share", run: async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); } },
-    ...(t.artists[0] ? [{ label: "Go to artist", icon: "back" as const, href: hrefOf.artist(t.artists[0].key) }] : []),
-    ...(t.album ? [{ label: "Go to album", icon: "back" as const, href: hrefOf.album(t.album.key) }] : []),
+    ...(t.artists[0] ? [{ label: "Go to artist", icon: "person" as const, href: hrefOf.artist(t.artists[0].key) }] : []),
+    ...(t.album ? [{ label: "Go to album", icon: "album" as const, href: hrefOf.album(t.album.key) }] : []),
     ...extra,
   ];
 }

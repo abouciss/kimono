@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music player controls</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Kata tokens, as the Portal sets them inside Music (base #214a83). */
+:root {
+  --base: #214a83;
+  --k-display: "Shippori Mincho", "Hiragino Mincho ProN", serif;
+  --k-sans: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif;
+  --k-r-s: 8px; --k-r-m: 12px; --k-r-l: 16px; --k-r-xl: 28px;
+  --k-spring: cubic-bezier(.38, 1.21, .22, 1);
+  --k-settle: cubic-bezier(.2, .9, .25, 1);
+
+  --k-ink: #24221f;
+  --k-plum: #4e2b37;
+  --k-surface: #fffbf7;
+  --k-container-lowest: #ffffff;
+  --k-container-low: #fcf4ef;
+  --k-container: #f7eee8;
+  --k-container-high: #f1e8e2;
+  --k-container-highest: #ebe2dc;
+  --k-on-surface: #221a17;
+  --k-on-surface-variant: #54443f;
+  --k-accent: var(--base);
+  --k-accent-deep: color-mix(in srgb, var(--base) 82%, #24221f);
+  --k-on-accent: #fffdf8;
+  --k-accent-wash: color-mix(in srgb, var(--base) 18%, #fff);
+  --k-secondary-container: color-mix(in srgb, var(--base) 11%, #fff);
+  --k-on-secondary-container: color-mix(in srgb, var(--base) 55%, #24221f);
+  --k-app-text: color-mix(in srgb, var(--base) 80%, #24221f);
+  --k-shadow-raised: 0 1px 2px rgba(78, 43, 55, .12), 0 16px 40px -12px rgba(78, 43, 55, .32);
+  --k-rail: 96px;
+  --page: #efe6df;
+  --note: #6f5d57;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --k-ink: #efe0da; --k-plum: #f2e1ca;
+    --k-surface: #19120f; --k-container-lowest: #130d0b; --k-container-low: #221a17; --k-container: #261e1b;
+    --k-container-high: #312825; --k-container-highest: #3c3330; --k-on-surface: #efe0da; --k-on-surface-variant: #d8c2bd;
+    --k-accent: oklch(from var(--base) .76 .12 h);
+    --k-accent-deep: oklch(from var(--base) .68 .12 h);
+    --k-on-accent: oklch(from var(--base) .2 .04 h);
+    --k-accent-wash: oklch(from var(--base) .44 .07 h);
+    --k-secondary-container: oklch(from var(--base) .40 .05 h);
+    --k-on-secondary-container: oklch(from var(--base) .96 .03 h);
+    --k-app-text: oklch(from var(--base) .86 .08 h);
+    --k-shadow-raised: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px -12px rgba(0,0,0,.7);
+    --page: #120d0b; --note: #b9a6a0;
+  }
+}
+:root[data-theme="dark"] {
+  --k-ink: #efe0da; --k-plum: #f2e1ca;
+  --k-surface: #19120f; --k-container-lowest: #130d0b; --k-container-low: #221a17; --k-container: #261e1b;
+  --k-container-high: #312825; --k-container-highest: #3c3330; --k-on-surface: #efe0da; --k-on-surface-variant: #d8c2bd;
+  --k-accent: oklch(from var(--base) .76 .12 h);
+  --k-accent-deep: oklch(from var(--base) .68 .12 h);
+  --k-on-accent: oklch(from var(--base) .2 .04 h);
+  --k-accent-wash: oklch(from var(--base) .44 .07 h);
+  --k-secondary-container: oklch(from var(--base) .40 .05 h);
+  --k-on-secondary-container: oklch(from var(--base) .96 .03 h);
+  --k-app-text: oklch(from var(--base) .86 .08 h);
+  --k-shadow-raised: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px -12px rgba(0,0,0,.7);
+  --page: #120d0b; --note: #b9a6a0;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--k-on-surface); font-family: var(--k-sans); font-size: 15px; line-height: 1.5; overflow-x: hidden; }
+button { font: inherit; color: inherit; }
+a { color: inherit; }
+
+/* ── The document around the frames ───────────────────────────── */
+.doc { max-width: 1240px; margin: 0 auto; padding: 40px 16px 120px; }
+.doc > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+.doc h1 { margin: 0; font: 600 34px/38px var(--k-display); color: var(--k-plum); }
+.doc h2 { margin: 56px 0 6px; font: 600 26px/31px var(--k-display); color: var(--k-plum); }
+.doc h3 { margin: 28px 0 8px; font: 700 13px/16px var(--k-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--note); }
+.doc p.lede { margin: 6px 0 0; max-width: 64ch; color: var(--note); }
+.doc .say { max-width: 72ch; color: var(--note); margin: 0 0 14px; }
+.themebtn { height: 40px; padding: 0 16px; border: 0; border-radius: var(--k-r-m); background: var(--k-container-highest); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--k-on-surface) 16%, var(--k-container-highest)); font-weight: 700; font-size: 14px; cursor: pointer; }
+.themebtn:active { transform: translateY(2px); box-shadow: none; }
+
+.stage { position: relative; width: 100%; overflow: hidden; border-radius: 14px; }
+.stage > .frame { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.frame { background: var(--k-surface); overflow: hidden; border-radius: 14px; }
+.callouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 24px; margin: 14px 0 0; padding: 0; list-style: none; font-size: 14px; color: var(--note); }
+.callouts b { color: var(--k-on-surface); font-weight: 700; }
+.callouts li { display: flex; gap: 10px; }
+.pin { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--k-accent); color: var(--k-on-accent); font: 700 12px/1 var(--k-sans); }
+.mark-pin { position: absolute; z-index: 9; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; background: var(--k-accent); color: var(--k-on-accent); font: 700 12px/1 var(--k-sans); box-shadow: 0 0 0 3px var(--k-surface); pointer-events: none; }
+.showpins .mark-pin { display: grid; }
+.hidepins .mark-pin { display: none; }
+
+.pair { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 32px; align-items: start; }
+@media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+
+/* ── Icons ─────────────────────────────────────────────────────── */
+.ic { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; }
+
+/* ── Shared controls ───────────────────────────────────────────── */
+.ib { position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: var(--k-r-m); background: none; color: var(--k-on-surface-variant); cursor: pointer; transition: background .18s var(--k-settle), color .18s; }
+.ib:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); color: var(--k-on-surface); }
+.ib .ic { width: 22px; height: 22px; }
+.ib.sm .ic { width: 20px; height: 20px; }
+/* A toggle that's on is a pressed stamp: sunk into the bar, toned, no dot. */
+.ib.on { background: var(--k-secondary-container); color: var(--k-on-secondary-container); box-shadow: inset 0 2px 0 color-mix(in srgb, var(--k-ink) 14%, transparent); transform: translateY(1px); }
+
+/* Play: the bar's seal. */
+.play { position: relative; display: grid; place-items: center; width: 52px; height: 46px; padding: 0; border: 0; border-radius: var(--k-r-m); background: var(--k-accent); color: var(--k-on-accent); cursor: pointer; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--k-accent) 72%, var(--k-ink)); transition: transform .12s var(--k-settle), box-shadow .12s; }
+.play::before { content: ""; position: absolute; inset: 4px; border: 1px solid color-mix(in srgb, var(--k-on-accent) 34%, transparent); border-radius: 9px; pointer-events: none; }
+.play:hover { background: var(--k-accent-deep); }
+.play:active { transform: translateY(2px); box-shadow: none; }
+.play .ic { width: 26px; height: 26px; }
+.play.lg { width: 64px; height: 56px; }
+.play.lg .ic { width: 30px; height: 30px; }
+.play.sm { width: 48px; height: 44px; }
+
+/* The rate tray: the three marks as one object, and nothing else in it. */
+.rate { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--k-r-m); background: var(--k-container-high); flex: none; }
+.rate button { position: relative; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--k-r-s); background: none; color: var(--k-on-surface-variant); cursor: pointer; transition: background .18s, color .18s, transform .12s var(--k-spring); }
+.rate button .ic { position: relative; z-index: 1; width: 18px; height: 18px; }
+.rate button:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); color: var(--k-on-surface); }
+.rate button:active { transform: scale(.88); }
+.rate button.set { color: var(--k-accent); }
+.rate button.set .wash { opacity: 1; }
+.rate button.set.love .ic { animation: love .42s var(--k-spring); }
+@keyframes love { 40% { transform: scale(1.25); } }
+.wash { position: absolute; inset: -3px; opacity: 0; transition: opacity .24s var(--k-settle); pointer-events: none; }
+.wash svg { width: 100%; height: 100%; overflow: visible; }
+.wash .fill { fill: var(--k-accent-wash); opacity: .85; }
+.wash .ring { fill: none; stroke: var(--k-plum); stroke-width: 1.2; opacity: .8; stroke-linecap: round; }
+.rate.md button { width: 40px; height: 40px; }
+.rate.md button .ic { width: 22px; height: 22px; }
+.rate.lg { padding: 3px; gap: 4px; }
+.rate.lg button { width: 44px; height: 44px; border-radius: 10px; }
+.rate.lg button .ic { width: 22px; height: 22px; }
+
+/* View leaves: Lyrics and Queue, worded, seated when open. */
+.leaves { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--k-r-m); background: var(--k-container-high); flex: none; }
+.leaf { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border: 0; border-radius: var(--k-r-s); background: none; color: var(--k-on-surface-variant); font: 700 13px/16px var(--k-sans); cursor: pointer; transition: background .18s, color .18s; white-space: nowrap; }
+.leaf .ic { width: 20px; height: 20px; }
+.leaf:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); color: var(--k-on-surface); }
+.leaf.on { background: var(--k-secondary-container); color: var(--k-on-secondary-container); }
+.leaf.on::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 14px; height: 3px; margin-left: -7px; border-radius: 2px; background: var(--k-accent); }
+.leaf.lifted { color: color-mix(in srgb, var(--k-on-surface-variant) 55%, transparent); cursor: default; }
+.leaf.lifted:hover { background: none; }
+.leaves.stack .leaf { flex-direction: column; justify-content: center; gap: 1px; height: 48px; padding: 0 10px; font-size: 11px; line-height: 13px; }
+.leaves.stack .leaf.on::after { bottom: 2px; }
+.leaves.wide { display: flex; }
+.leaves.wide .leaf { flex: 1; justify-content: center; height: 44px; font-size: 14px; }
+
+/* A quiet compact seal (Now Playing's Add to playlist). */
+.seal-quiet { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 12px; border: 0; border-radius: var(--k-r-m); background: var(--k-container-highest); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--k-on-surface) 16%, var(--k-container-highest)); color: var(--k-on-surface); font: 700 14px/1 var(--k-sans); letter-spacing: .02em; cursor: pointer; white-space: nowrap; }
+.seal-quiet .ic { width: 20px; height: 20px; }
+.seal-quiet:active { transform: translateY(2px); box-shadow: none; }
+
+/* Slider */
+.slider { position: relative; height: 18px; display: grid; align-items: center; cursor: pointer; }
+.slider .railbar { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--k-on-surface) 16%, transparent); overflow: hidden; transition: height .18s; }
+.slider .railbar i { display: block; height: 100%; width: var(--f); background: var(--k-on-surface-variant); }
+.slider:hover .railbar { height: 6px; }
+.slider:hover .railbar i { background: var(--k-accent); }
+.slider .knob { position: absolute; left: var(--f); width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--k-on-surface); opacity: 0; transition: opacity .18s; }
+.slider:hover .knob { opacity: 1; }
+.time { font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--k-on-surface-variant); }
+
+/* Cover */
+.cover { display: block; flex: none; border-radius: var(--k-r-s); overflow: hidden; background: #1b2f55; }
+.cover svg { width: 100%; height: 100%; display: block; }
+
+/* Raised menu, ink-and-wash */
+.menu { width: 248px; padding: 6px; border-radius: var(--k-r-m); background: var(--k-container-high); box-shadow: var(--k-shadow-raised); }
+.menu .mi { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: var(--k-r-s); background: none; text-align: left; font: 500 15px/20px var(--k-sans); cursor: pointer; }
+.menu .mi:hover { background: color-mix(in srgb, var(--k-on-surface) 8%, transparent); }
+.menu .mi .ic { width: 20px; height: 20px; color: var(--k-on-surface-variant); }
+.menu .mi .more { margin-left: auto; color: var(--k-on-surface-variant); }
+.menu .sep { height: 1px; margin: 4px 10px; background: color-mix(in srgb, var(--k-on-surface) 10%, transparent); }
+.menu .rate-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 8px 12px; }
+.menu .rate-row span { font: 700 12px/16px var(--k-sans); color: var(--k-on-surface-variant); }
+
+.toast { display: inline-flex; align-items: center; gap: 14px; padding: 12px 10px 12px 18px; border-radius: var(--k-r-m); background: var(--k-on-surface); color: var(--k-surface); box-shadow: var(--k-shadow-raised); font: 500 14px/20px var(--k-sans); }
+.toast button { height: 32px; padding: 0 10px; border: 0; border-radius: var(--k-r-s); background: none; color: color-mix(in srgb, var(--k-accent) 55%, var(--k-surface)); font: 700 14px/1 var(--k-sans); cursor: pointer; }
+.toast button:hover { background: color-mix(in srgb, var(--k-surface) 12%, transparent); }
+
+/* ── The app frame around the bar ─────────────────────────────── */
+.app { position: relative; display: flex; height: 100%; }
+.rail { width: var(--k-rail); flex: none; background: var(--k-container); display: flex; flex-direction: column; align-items: center; gap: 22px; padding-top: 22px; }
+.rail i { width: 28px; height: 28px; border-radius: 50%; background: var(--k-container-highest); }
+.rail i.here { background: var(--k-accent-wash); box-shadow: 0 0 0 6px color-mix(in srgb, var(--k-accent) 22%, transparent); }
+.page { position: relative; flex: 1; min-width: 0; padding: 26px 32px; }
+.ghost { height: 14px; border-radius: 7px; background: var(--k-container-high); margin: 0 0 14px; }
+.ghost.t { width: 40%; height: 26px; background: var(--k-container-highest); }
+
+/* Bar: wide */
+.bar { position: absolute; left: var(--k-rail); right: 0; bottom: 0; height: 88px; display: grid; grid-template-columns: minmax(260px, 1fr) minmax(360px, 1.3fr) minmax(260px, 1fr); align-items: center; gap: 16px; padding: 0 16px 0 14px; background: var(--k-container); }
+.b-song { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.b-name { display: grid; min-width: 0; flex: 0 1 auto; margin-right: 8px; }
+.b-title { font: 700 15px/20px var(--k-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-by { font-size: 13px; line-height: 18px; color: var(--k-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-by a { text-decoration: none; } .b-by a:hover { text-decoration: underline; }
+.b-mid { display: grid; justify-items: center; gap: 2px; }
+.transport { display: flex; align-items: center; gap: 8px; }
+.seek { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 8px; align-items: center; width: 100%; max-width: 640px; }
+.seek .time:first-child { text-align: right; }
+.b-end { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.vol { display: flex; align-items: center; gap: 2px; }
+.vol .slider { width: 96px; }
+.gap8 { width: 8px; flex: none; }
+
+/* Bar: medium */
+.bar.mdm { height: 80px; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; }
+.topseek { position: absolute; left: 0; right: 0; top: -5px; height: 12px; display: grid; align-items: center; cursor: pointer; }
+.topseek .railbar { height: 4px; background: color-mix(in srgb, var(--k-on-surface) 12%, transparent); }
+.topseek .railbar i { display: block; height: 100%; width: var(--f); background: var(--k-accent); }
+.topseek .tag { position: absolute; top: -26px; padding: 2px 7px; border-radius: 6px; background: var(--k-container-highest); box-shadow: var(--k-shadow-raised); font: 700 11.5px/16px var(--k-sans); font-variant-numeric: tabular-nums; }
+.topseek .knob { position: absolute; left: var(--f); top: 0; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--k-on-surface); }
+
+/* Queue panel (for the medium frame) */
+.qpanel { position: absolute; right: 12px; top: 12px; bottom: 92px; width: 360px; padding: 16px; border-radius: var(--k-r-xl); background: var(--k-container-high); box-shadow: var(--k-shadow-raised); }
+.qpanel header { display: flex; align-items: center; justify-content: space-between; }
+.qpanel h4 { margin: 0; font: 600 22px/27px var(--k-display); color: var(--k-plum); }
+.qtools { display: flex; gap: 8px; margin: 12px 0 6px; }
+.qt { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border: 0; border-radius: var(--k-r-s); background: var(--k-container-highest); color: var(--k-on-surface-variant); font: 700 13px/1 var(--k-sans); cursor: pointer; }
+.qt .ic { width: 18px; height: 18px; }
+.qt.on { background: var(--k-secondary-container); color: var(--k-on-secondary-container); box-shadow: inset 0 2px 0 color-mix(in srgb, var(--k-ink) 14%, transparent); }
+.lbl { font: 700 12px/16px var(--k-sans); letter-spacing: .04em; color: var(--k-on-surface-variant); margin: 14px 0 6px; }
+.qrow { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 6px; border-radius: var(--k-r-m); }
+.qrow:hover { background: color-mix(in srgb, var(--k-on-surface) 6%, transparent); }
+.qrow .nm { display: grid; min-width: 0; flex: 1; }
+.qrow .nm b { font: 500 14.5px/19px var(--k-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qrow .nm span { font-size: 12.5px; color: var(--k-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qrow.now .nm b { color: var(--k-app-text); font-weight: 700; }
+
+/* Now Playing: desktop */
+.np { position: absolute; left: var(--k-rail); right: 0; top: 0; bottom: 88px; background: var(--k-container-low); display: grid; grid-template-rows: 64px minmax(0, 1fr); }
+.np-head { display: flex; align-items: center; gap: 8px; padding: 0 20px 0 32px; }
+.from { display: grid; margin-right: auto; }
+.from small { font: 700 11.5px/14px var(--k-sans); letter-spacing: .05em; color: var(--k-on-surface-variant); }
+.from a { font: 700 15px/20px var(--k-sans); color: var(--k-app-text); text-decoration: none; }
+.from a:hover { text-decoration: underline; }
+.np-body { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.2fr); gap: 56px; padding: 0 64px 0 64px; min-height: 0; }
+.np-song { display: grid; justify-items: center; align-content: center; gap: 0; text-align: center; }
+.np-song .cover { width: 380px; height: 380px; border-radius: var(--k-r-l); box-shadow: 0 30px 60px -24px color-mix(in srgb, var(--k-plum) 55%, transparent); }
+.np-title { margin: 24px 0 4px; font: 600 32px/38px var(--k-display); color: var(--k-plum); }
+.np-by { margin: 0 0 20px; font-size: 16px; color: var(--k-on-surface-variant); }
+.np-by a { color: var(--k-app-text); text-decoration: none; }
+.np-by a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.np-side { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; min-height: 0; padding-top: 4px; }
+.lyrics { overflow: hidden; mask-image: linear-gradient(transparent, #000 14%, #000 80%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 80%, transparent); padding-top: 40px; }
+.lyrics p { margin: 0; padding: 7px 0; font: 700 28px/1.3 var(--k-sans); color: color-mix(in srgb, var(--k-on-surface) 30%, transparent); }
+.lyrics p.past { color: color-mix(in srgb, var(--k-on-surface) 46%, transparent); }
+.lyrics p.now { color: var(--k-on-surface); transform: scale(1.03); transform-origin: left; }
+
+/* Phone */
+.phone { position: relative; width: 390px; height: 844px; border-radius: 40px; background: var(--k-surface); overflow: hidden; box-shadow: 0 0 0 10px var(--k-container-highest), 0 30px 60px -30px rgba(0,0,0,.5); }
+.ph-page { padding: 64px 16px 0; }
+.ph-nav { position: absolute; left: 0; right: 0; bottom: 0; height: 76px; background: var(--k-container); display: flex; justify-content: space-around; align-items: center; padding-bottom: 14px; }
+.ph-nav i { width: 26px; height: 26px; border-radius: 8px; background: var(--k-container-highest); }
+.mini { position: absolute; left: 8px; right: 8px; bottom: 82px; height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 8px; border-radius: var(--k-r-m); background: var(--k-container-high); box-shadow: var(--k-shadow-raised); overflow: hidden; }
+.mini .prog { position: absolute; left: 0; top: 0; height: 3px; width: 22%; background: var(--k-accent); }
+.mini .b-name { flex: 1; }
+
+.ph-np { position: absolute; inset: 0; background: var(--k-container-low); display: flex; flex-direction: column; padding: 52px 20px 26px; }
+.ph-head { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; text-align: center; }
+.ph-head .from { margin: 0; justify-items: center; }
+.ph-head .from a { font-size: 14px; }
+.ph-np .cover { width: 350px; height: 350px; margin: 18px auto 0; border-radius: var(--k-r-l); box-shadow: 0 24px 48px -24px color-mix(in srgb, var(--k-plum) 55%, transparent); }
+.ph-name { display: flex; align-items: center; gap: 12px; margin-top: 22px; }
+.ph-name > div { flex: 1; min-width: 0; }
+.ph-name h5 { margin: 0; font: 600 24px/30px var(--k-display); color: var(--k-plum); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-name p { margin: 0; font-size: 15px; color: var(--k-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-name p a { color: var(--k-app-text); text-decoration: none; }
+.ph-seek { margin-top: 16px; }
+.ph-seek .times { display: flex; justify-content: space-between; margin-top: 2px; }
+.ph-trans { display: flex; align-items: center; justify-content: space-between; margin: 10px 4px 0; }
+.ph-trans .ib { width: 48px; height: 48px; }
+.ph-trans .ib .ic { width: 26px; height: 26px; }
+.ph-trans .ib.sm .ic { width: 22px; height: 22px; }
+.ph-np .leaves.wide { margin-top: auto; }
+
+/* States board */
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.cell { padding: 18px; border-radius: var(--k-r-l); background: var(--k-surface); display: grid; gap: 12px; align-content: start; }
+.cell h6 { margin: 0; font: 700 12px/16px var(--k-sans); letter-spacing: .05em; color: var(--note); text-transform: uppercase; }
+.cell .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cell .cap { font-size: 13px; color: var(--note); }
+.cellbar { padding: 16px; border-radius: var(--k-r-m); background: var(--k-container); }
+
+.verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 12px; }
+.verdict > div { padding: 18px 20px; border-radius: var(--k-r-l); background: var(--k-container-low); }
+.verdict b { display: block; font: 600 19px/24px var(--k-display); color: var(--k-plum); margin-bottom: 6px; }
+.verdict p { margin: 0; font-size: 14.5px; color: var(--k-on-surface-variant); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.3A1 1 0 0 0 8 5.14z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6h2v12h-2z"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></symbol>
+    <symbol id="i-repeatOne" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"/></symbol>
+    <symbol id="i-queue" viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 4h12v2H3zm0 4h8v2H3zm14-4v6.18A3 3 0 1 0 19 19V12h3v-2h-5z"/></symbol>
+    <symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.950 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></symbol>
+    <symbol id="i-love" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></symbol>
+    <symbol id="i-pladd" viewBox="0 0 24 24"><path d="M14 10H3v2h11v-2zm0-4H3v2h11V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM3 16h7v-2H3v2z"/></symbol>
+    <symbol id="i-collapse" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm-6.36-3.36l-1.41-1.41a11 11 0 0 0 0 15.54l1.41-1.41a9 9 0 0 1 0-12.72zm12.72 0a9 9 0 0 1 0 12.72l1.41 1.41a11 11 0 0 0 0-15.54l-1.41 1.41zM8.46 8.46L7.05 7.050a7 7 0 0 0 0 9.9l1.41-1.41a5 5 0 0 1 0-7.08zm7.08 0a5 5 0 0 1 0 7.08l1.41 1.41a7 7 0 0 0 0-9.9l-1.41 1.41z"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></symbol>
+    <symbol id="i-album" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 14.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9zm0-5.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></symbol>
+    <!-- A cover, flat shapes only: indigo night, a sun disc, a figure's shoulder. -->
+    <symbol id="art" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1d3263"/><rect x="52" width="48" height="100" fill="#e9a23b"/><circle cx="74" cy="36" r="14" fill="#f6c25e"/><path d="M0 100V58c10-14 22-22 34-22 16 0 26 12 30 30 3 12 8 24 14 34z" fill="#101b3a"/><path d="M18 14c4 10 3 24-2 36M28 10c3 12 4 26 1 40M38 14c2 10 3 22 0 34" stroke="#4d7ad6" stroke-width="4" stroke-linecap="round" fill="none"/></symbol>
+    <symbol id="art2" viewBox="0 0 100 100"><rect width="100" height="100" fill="#8a3b2e"/><rect y="60" width="100" height="40" fill="#e7d3b0"/><circle cx="50" cy="60" r="22" fill="#f2b44a"/></symbol>
+    <symbol id="art3" viewBox="0 0 100 100"><rect width="100" height="100" fill="#2f3b2c"/><path d="M0 70l30-30 20 20 20-30 30 40v30H0z" fill="#9db48a"/></symbol>
+    <symbol id="art4" viewBox="0 0 100 100"><rect width="100" height="100" fill="#d9d4cc"/><circle cx="50" cy="46" r="20" fill="#2c2a28"/><rect x="26" y="66" width="48" height="34" fill="#2c2a28"/></symbol>
+  </defs>
+</svg>
+
+<div class="doc">
+  <header>
+    <div>
+      <h1>Music: the player's controls</h1>
+      <p class="lede">The bar in three groups: the song and how you feel about it, playing, and what's around the song. Rating is the save. Add to playlist lives in the song's menu and never beside the marks.</p>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="themebtn" id="pins">Hide numbers</button>
+      <button class="themebtn" id="theme">Light / dark</button>
+    </div>
+  </header>
+
+  <!-- ───────────────── WIDE ───────────────── -->
+  <h2>The bar, wide</h2>
+  <p class="say">1440px. The marks are one tray with nothing else in it. Lyrics and Queue are worded leaves that seat when open. Song actions are behind ⋯ at the far end.</p>
+  <div class="stage" data-w="1440" data-h="300">
+    <div class="frame" style="width:1440px;height:300px">
+      <div class="app">
+        <div class="rail"><i></i><i></i><i></i><i class="here"></i><i></i></div>
+        <div class="page"><div class="ghost t"></div><div class="ghost" style="width:70%"></div><div class="ghost" style="width:55%"></div><div class="ghost" style="width:62%"></div></div>
+        <div class="bar">
+          <div class="b-song">
+            <span class="cover" style="width:56px;height:56px"><svg><use href="#art"/></svg></span>
+            <div class="b-name"><span class="b-title">Stargazing</span><span class="b-by"><a href="#">Myles Smith</a></span></div>
+            <span class="rate" data-rated="up"></span>
+          </div>
+          <div class="b-mid">
+            <div class="transport">
+              <button class="ib sm on" title="Shuffle"><svg class="ic"><use href="#i-shuffle"/></svg></button>
+              <button class="ib" title="Previous"><svg class="ic"><use href="#i-prev"/></svg></button>
+              <button class="play" title="Pause"><svg class="ic"><use href="#i-pause"/></svg></button>
+              <button class="ib" title="Next"><svg class="ic"><use href="#i-next"/></svg></button>
+              <button class="ib sm" title="Repeat"><svg class="ic"><use href="#i-repeat"/></svg></button>
+            </div>
+            <div class="seek"><span class="time">0:36</span><div class="slider" style="--f:21%"><div class="railbar"><i></i></div><span class="knob"></span></div><span class="time">2:52</span></div>
+          </div>
+          <div class="b-end">
+            <span class="leaves"><button class="leaf"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf on"><svg class="ic"><use href="#i-queue"/></svg>Queue</button></span>
+            <span class="gap8"></span>
+            <span class="vol"><button class="ib sm" title="Mute"><svg class="ic"><use href="#i-volume"/></svg></button><div class="slider" style="--f:10%"><div class="railbar"><i></i></div><span class="knob"></span></div></span>
+            <button class="ib" title="More for Stargazing"><svg class="ic"><use href="#i-more"/></svg></button>
+          </div>
+          <span class="mark-pin" style="left:268px;top:-6px">1</span>
+          <span class="mark-pin" style="left:494px;top:4px">2</span>
+          <span class="mark-pin" style="left:1018px;top:6px">3</span>
+          <span class="mark-pin" style="left:1310px;top:6px">4</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="callouts">
+    <li><span class="pin">1</span><span><b>Rate tray.</b> Down, up and love on one tonal strip. A set mark sits on an ink-wash blot. The name truncates before the tray moves.</span></li>
+    <li><span class="pin">2</span><span><b>Shuffle and repeat</b> flank Play. When on, they're a pressed stamp (toned and sunk), not a dot.</span></li>
+    <li><span class="pin">3</span><span><b>View leaves.</b> Worded, so it's obvious what they open. The open one seats with the accent marker.</span></li>
+    <li><span class="pin">4</span><span><b>⋯ song menu.</b> Add to playlist, Play next, Song radio, Go to artist, Go to album. It's last, away from the marks.</span></li>
+  </ul>
+
+  <!-- ───────────────── MEDIUM ───────────────── -->
+  <h2>The bar, medium</h2>
+  <p class="say">1000px, with the queue open. Seeking becomes a rail you can grab along the bar's top edge. Shuffle and repeat move into the queue's header, where order is decided. The marks stay down to 900px. Below that they go into ⋯, and Lyrics and Queue stack their word under the icon.</p>
+  <div class="stage" data-w="1000" data-h="560">
+    <div class="frame" style="width:1000px;height:560px">
+      <div class="app">
+        <div class="rail"><i></i><i></i><i></i><i class="here"></i><i></i></div>
+        <div class="page"><div class="ghost t"></div><div class="ghost" style="width:62%"></div><div class="ghost" style="width:48%"></div><div class="ghost" style="width:58%"></div><div class="ghost" style="width:40%"></div></div>
+        <aside class="qpanel">
+          <header><h4>Queue</h4><button class="ib" title="Close the queue"><svg class="ic"><use href="#i-close"/></svg></button></header>
+          <div class="qtools"><button class="qt on"><svg class="ic"><use href="#i-shuffle"/></svg>Shuffle</button><button class="qt"><svg class="ic"><use href="#i-repeat"/></svg>Repeat</button></div>
+          <div class="lbl">Now playing</div>
+          <div class="qrow now"><span class="cover" style="width:42px;height:42px"><svg><use href="#art"/></svg></span><span class="nm"><b>Stargazing</b><span>Myles Smith</span></span></div>
+          <div class="lbl">Next from Top songs</div>
+          <div class="qrow"><span class="cover" style="width:42px;height:42px"><svg><use href="#art2"/></svg></span><span class="nm"><b>Be Her</b><span>Ella Langley</span></span><button class="ib sm"><svg class="ic"><use href="#i-close"/></svg></button></div>
+          <div class="qrow"><span class="cover" style="width:42px;height:42px"><svg><use href="#art4"/></svg></span><span class="nm"><b>Should I Stay or Should I Go</b><span>The Clash</span></span><button class="ib sm"><svg class="ic"><use href="#i-close"/></svg></button></div>
+          <div class="qrow"><span class="cover" style="width:42px;height:42px"><svg><use href="#art3"/></svg></span><span class="nm"><b>Something To Lose</b><span>STELLA LEFTY</span></span><button class="ib sm"><svg class="ic"><use href="#i-close"/></svg></button></div>
+          <span class="mark-pin" style="left:228px;top:69px">6</span>
+        </aside>
+        <div class="bar mdm">
+          <div class="topseek" style="--f:21%"><div class="railbar"><i></i></div><span class="knob"></span><span class="tag" style="left:calc(21% - 18px)">0:36</span><span class="tag" style="right:6px">2:52</span></div>
+          <div class="b-song">
+            <span class="cover" style="width:48px;height:48px"><svg><use href="#art"/></svg></span>
+            <div class="b-name"><span class="b-title">Stargazing</span><span class="b-by"><a href="#">Myles Smith</a></span></div>
+            <span class="rate" data-rated="love"></span>
+          </div>
+          <div class="transport">
+            <button class="ib" title="Previous"><svg class="ic"><use href="#i-prev"/></svg></button>
+            <button class="play" title="Pause"><svg class="ic"><use href="#i-pause"/></svg></button>
+            <button class="ib" title="Next"><svg class="ic"><use href="#i-next"/></svg></button>
+          </div>
+          <div class="b-end">
+            <span class="leaves"><button class="leaf"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf on"><svg class="ic"><use href="#i-queue"/></svg>Queue</button></span>
+            <button class="ib sm" title="Volume: tap to mute, hold for the slider"><svg class="ic"><use href="#i-volume"/></svg></button>
+            <button class="ib" title="More for Stargazing"><svg class="ic"><use href="#i-more"/></svg></button>
+          </div>
+          <span class="mark-pin" style="left:150px;top:-30px">5</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="callouts">
+    <li><span class="pin">5</span><span><b>Seek along the top edge.</b> A 4px rail with a 12px hit area and the knob shown. The times rise as small raised tags while you hover or drag.</span></li>
+    <li><span class="pin">6</span><span><b>Shuffle and repeat in the queue.</b> Worded toggles: the queue is where you decide what plays next and in what order.</span></li>
+  </ul>
+
+  <!-- ───────────────── PHONE ───────────────── -->
+  <h2>Phone</h2>
+  <p class="say">The mini bar stays as it is: the song, Play and Next. Now Playing becomes a whole player, with seek, shuffle and repeat, the marks beside the name, and Lyrics and Up next as leaves along the bottom. Close is in the header, off the art. Add to playlist is in ⋯ and in the toast after a like.</p>
+  <div class="pair">
+    <div style="display:grid;gap:28px;justify-items:center">
+      <div class="phone">
+        <div class="ph-page"><div class="ghost t" style="width:60%"></div><div class="ghost" style="width:90%"></div><div class="ghost" style="width:75%"></div><div class="ghost" style="width:82%"></div><div class="ghost" style="width:66%"></div></div>
+        <div class="mini">
+          <span class="prog"></span>
+          <span class="cover" style="width:44px;height:44px"><svg><use href="#art"/></svg></span>
+          <div class="b-name"><span class="b-title">Stargazing</span><span class="b-by">Myles Smith</span></div>
+          <button class="play sm" title="Pause"><svg class="ic"><use href="#i-pause"/></svg></button>
+          <button class="ib" title="Next"><svg class="ic"><use href="#i-next"/></svg></button>
+        </div>
+        <div class="ph-nav"><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <div style="display:grid;gap:20px;justify-items:start">
+      <div class="phone">
+        <section class="ph-np">
+          <div class="ph-head">
+            <button class="ib" title="Close"><svg class="ic"><use href="#i-collapse"/></svg></button>
+            <span class="from"><small>PLAYING FROM</small><a href="#">Top songs</a></span>
+            <button class="ib" title="More for Stargazing"><svg class="ic"><use href="#i-more"/></svg></button>
+          </div>
+          <span class="cover"><svg><use href="#art"/></svg></span>
+          <div class="ph-name">
+            <div><h5>Stargazing</h5><p><a href="#">Myles Smith</a> · <a href="#">Stargazing</a></p></div>
+            <span class="rate md" data-rated="love"></span>
+          </div>
+          <div class="ph-seek"><div class="slider" style="--f:21%"><div class="railbar"><i></i></div><span class="knob" style="opacity:1"></span></div><div class="times"><span class="time">0:36</span><span class="time">2:52</span></div></div>
+          <div class="ph-trans">
+            <button class="ib sm on" title="Shuffle"><svg class="ic"><use href="#i-shuffle"/></svg></button>
+            <button class="ib" title="Previous"><svg class="ic"><use href="#i-prev"/></svg></button>
+            <button class="play lg" title="Pause"><svg class="ic"><use href="#i-pause"/></svg></button>
+            <button class="ib" title="Next"><svg class="ic"><use href="#i-next"/></svg></button>
+            <button class="ib sm" title="Repeat"><svg class="ic"><use href="#i-repeatOne"/></svg></button>
+          </div>
+          <span class="leaves wide"><button class="leaf"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf"><svg class="ic"><use href="#i-queue"/></svg>Up next</button></span>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────── NOW PLAYING DESKTOP ───────────────── -->
+  <h2>Now Playing</h2>
+  <p class="say">Each action has its own place. Under the name, the marks and nothing else. The byline is the way to the artist or album. Add to playlist is a worded quiet seal in the header, beside ⋯ and close. The queue is the "Up next" leaf beside the lyrics, not a panel floating over them.</p>
+  <div class="stage" data-w="1440" data-h="900">
+    <div class="frame" style="width:1440px;height:900px">
+      <div class="app">
+        <div class="rail"><i></i><i></i><i></i><i class="here"></i><i></i></div>
+        <div class="page"></div>
+        <section class="np">
+          <div class="np-head">
+            <span class="from"><small>PLAYING FROM</small><a href="#">Top songs</a></span>
+            <button class="seal-quiet"><svg class="ic"><use href="#i-pladd"/></svg>Add to playlist</button>
+            <button class="ib" title="More for Stargazing"><svg class="ic"><use href="#i-more"/></svg></button>
+            <button class="ib" title="Close"><svg class="ic"><use href="#i-collapse"/></svg></button>
+          </div>
+          <div class="np-body">
+            <div class="np-song">
+              <span class="cover"><svg><use href="#art"/></svg></span>
+              <div class="np-title">Stargazing</div>
+              <p class="np-by" style="position:relative"><a href="#">Myles Smith</a> · <a href="#">Stargazing</a><span class="mark-pin" style="left:-32px;top:1px">9</span></p>
+              <span style="position:relative;display:inline-block"><span class="rate lg" data-rated="up"></span><span class="mark-pin" style="left:-32px;top:14px">10</span></span>
+            </div>
+            <div class="np-side">
+              <span style="position:relative;justify-self:start"><span class="leaves"><button class="leaf on"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf"><svg class="ic"><use href="#i-queue"/></svg>Up next</button></span><span class="mark-pin" style="left:-32px;top:9px">11</span></span>
+              <div class="lyrics">
+                <p class="past">They say you know it when you know it, and I know</p>
+                <p class="past">(Oh-oh-oh)</p>
+                <p class="now">Promise that you'll hold me close, don't let me go</p>
+                <p>(Hey!)</p>
+                <p>Take my heart, don't break it</p>
+                <p>Love me to my bones</p>
+                <p>All this time I wasted</p>
+                <p>You were right there all along</p>
+              </div>
+            </div>
+          </div>
+          <span class="mark-pin" style="left:4px;top:21px">7</span>
+          <span class="mark-pin" style="left:1016px;top:21px">8</span>
+        </section>
+        <div class="bar">
+          <div class="b-song">
+            <span class="cover" style="width:56px;height:56px"><svg><use href="#art"/></svg></span>
+            <div class="b-name"><span class="b-title">Stargazing</span><span class="b-by"><a href="#">Myles Smith</a></span></div>
+            <span class="rate" data-rated="up"></span>
+          </div>
+          <div class="b-mid">
+            <div class="transport">
+              <button class="ib sm on"><svg class="ic"><use href="#i-shuffle"/></svg></button>
+              <button class="ib"><svg class="ic"><use href="#i-prev"/></svg></button>
+              <button class="play"><svg class="ic"><use href="#i-pause"/></svg></button>
+              <button class="ib"><svg class="ic"><use href="#i-next"/></svg></button>
+              <button class="ib sm"><svg class="ic"><use href="#i-repeat"/></svg></button>
+            </div>
+            <div class="seek"><span class="time">0:36</span><div class="slider" style="--f:21%"><div class="railbar"><i></i></div><span class="knob"></span></div><span class="time">2:52</span></div>
+          </div>
+          <div class="b-end">
+            <span class="leaves"><button class="leaf on"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf"><svg class="ic"><use href="#i-queue"/></svg>Queue</button></span>
+            <span class="gap8"></span>
+            <span class="vol"><button class="ib sm"><svg class="ic"><use href="#i-volume"/></svg></button><div class="slider" style="--f:10%"><div class="railbar"><i></i></div><span class="knob"></span></div></span>
+            <button class="ib"><svg class="ic"><use href="#i-more"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="callouts">
+    <li><span class="pin">7</span><span><b>Where it's playing from.</b> The album, playlist or radio, as a link back to it.</span></li>
+    <li><span class="pin">8</span><span><b>Add to playlist, worded.</b> A quiet compact seal in the header, nowhere near the marks.</span></li>
+    <li><span class="pin">9</span><span><b>Artist and album are links,</b> in Music's text colour, so "go to" is plain.</span></li>
+    <li><span class="pin">10</span><span><b>The marks, alone</b> under the name, at 44px.</span></li>
+    <li><span class="pin">11</span><span><b>Lyrics and Up next</b> share the right column. The bar's leaves switch it while Now Playing is open.</span></li>
+  </ul>
+
+  <!-- ───────────────── STATES ───────────────── -->
+  <h2>Pieces and states</h2>
+  <p class="say">Press the marks: they're live. The first up or love on a song brings the toast.</p>
+  <div class="board">
+    <div class="cell">
+      <h6>Rate tray</h6>
+      <div class="row"><span class="rate" data-rated=""></span><span class="cap">none</span></div>
+      <div class="row"><span class="rate" data-rated="down"></span><span class="cap">not for me</span></div>
+      <div class="row"><span class="rate" data-rated="love"></span><span class="cap">love: a wash behind the mark</span></div>
+      <div class="row"><span class="rate lg" data-rated="" data-toast="1"></span><span class="cap">try it</span></div>
+    </div>
+    <div class="cell">
+      <h6>After a like</h6>
+      <div class="toast" id="toast">In Liked songs<button>Add to playlist</button></div>
+      <span class="cap">Up and love already save the song to Liked songs, so the toast says so and offers a playlist then and there. It stays 5s. Nothing appears on down.</span>
+    </div>
+    <div class="cell">
+      <h6>Song menu ⋯</h6>
+      <div class="menu">
+        <button class="mi"><svg class="ic"><use href="#i-pladd"/></svg>Add to playlist<span class="more">›</span></button>
+        <button class="mi"><svg class="ic"><use href="#i-next"/></svg>Play next</button>
+        <button class="mi"><svg class="ic"><use href="#i-radio"/></svg>Song radio</button>
+        <div class="sep"></div>
+        <button class="mi"><svg class="ic"><use href="#i-person"/></svg>Go to artist</button>
+        <button class="mi"><svg class="ic"><use href="#i-album"/></svg>Go to album</button>
+      </div>
+    </div>
+    <div class="cell">
+      <h6>Song menu ≤900px, marks first</h6>
+      <div class="menu">
+        <div class="rate-row"><span>Rate</span><span class="rate" data-rated="up"></span></div>
+        <div class="sep"></div>
+        <button class="mi"><svg class="ic"><use href="#i-pladd"/></svg>Add to playlist<span class="more">›</span></button>
+        <button class="mi"><svg class="ic"><use href="#i-next"/></svg>Play next</button>
+        <button class="mi"><svg class="ic"><use href="#i-radio"/></svg>Song radio</button>
+      </div>
+    </div>
+    <div class="cell">
+      <h6>Toggles</h6>
+      <div class="cellbar row">
+        <button class="ib sm"><svg class="ic"><use href="#i-shuffle"/></svg></button>
+        <button class="ib sm on"><svg class="ic"><use href="#i-shuffle"/></svg></button>
+        <button class="ib sm on"><svg class="ic"><use href="#i-repeat"/></svg></button>
+        <button class="ib sm on"><svg class="ic"><use href="#i-repeatOne"/></svg></button>
+      </div>
+      <span class="cap">Off, then on: a pressed stamp. Repeat goes off, all, one.</span>
+    </div>
+    <div class="cell">
+      <h6>View leaves</h6>
+      <div class="cellbar row"><span class="leaves"><button class="leaf"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf"><svg class="ic"><use href="#i-queue"/></svg>Queue</button></span></div>
+      <div class="cellbar row"><span class="leaves"><button class="leaf lifted" title="No lyrics for this song"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf on"><svg class="ic"><use href="#i-queue"/></svg>Queue</button></span></div>
+      <div class="cellbar row"><span class="leaves stack"><button class="leaf on"><svg class="ic"><use href="#i-lyrics"/></svg>Lyrics</button><button class="leaf"><svg class="ic"><use href="#i-queue"/></svg>Queue</button></span><span class="cap">stacked, ≤900px</span></div>
+    </div>
+  </div>
+
+  <h2>What to pick</h2>
+  <div class="verdict">
+    <div><b>Rating is the save</b><p>Up and love already file a song in Liked songs. Say so with the toast instead of adding a heart, which would be a fourth love.</p></div>
+    <div><b>Add to playlist: in the menu, and worded where there's room</b><p>In ⋯ everywhere, in the toast, and as a quiet seal in Now Playing's header. Never a bare + and never beside the marks. A long press on the tray can be a shortcut, never the only way.</p></div>
+    <div><b>Every view and toggle is worded or stamped</b><p>Lyrics and Queue keep their words at every width above a phone. Shuffle and repeat show "on" as a pressed stamp. No round hovers anywhere.</p></div>
+  </div>
+</div>
+
+<script>
+/* Fit each fixed-size frame to its column. */
+function fit() {
+  document.querySelectorAll('.stage').forEach(s => {
+    const w = +s.dataset.w, h = +s.dataset.h, f = s.firstElementChild;
+    const k = Math.min(1, s.clientWidth / w);
+    f.style.transform = `scale(${k})`;
+    s.style.height = (h * k) + 'px';
+  });
+}
+addEventListener('resize', fit);
+
+/* A wobbly brush ring over a wash, seeded so each mark keeps its shape. */
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function blob(seed) {
+  const r = rng(seed), n = 9, pts = [];
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, d = 15 + r() * 3.2; pts.push([20 + Math.cos(a) * d, 20 + Math.sin(a) * d]); }
+  let p = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; p += ` Q${a[0].toFixed(1)},${a[1].toFixed(1)} ${m[0].toFixed(1)},${m[1].toFixed(1)}`; }
+  return p + 'Z';
+}
+let seed = 7;
+const labels = { down: 'Not for me', up: 'I like this', love: 'Love this' };
+function toast() {
+  const t = document.getElementById('toast');
+  t.animate([{ transform: 'translateY(8px)', opacity: .2 }, { transform: 'none', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(.38,1.21,.22,1)' });
+}
+document.querySelectorAll('.rate').forEach(tray => {
+  tray.setAttribute('role', 'group'); tray.setAttribute('aria-label', 'Rate');
+  ['down', 'up', 'love'].forEach(r => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = r; b.title = labels[r]; b.setAttribute('aria-label', labels[r]);
+    const s1 = seed++ * 977, s2 = seed++ * 613;
+    b.innerHTML = `<span class="wash"><svg viewBox="0 0 40 40"><path class="fill" d="${blob(s1)}"/><path class="ring" d="${blob(s2)}"/></svg></span><svg class="ic"><use href="#i-${r}"/></svg>`;
+    if (tray.dataset.rated === r) { b.classList.add('set'); b.setAttribute('aria-pressed', 'true'); }
+    b.addEventListener('click', () => {
+      const was = b.classList.contains('set');
+      tray.querySelectorAll('button').forEach(x => { x.classList.remove('set'); x.setAttribute('aria-pressed', 'false'); });
+      if (!was) { b.classList.add('set'); b.setAttribute('aria-pressed', 'true'); if (r !== 'down') toast(); }
+    });
+    tray.appendChild(b);
+  });
+});
+
+document.getElementById('theme').addEventListener('click', () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+});
+document.getElementById('pins').addEventListener('click', (e) => {
+  const hide = document.body.classList.toggle('hidepins');
+  e.currentTarget.textContent = hide ? 'Show numbers' : 'Hide numbers';
+});
+fit();
+document.fonts && document.fonts.ready.then(fit);
+</script>
+</body>
+</html>
