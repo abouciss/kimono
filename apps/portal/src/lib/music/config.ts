@@ -12,6 +12,10 @@ export function musicConfig(settings: PlatformSettings) {
   return {
     enabled: Boolean(instance?.enabled),
     lastfmKey: value("lastfm_key") || process.env.LASTFM_API_KEY?.trim() || "",
+    /* Bringing in playlists people keep private: each service's sign-in, when the admin has set one up. */
+    spotify: { id: value("spotify_client_id") || process.env.SPOTIFY_CLIENT_ID?.trim() || "", secret: value("spotify_client_secret") || process.env.SPOTIFY_CLIENT_SECRET?.trim() || "" },
+    google: { id: value("google_client_id") || process.env.GOOGLE_CLIENT_ID?.trim() || "", secret: value("google_client_secret") || process.env.GOOGLE_CLIENT_SECRET?.trim() || "" },
+    apple: { team: value("apple_team_id") || process.env.APPLE_TEAM_ID?.trim() || "", keyId: value("apple_key_id") || process.env.APPLE_MUSIC_KEY_ID?.trim() || "", key: value("apple_music_key") || process.env.APPLE_MUSIC_KEY?.trim() || "" },
     /* yt-dlp beside the Portal (infra/compose/server/music-fetcher), for when YouTube.js can't get a song. */
     fetcher: {
       url: (process.env.KIMONO_MUSIC_FETCHER_URL || "http://music-fetcher:8080").replace(/\/+$/, ""),

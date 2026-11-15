@@ -705,3 +705,13 @@
 .km-import-missed ul { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; max-height: 40vh; overflow-y: auto; }
 .km-import-missed li { display: grid; font-size: 14px; line-height: 18px; }
 .km-import-missed li span { font-size: 13px; color: var(--k-on-surface-variant); }
+.km-import-accounts { display: grid; gap: 8px; margin-top: 4px; }
+.km-import-accounts small { font: 700 12px/16px var(--k-sans); letter-spacing: .03em; color: var(--k-on-surface-variant); }
+.km-import-accounts span { display: flex; flex-wrap: wrap; gap: 8px; }
+.km-import-mine { display: grid; gap: 4px; }
+.km-import-mine button { display: flex; align-items: center; gap: 12px; padding: 6px; border: 0; border-radius: var(--k-r-m); background: none; color: var(--k-on-surface); text-align: left; cursor: pointer; transition: background var(--k-t-state); }
+.km-import-mine button:hover { background: var(--k-container-highest); }
+.km-import-mine img, .km-import-none { width: 48px; height: 48px; flex: none; border-radius: var(--k-r-s); object-fit: cover; background: color-mix(in srgb, #946c25 18%, var(--k-container-high)); }
+.km-import-mine span { display: grid; min-width: 0; }
+.km-import-mine b { font: 600 15px/20px var(--k-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.km-import-mine small { font-size: 13px; color: var(--k-on-surface-variant); }

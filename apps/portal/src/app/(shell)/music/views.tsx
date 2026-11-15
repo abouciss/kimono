@@ -479,7 +479,11 @@ export function YouView() {
   const crossTo = useCrossTo();
   const { data: me, error, retry } = useMusic("me", musicApi.me);
   const { data: friends } = useMusic("friends", () => musicApi.friends().then((r) => r.friends));
-  const [bringing, setBringing] = useState(false);
+  /* Back from signing in to a service: the import sheet opens on it. */
+  const params = useSearchParams();
+  const back = params.get("bring");
+  const [bringing, setBringing] = useState(back === "spotify" || back === "youtube" || back === "apple");
+  const opened = back === "spotify" || back === "youtube" || back === "apple" ? { service: back as "spotify" | "youtube" | "apple", problem: params.get("problem") } : undefined;
   const newPlaylist = async () => {
     const name = await askName("New playlist", "Make it");
     if (!name) return;
@@ -489,7 +493,7 @@ export function YouView() {
   if (!me) return <Loading />;
   const hours = me.minutes >= 90 ? `${Math.round(me.minutes / 60)} hours` : `${me.minutes} minutes`;
   return <div className="km-page km-you">
-    {bringing ? <ImportSheet onClose={() => setBringing(false)} /> : null}
+    {bringing ? <ImportSheet open={opened} onClose={() => { setBringing(false); if (back) window.history.replaceState(null, "", "/music/you"); }} /> : null}
     <header className="km-head km-you-head">
       <div className="km-head-art km-you-portrait"><InkPortraitFrame seed={p.you.username} weight={5}><Portrait name={p.you.name} username={p.you.username} picture={p.you.picture} size={180} /></InkPortraitFrame></div>
       <div className="km-head-text">

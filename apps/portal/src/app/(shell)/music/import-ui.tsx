@@ -6,32 +6,79 @@ import { useCrossTo } from "@/components/crossing";
 import { InkSheet } from "@/components/ink-sheet";
 import { forget, hrefOf } from "./api";
 
+type Service = "spotify" | "apple" | "youtube";
+type Account = { service: Service; ready: boolean; connected: boolean };
+type Mine = { id: string; name: string; count: number | null; cover: string | null };
+
 type Step =
   | { stage: "idle" }
+  | { stage: "pick"; service: Service; playlists: Mine[] | null }
   | { stage: "read"; name: string; total: number; cut: boolean }
   | { stage: "match"; name: string; done: number; found: number; total: number; cut: boolean }
   | { stage: "done"; playlist: { id: string; name: string }; found: number; total: number; missed: { title: string; artists: string[] }[] }
   | { stage: "error"; error: string };
 
-const services = /spotify\.com|spotify:|music\.apple\.com|youtube\.com|youtu\.be/;
+const names: Record<Service, string> = { spotify: "Spotify", apple: "Apple Music", youtube: "YouTube" };
+const links = /spotify\.com|spotify:|music\.apple\.com|youtube\.com|youtu\.be/;
 
-/** A playlist from Spotify, Apple Music or YouTube Music, made one here: the server reads it and finds each song, telling us as it goes. */
-export function ImportSheet({ onClose }: { onClose: () => void }) {
+declare global {
+  interface Window { MusicKit?: { configure(o: object): Promise<{ authorize(): Promise<string> }>; getInstance(): { authorize(): Promise<string> } } }
+}
+
+/* MusicKit JS, Apple's own, loaded only when someone connects Apple Music. */
+function musicKit(): Promise<NonNullable<Window["MusicKit"]>> {
+  if (window.MusicKit) return Promise.resolve(window.MusicKit);
+  return new Promise((done, fail) => {
+    document.addEventListener("musickitloaded", () => (window.MusicKit ? done(window.MusicKit) : fail(new Error("no MusicKit"))), { once: true });
+    const s = document.createElement("script");
+    s.src = "https://js-cdn.music.apple.com/musickit/v3/musickit.js";
+    s.async = true;
+    s.onerror = () => fail(new Error("MusicKit didn't load"));
+    document.head.appendChild(s);
+  });
+}
+
+/**
+ * A playlist from Spotify, Apple Music or YouTube Music, made one here: a
+ * public link, or one of your own on a service you've connected. The server
+ * reads it and finds each song, telling us as it goes.
+ */
+export function ImportSheet({ onClose, open }: { onClose: () => void; open?: { service: Service; problem: string | null } }) {
   const [url, setUrl] = useState("");
-  const [step, setStep] = useState<Step>({ stage: "idle" });
+  const [step, setStep] = useState<Step>(open?.problem ? { stage: "error", error: open.problem } : open ? { stage: "pick", service: open.service, playlists: null } : { stage: "idle" });
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const crossTo = useCrossTo();
   const field = useRef<HTMLInputElement>(null);
-  useEffect(() => field.current?.focus(), []);
+  useEffect(() => { if (!open) field.current?.focus(); }, [open]);
+  useEffect(() => { fetch("/api/v1/music/connect").then((r) => r.json()).then((b: { accounts?: Account[] }) => setAccounts(b.accounts ?? [])).catch(() => {}); }, []);
   const busy = step.stage === "read" || step.stage === "match";
+  const picking = step.stage === "pick" ? step.service : null;
 
-  const start = async () => {
-    if (!url.trim() || busy) return;
+  /* Your playlists on the service, once it's open. */
+  useEffect(() => {
+    if (!picking) return;
+    let live = true;
+    fetch(`/api/v1/music/connect/${picking}/playlists`).then(async (r) => {
+      const b = await r.json().catch(() => ({})) as { playlists?: Mine[]; error?: string };
+      if (!live) return;
+      if (!r.ok) {
+        setStep({ stage: "error", error: b.error || `${names[picking]} didn't answer.` });
+        if (r.status === 401) setAccounts((a) => a.map((x) => (x.service === picking ? { ...x, connected: false } : x)));
+        return;
+      }
+      setStep({ stage: "pick", service: picking, playlists: b.playlists ?? [] });
+    }).catch(() => live && setStep({ stage: "error", error: `${names[picking]} didn't answer.` }));
+    return () => { live = false; };
+  }, [picking]);
+
+  const start = async (body: { url: string } | { service: Service; playlist: string }) => {
+    if (busy) return;
     setStep({ stage: "read", name: "", total: 0, cut: false });
     try {
-      const res = await fetch("/api/v1/music/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: url.trim() }) });
+      const res = await fetch("/api/v1/music/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null) as { error?: string } | null;
-        setStep({ stage: "error", error: body?.error || "That playlist couldn't be brought in." });
+        const b = await res.json().catch(() => null) as { error?: string } | null;
+        setStep({ stage: "error", error: b?.error || "That playlist couldn't be brought in." });
         return;
       }
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -57,32 +104,72 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const connect = async (a: Account) => {
+    if (a.connected) { setStep({ stage: "pick", service: a.service, playlists: null }); return; }
+    /* Off to the service's own sign-in page (the server sends it on), not a page of the app. */
+    // eslint-disable-next-line no-restricted-syntax, @next/next/no-location-assign-relative-destination
+    if (a.service !== "apple") { window.location.assign(`/api/v1/music/connect/${a.service}`); return; }
+    try {
+      const { developerToken } = await (await fetch("/api/v1/music/connect/apple")).json() as { developerToken: string };
+      const kit = await musicKit();
+      const app = await kit.configure({ developerToken, app: { name: "Kimono Music", build: "1" } });
+      const userToken = await app.authorize();
+      const saved = await fetch("/api/v1/music/connect/apple", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userToken }) });
+      if (!saved.ok) throw new Error("not kept");
+      setAccounts((all) => all.map((x) => (x.service === "apple" ? { ...x, connected: true } : x)));
+      setStep({ stage: "pick", service: "apple", playlists: null });
+    } catch {
+      setStep({ stage: "error", error: "Apple Music didn't sign you in." });
+    }
+  };
+
+  const disconnect = async (service: Service) => {
+    await fetch(`/api/v1/music/connect/${service}`, { method: "DELETE" }).catch(() => {});
+    setAccounts((all) => all.map((x) => (x.service === service ? { ...x, connected: false } : x)));
+    setStep({ stage: "idle" });
+  };
+
+  const ready = accounts.filter((a) => a.ready);
   const actions = step.stage === "done"
     ? <><Seal tone="quiet" compact onClick={onClose}>Close</Seal><Seal compact onClick={() => { onClose(); crossTo("kakejiku", hrefOf.playlist(step.playlist.id)); }}>Open it</Seal></>
-    : <><Seal tone="quiet" compact onClick={onClose}>{busy ? "Hide" : "Cancel"}</Seal>{busy ? null : <Seal compact onClick={start} disabled={!services.test(url)}>Bring it in</Seal>}</>;
+    : step.stage === "pick"
+      ? <><Seal tone="quiet" compact onClick={() => disconnect(step.service)}>Disconnect</Seal><Seal tone="quiet" compact onClick={() => setStep({ stage: "idle" })}>Back</Seal></>
+      : <><Seal tone="quiet" compact onClick={onClose}>{busy ? "Hide" : "Cancel"}</Seal>{busy ? null : <Seal compact onClick={() => start({ url: url.trim() })} disabled={!links.test(url)}>Bring it in</Seal>}</>;
 
-  return <InkSheet title="Bring a playlist in" icon="download" tint="#946c25" onClose={onClose} actions={actions}>
+  return <InkSheet title={step.stage === "pick" ? `Your ${names[step.service]} playlists` : "Bring a playlist in"} icon="download" tint="#946c25" onClose={onClose} actions={actions}>
     {step.stage === "idle" || step.stage === "error"
-      ? <form className="km-import" onSubmit={(e) => { e.preventDefault(); void start(); }}>
+      ? <form className="km-import" onSubmit={(e) => { e.preventDefault(); if (links.test(url)) void start({ url: url.trim() }); }}>
         <label className="field"><small>Playlist link</small>
           <input ref={field} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Spotify, Apple Music or YouTube Music" inputMode="url" autoComplete="off" spellCheck={false} />
         </label>
         {step.stage === "error" ? <p className="km-import-problem" role="alert">{step.error}</p> : null}
+        {ready.length ? <div className="km-import-accounts">
+          <small>Or from your account</small>
+          <span>{ready.map((a) => <Seal key={a.service} tone="quiet" compact onClick={() => connect(a)}>{a.connected ? names[a.service] : `Connect ${names[a.service]}`}</Seal>)}</span>
+        </div> : null}
       </form>
-      : step.stage === "done"
-        ? <div className="km-import">
-          <p className="km-import-name">{step.playlist.name}</p>
-          <p className="km-import-count">{step.found === step.total ? `All ${step.total} songs` : `${step.found} of ${step.total} songs`}</p>
-          {step.missed.length ? <details className="km-import-missed">
-            <summary>{step.total - step.found} not in Music</summary>
-            <ul>{step.missed.map((m, i) => <li key={i}><b>{m.title}</b>{m.artists.length ? <span>{m.artists.join(", ")}</span> : null}</li>)}</ul>
-          </details> : null}
-        </div>
-        : <div className="km-import" aria-live="polite">
-          <p className="km-import-name">{step.name || "Reading the playlist…"}</p>
-          <InkWave className="km-import-wave" value={step.stage === "match" && step.total ? step.done / step.total : undefined} label="Finding songs" />
-          <p className="km-import-count">{step.stage === "match" ? `Found ${step.found} of ${step.total}` : step.total ? `${step.total} songs` : " "}</p>
-          {step.cut ? <p className="km-import-note">Only its first 100 songs came through.</p> : null}
-        </div>}
+      : step.stage === "pick"
+        ? step.playlists === null
+          ? <InkWave className="km-import-wave" label="Loading your playlists" />
+          : <div className="km-import-mine">{step.playlists.map((p) => <button key={p.id} type="button" onClick={() => start({ service: step.service, playlist: p.id })}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- the service's own artwork */}
+            {p.cover ? <img src={p.cover} alt="" /> : <span className="km-import-none" />}
+            <span><b>{p.name}</b>{p.count !== null ? <small>{p.count} {p.count === 1 ? "song" : "songs"}</small> : null}</span>
+          </button>)}</div>
+        : step.stage === "done"
+          ? <div className="km-import">
+            <p className="km-import-name">{step.playlist.name}</p>
+            <p className="km-import-count">{step.found === step.total ? `All ${step.total} songs` : `${step.found} of ${step.total} songs`}</p>
+            {step.missed.length ? <details className="km-import-missed">
+              <summary>{step.total - step.found} not in Music</summary>
+              <ul>{step.missed.map((m, i) => <li key={i}><b>{m.title}</b>{m.artists.length ? <span>{m.artists.join(", ")}</span> : null}</li>)}</ul>
+            </details> : null}
+          </div>
+          : <div className="km-import" aria-live="polite">
+            <p className="km-import-name">{step.name || "Reading the playlist…"}</p>
+            <InkWave className="km-import-wave" value={step.stage === "match" && step.total ? step.done / step.total : undefined} label="Finding songs" />
+            <p className="km-import-count">{step.stage === "match" ? `Found ${step.found} of ${step.total}` : step.total ? `${step.total} songs` : " "}</p>
+            {step.cut ? <p className="km-import-note">Only its first 100 songs came through.</p> : null}
+          </div>}
   </InkSheet>;
 }

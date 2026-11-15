@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (playlist TEXT NOT NULL, position INT
 CREATE TABLE IF NOT EXISTS queues (username TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS playlist_members (playlist TEXT NOT NULL, username TEXT NOT NULL, invited_by TEXT NOT NULL, joined INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, PRIMARY KEY (playlist, username));
 CREATE INDEX IF NOT EXISTS playlist_members_user ON playlist_members (username);
+CREATE TABLE IF NOT EXISTS connections (username TEXT NOT NULL, service TEXT NOT NULL, access TEXT NOT NULL, refresh TEXT, expires_at INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (username, service));
 `);
   /* Public: friends see it on your profile and can play it. Private (the default): you and whoever you've shared it with. */
   const columns = (db.prepare("PRAGMA table_info(playlists)").all() as { name: string }[]).map((c) => c.name);

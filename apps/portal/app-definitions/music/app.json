@@ -29,6 +29,69 @@
         "group": "sources",
         "target": "settings",
         "description": "From last.fm/api/account/create (no callback URL needed). Finds songs like the one playing and learns genres. Music works without it."
+      },
+      {
+        "key": "spotify_client_id",
+        "label": "Spotify client ID",
+        "kind": "text",
+        "group": "imports",
+        "target": "settings",
+        "advanced": true,
+        "description": "From developer.spotify.com/dashboard. Redirect URI: <portal>/api/v1/music/connect/spotify/callback. Lets people bring in their private playlists and Liked Songs."
+      },
+      {
+        "key": "spotify_client_secret",
+        "label": "Spotify client secret",
+        "kind": "secret",
+        "group": "imports",
+        "target": "settings",
+        "advanced": true,
+        "description": "The same app's secret."
+      },
+      {
+        "key": "google_client_id",
+        "label": "Google client ID",
+        "kind": "text",
+        "group": "imports",
+        "target": "settings",
+        "advanced": true,
+        "description": "A web OAuth client in Google Cloud, with the YouTube Data API on. Redirect URI: <portal>/api/v1/music/connect/youtube/callback."
+      },
+      {
+        "key": "google_client_secret",
+        "label": "Google client secret",
+        "kind": "secret",
+        "group": "imports",
+        "target": "settings",
+        "advanced": true,
+        "description": "The same client's secret."
+      },
+      {
+        "key": "apple_team_id",
+        "label": "Apple team ID",
+        "kind": "text",
+        "group": "imports",
+        "target": "settings",
+        "advanced": true,
+        "description": "Your Apple Developer team, for Apple Music library playlists."
+      },
+      {
+        "key": "apple_key_id",
+        "label": "Apple MusicKit key ID",
+        "kind": "text",
+        "group": "imports",
+        "target": "settings",
+        "advanced": true,
+        "description": "A key with MusicKit on, from Certificates, Identifiers & Profiles."
+      },
+      {
+        "key": "apple_music_key",
+        "label": "Apple MusicKit key",
+        "kind": "secret",
+        "group": "imports",
+        "target": "settings",
+        "advanced": true,
+        "description": "The key's .p8 file, pasted whole."
       }
     ],
     "managedEnvironment": [],
