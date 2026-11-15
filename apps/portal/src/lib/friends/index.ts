@@ -10,7 +10,7 @@ import { listAccounts } from "../directory";
 import { picturePaths } from "../pictures";
 import { stateDir } from "../state";
 import {
-  answerFriend, apps, askFriend, setLook, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
+  answerFriend, apps, askFriend, setLook, keptOf, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
   isInvisible, isOffProfile, offProfileList, offProfileOf, privacyOf, profileFor, putBackOnProfile, takeOffProfile, receivedBy, recommend, recommendedTo, removeFriend, seesProfile, sentBy, setAppHidden, setBio, setInvisible, setKept, unseenCount,
   type LinkState, type Recommendation, type Section,
 } from "./model";
@@ -197,8 +197,12 @@ export async function profileOf(viewer: string, username: string, origin: string
   const everyone = await people();
   /* Badges are for friends too: a Kimono Read shows even when their Books rows don't. */
   const kimonoRead = await import("./books-section").then((m) => m.kimonoReadOf(person.username)).catch(() => null);
+  /* Music's widgets (the record, top artists, the month): only when friends see what they listen to. */
+  const you = viewer.toLowerCase() === person.username.toLowerCase();
+  const musicShown = you || (!hiddenAppsOf(db, person.username).includes("music") && !keptOf(db, person.username).includes("music:playing"));
+  const music = musicShown ? await import("../music/social").then((m) => m.musicExtras(person.username)).catch(() => null) : null;
   const friendList = profile.friendList?.map((f) => personIn(everyone, f)).sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username)) ?? null;
-  return { ...profile, friendList, recommendations: profile.recommendations.map((r) => viewOf(r, everyone)), kimonoRead };
+  return { ...profile, friendList, recommendations: profile.recommendations.map((r) => viewOf(r, everyone)), kimonoRead, music };
 }
 
 export const saveBio = (username: string, bio: unknown) => setBio(friendsDb(), username, bio);

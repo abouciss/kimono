@@ -44,6 +44,8 @@ export function migrateSocial(db: DatabaseSync) {
   if (!columns.includes("pronouns")) db.exec("ALTER TABLE profiles ADD COLUMN pronouns TEXT NOT NULL DEFAULT ''");
   if (!columns.includes("color")) db.exec("ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT ''");
   if (!columns.includes("links")) db.exec("ALTER TABLE profiles ADD COLUMN links TEXT NOT NULL DEFAULT '[]'");
+  /* A profile's home screen: its widgets, in order, each with a size (JSON; empty means the default set). */
+  if (!columns.includes("widgets")) db.exec("ALTER TABLE profiles ADD COLUMN widgets TEXT");
   /* What a title taken off a profile is called, so it can be put back from a list. */
   const off = (db.prepare("PRAGMA table_info(profile_off)").all() as { name: string }[]).map((c) => c.name);
   for (const c of ["title", "subtitle", "cover"]) if (!off.includes(c)) db.exec(`ALTER TABLE profile_off ADD COLUMN ${c} TEXT`);
@@ -209,6 +211,58 @@ export function linksFrom(raw: unknown): ProfileLink[] {
   });
 }
 
+/* ── A profile's home screen: widgets ──────────────────────────────────── */
+
+export const widgetKinds = ["listening", "song", "album", "reading", "watching", "artists", "stats", "note", "status", "clock", "links", "friends"] as const;
+export type WidgetKind = (typeof widgetKinds)[number];
+/** Small (one cell), medium (two wide), large (two by two), extra large (the full row, two high). */
+export const widgetSizes = ["s", "m", "l", "xl"] as const;
+export type WidgetSize = (typeof widgetSizes)[number];
+export type Widget = { id: string; kind: WidgetKind; size: WidgetSize; config?: Record<string, string> };
+export const widgetsLimit = 16;
+
+const https = (v: unknown) => { const t = text(v, 600); return /^https:\/\/[^\s]+$/i.test(t) ? t : ""; };
+
+/** Widgets as arranged, checked: known kinds and sizes, and only what each kind keeps (a favourite's snapshot, a note's words, a zone). */
+export function widgetsFrom(raw: unknown): Widget[] {
+  if (!Array.isArray(raw)) throw new FriendsProblem("Widgets come as a list.");
+  if (raw.length > widgetsLimit) throw new FriendsProblem(`Up to ${widgetsLimit} widgets.`);
+  return raw.map((w, i) => {
+    const r = (w ?? {}) as Record<string, unknown>;
+    const kind = String(r.kind) as WidgetKind;
+    const size = String(r.size) as WidgetSize;
+    if (!(widgetKinds as readonly string[]).includes(kind)) throw new FriendsProblem("That isn't a widget.");
+    if (!(widgetSizes as readonly string[]).includes(size)) throw new FriendsProblem("That isn't a widget size.");
+    const id = /^[A-Za-z0-9_-]{1,24}$/.test(String(r.id ?? "")) ? String(r.id) : `w${i}`;
+    const c = (r.config ?? {}) as Record<string, unknown>;
+    let config: Record<string, string> | undefined;
+    if (kind === "song" || kind === "album") {
+      const key = text(c.key, 40);
+      if (!/^dz:\d{1,20}$/.test(key)) throw new FriendsProblem("Pick a song or an album for it.");
+      config = { key, title: text(c.title, 120), subtitle: text(c.subtitle, 120), cover: https(c.cover) };
+    } else if (kind === "note") {
+      const words = text(c.text, 161);
+      if ([...words].length > 160) throw new FriendsProblem("Keep a note under 160 characters.");
+      config = { text: words, tint: (profileColors as readonly string[]).includes(String(c.tint)) ? String(c.tint) : "" };
+    } else if (kind === "status") {
+      const emoji = text(c.emoji, 16), words = text(c.text, 61);
+      if ([...words].length > 60) throw new FriendsProblem("Keep a status under 60 characters.");
+      config = { emoji, text: words };
+    } else if (kind === "clock") {
+      const zone = text(c.zone, 60);
+      try { if (zone) new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { throw new FriendsProblem("That isn't a time zone."); }
+      config = { zone };
+    }
+    return config ? { id, kind, size, config } : { id, kind, size };
+  });
+}
+
+export function widgetsOf(db: DatabaseSync, username: string): Widget[] | null {
+  const row = db.prepare("SELECT widgets FROM profiles WHERE username = ?").get(username.toLowerCase()) as { widgets?: string | null } | undefined;
+  if (!row?.widgets) return null;
+  try { return widgetsFrom(JSON.parse(row.widgets)); } catch { return null; }
+}
+
 export type ProfileLook = { pronouns: string; color: ProfileColor | null; links: ProfileLink[] };
 
 export function lookOf(db: DatabaseSync, username: string): ProfileLook {
@@ -234,6 +288,7 @@ export function setLook(db: DatabaseSync, username: string, raw: Record<string, 
     db.prepare("UPDATE profiles SET color = ?, updated_at = ? WHERE username = ?").run(color, now, u);
   }
   if ("links" in raw) db.prepare("UPDATE profiles SET links = ?, updated_at = ? WHERE username = ?").run(JSON.stringify(linksFrom(raw.links)), now, u);
+  if ("widgets" in raw) db.prepare("UPDATE profiles SET widgets = ?, updated_at = ? WHERE username = ?").run(raw.widgets === null ? null : JSON.stringify(widgetsFrom(raw.widgets)), now, u);
   return lookOf(db, u);
 }
 
@@ -364,6 +419,7 @@ export function profileFor<P extends { username: string }>(db: DatabaseSync, vie
     ...person, you, link, open: true as const,
     bio: bioOf(db, u),
     ...lookOf(db, u),
+    widgets: widgetsOf(db, u),
     sections: sections().filter((s) => you || (!hidden.includes(s.app) && !kept.includes(`${s.app}:${s.kind}`))),
     recommendations: onProfile(db, u),
     friends: friends.length,

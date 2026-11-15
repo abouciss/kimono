@@ -29,7 +29,7 @@ export async function PATCH(request: Request) {
     if (body.restore && typeof body.restore === "object") return apiJson(await putBackOnRow(user.username, body.restore as Record<string, unknown>));
     if ("invisible" in body || "keep" in body || typeof body.app === "string") return apiJson(changePrivacy(user.username, body));
     /* `{ pronouns?, color?, links?, bio? }`: how your profile looks. */
-    if ("pronouns" in body || "color" in body || "links" in body) {
+    if ("pronouns" in body || "color" in body || "links" in body || "widgets" in body) {
       const look = saveLook(user.username, body);
       return apiJson("bio" in body ? { ...look, bio: saveBio(user.username, body.bio) } : look);
     }

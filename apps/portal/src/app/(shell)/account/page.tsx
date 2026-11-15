@@ -3,6 +3,7 @@ import { accountContext } from "./account-frame";
 import { PictureEditor } from "./picture-editor";
 import { ProfileView } from "./friends/friends-ui";
 import "./friends/friends.css";
+import "./friends/widgets.css";
 
 export const metadata = { title: "You" };
 
