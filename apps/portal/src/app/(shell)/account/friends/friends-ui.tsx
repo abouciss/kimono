@@ -7,6 +7,7 @@ import { Crossing, CrossingSeal } from "@/components/crossing";
 import { InkSheet } from "@/components/ink-sheet";
 import { JointSwitch } from "@/components/joint-switch";
 import { LineIcon, type LineIconName } from "@/components/line-icon";
+import { AppearanceFlip } from "@/components/appearance";
 import { Portrait } from "@/components/portrait";
 import { SilkscreenBadge } from "./silkscreen";
 import { isSocial, WidgetBoard, type BooksExtras, type MusicExtras, type Widget } from "./widgets";
@@ -220,7 +221,7 @@ const rowWords: Record<string, string> = {
   "books:reviews": "Your reviews",
 };
 
-export function ProfileView({ username, home = false }: { username: string; home?: boolean }) {
+export function ProfileView({ username, home = false, standalone = false }: { username: string; home?: boolean; standalone?: boolean }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [asked, setAsked] = useState(0);
@@ -275,7 +276,9 @@ export function ProfileView({ username, home = false }: { username: string; home
       <div className="fr-band" aria-hidden="true" />
       {home && !p.you ? null : <div className="fr-top">
         {home ? <span /> : <Crossing kind="kakejiku" className="fr-back" href={p.you ? "/account" : "/account/friends"} aria-label="Back"><LineIcon name="back" /></Crossing>}
+        {standalone && !p.you ? <AppearanceFlip className="fr-back fr-look" /> : null}
         {p.you ? <span className="fr-top-end">
+          {standalone ? <AppearanceFlip className="fr-back fr-look" /> : null}
           <label className="fr-asfriend"><span>View as a friend</span><JointSwitch name="as-friend" label="View your profile as a friend sees it" defaultChecked={false} onChange={setAsFriend} /></label>
           <CrossingSeal tone="quiet" compact className="fr-settings" href="/account/settings"><LineIcon name="cog" />Settings</CrossingSeal>
         </span> : null}
