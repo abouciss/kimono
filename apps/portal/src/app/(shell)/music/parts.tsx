@@ -4,7 +4,7 @@ import { Crossing, useCrossTo } from "@/components/crossing";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cx, MorphLoader, Seal } from "@kimono/ui";
-import { byline, clock, forget, hrefOf, musicApi, type Album, type Artist, type Playlist, type RatedKind, type Rating, type Track } from "./api";
+import { byline, clock, forget, hrefOf, musicApi, share, type Album, type Artist, type Playlist, type RatedKind, type Rating, type Track } from "./api";
 import { askName } from "./ask";
 import { Icon } from "./icons";
 import { usePlayer, type Source } from "./player";
@@ -143,6 +143,8 @@ function trackItems(t: Track, p: ReturnType<typeof usePlayer>, extra: Item[] = [
     { label: "Add to queue", icon: "queue", run: () => p.addToQueue([t]) },
     { label: "Add to playlist", icon: "playlist", sub: playlistItems([t.key], p.say) },
     { label: "Song radio", icon: "radio", run: () => { musicApi.radio(t.key, []).then(({ tracks }) => p.play([t, ...tracks], 0, { kind: "radio", id: t.key, title: `Like ${t.title}` })).catch(() => p.say("No radio for that one right now.")); } },
+    { label: "Go to song", icon: "note", href: hrefOf.song(t.key) },
+    { label: "Share", icon: "share", run: async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); } },
     ...(t.artists[0] ? [{ label: "Go to artist", icon: "back" as const, href: hrefOf.artist(t.artists[0].key) }] : []),
     ...(t.album ? [{ label: "Go to album", icon: "back" as const, href: hrefOf.album(t.album.key) }] : []),
     ...extra,

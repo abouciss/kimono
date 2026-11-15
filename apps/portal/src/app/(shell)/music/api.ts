@@ -35,6 +35,7 @@ export const musicApi = {
   artist: (key: string) => call<ArtistPage>(`artist?key=${q(key)}`),
   genre: (id: number) => call<Results & { genre: Genre }>(`genre?id=${id}`),
   mix: (id: string) => call<{ mix: Row }>(`mix?id=${q(id)}`),
+  track: (key: string) => call<{ track: Track; rating: Rating | null }>(`track?key=${q(key)}`),
   lyrics: (key: string) => call<{ lyrics: Lyrics | null }>(`lyrics?key=${q(key)}`),
   radio: (seed: string, skip: string[]) => call<{ tracks: Track[] }>(`radio?seed=${q(seed)}&skip=${q(skip.slice(-200).join(","))}`),
   ready: (keys: string[]) => call<{ ok: true }>("ready", send("POST", { keys })),
@@ -89,6 +90,7 @@ export const hrefOf = {
   playlist: (id: string) => `/music/playlist/${id}`,
   genre: (id: number) => `/music/genre/${id}`,
   mix: (id: string) => `/music/mix?id=${encodeURIComponent(id)}`,
+  song: (key: string) => `/music/song/${idOf(key)}`,
 };
 
 export function clock(seconds: number) {
@@ -101,6 +103,18 @@ export function length(tracks: Track[]) {
   const total = tracks.reduce((n, t) => n + t.duration, 0);
   const h = Math.floor(total / 3600), m = Math.round((total % 3600) / 60);
   return h ? `${h} hr ${m} min` : `${m} min`;
+}
+
+/**
+ * Sends a Music address: the phone's share sheet where there is one, else the
+ * link is copied. Answers what to tell the person, or null if they backed out.
+ */
+export async function share(path: string, title: string): Promise<string | null> {
+  const url = `${location.origin}${path}`;
+  if (navigator.share && matchMedia("(pointer: coarse)").matches) {
+    try { await navigator.share({ title, url }); return null; } catch { return null; }
+  }
+  try { await navigator.clipboard.writeText(url); return "Link copied"; } catch { return "That link couldn't be copied"; }
 }
 
 /** "3 min ago", "yesterday", "12 Nov": when a friend last listened. */
