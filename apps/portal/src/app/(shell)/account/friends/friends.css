@@ -22,14 +22,6 @@
 
 /* shelves: covers in a row that scrolls sideways */
 .fr-shelf { display: grid; grid-auto-flow: column; grid-auto-columns: 132px; gap: 14px; overflow-x: auto; padding: 4px 4px 12px; scroll-snap-type: x proximity; }
-.fr-tile { position: relative; display: grid; align-content: start; gap: 6px; scroll-snap-align: start; }
-.fr-tile > a, .fr-tile > span { display: grid; gap: 4px; color: inherit; text-decoration: none; }
-.fr-tile b { font-size: 14px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.fr-tile small { font-size: 12.5px; color: var(--on-surface-variant); }
-.fr-cover { display: block; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: var(--sc-high); transition: border-radius .35s var(--spring); }
-.fr-tile > a:hover .fr-cover { border-radius: 22px; }
-.fr-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.fr-cover-none { width: 100%; height: 100%; display: grid; place-items: center; font: 600 40px/1 var(--display); color: var(--plum); }
 .fr-from { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--on-surface-variant); }
 .fr-from .portrait { width: 20px; height: 20px; font-size: 11px; }
 .fr-new { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
@@ -52,23 +44,9 @@
 .fr-toast { position: fixed; left: 50%; bottom: 32px; translate: -50% 0; z-index: 70; padding: 12px 20px; border-radius: 16px; background: var(--on-surface); color: var(--surface); font-size: 15px; box-shadow: var(--raised); animation: rise .45s var(--spring); }
 
 /* ── 墨 the ink sheet: paper with a wash bled in from its top corner ── */
-.fr-note textarea { resize: vertical; min-height: 72px; }
-.fr-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; }
 
-.fr-rec-item { display: flex; align-items: center; gap: 14px; }
-.fr-rec-item .fr-cover { width: 56px; border-radius: 10px; flex: none; }
-.fr-rec-item span { display: grid; gap: 2px; }
-.fr-rec-item small { color: var(--on-surface-variant); }
 
 /* picking friends: their portraits; a picked one wears a suō seal mark */
-.fr-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 10px; min-height: 84px; }
-.fr-pick-one { position: relative; display: grid; justify-items: center; gap: 4px; padding: 6px 2px; border: 0; border-radius: 18px; background: transparent; font: 13px var(--sans); color: var(--on-surface); cursor: pointer; transition: background-color .2s, border-radius .35s var(--spring); }
-.fr-pick-one:hover { background: var(--sc-high); }
-.fr-pick-one[aria-pressed="true"] { background: var(--secondary-container, var(--sc-high)); border-radius: 22px; font-weight: 700; }
-.fr-pick-one .k-ink-portrait { width: 56px; height: 56px; }
-.fr-pick-one .k-ink-portrait .portrait { width: 47px; height: 47px; font-size: 22px; }
-.fr-pick-mark { position: absolute; top: 4px; right: calc(50% - 32px); width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--primary); color: #fff; box-shadow: 0 0 0 3px var(--sc-low); }
-.fr-pick-mark .line-icon { width: 14px; height: 14px; color: #fff; stroke-width: 2.6; }
 
 @media (max-width: 720px) {
   .fr-pad { padding: 0 20px; }
@@ -115,8 +93,6 @@
 .fr-shelf::-webkit-scrollbar-track { margin-inline: 4px; background: linear-gradient(transparent 6px, color-mix(in srgb, var(--k-ink) 12%, transparent) 6px 8px, transparent 8px); }
 @supports not selector(::-webkit-scrollbar) { .fr-shelf { scrollbar-width: thin; scrollbar-color: var(--k-scroll-thumb) color-mix(in srgb, var(--k-ink) 8%, transparent); } }
 .fr-group .label { margin-top: 14px; }
-.fr-progress { display: block; height: 4px; margin-top: 2px; border-radius: 2px; background: var(--sc-highest); overflow: hidden; }
-.fr-progress i { display: block; height: 100%; border-radius: 2px; background: var(--primary); }
 .fr-note textarea { min-height: 64px; }
 
 /* 本 the Silkscreen Kimono: the crimson case itself, turning, and a verified line; no card */
@@ -210,9 +186,6 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 .fr-off-open { margin-top: 4px; }
 .fr-off { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .fr-off li { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px; }
-.fr-off .fr-cover { width: 44px; border-radius: 8px; }
-.fr-off .fr-cover-none { font-size: 18px; }
-.fr-off-words { display: grid; gap: 2px; min-width: 0; }
 .fr-off b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fr-off small { font-size: 13px; color: var(--on-surface-variant); }
 
@@ -238,24 +211,10 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
     --fr-ink: oklch(from var(--fr-base) .88 .07 h);
   }
 }
-:is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-cover { background: var(--fr-wash); }
-:is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-cover-none, :is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-away { color: var(--fr-ink); }
-:is(.fr-app-books, .fr-app-watch, .fr-app-music) .fr-progress i { background: var(--fr-accent); }
 
 /* How they rated it: a mark on the cover's lower corner. */
-.fr-cover-wrap { position: relative; display: block; }
-.fr-rated { position: absolute; right: 6px; bottom: 6px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
-  background: var(--fr-accent, var(--primary)); color: var(--surface); box-shadow: 0 0 0 2px var(--surface); }
-.fr-rated svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
-.fr-rated-up svg, .fr-rated-down svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.fr-rated-down { background: var(--sc-highest); color: var(--on-surface-variant); }
 
 /* Books on a profile are the books Books shows (book3d.css): standing turned on the shelf, turning to you on hover with its cover opening. */
-.fr-tile .kb-book { --w: 132px; margin: 4px 0 10px; }
-.fr-tile .kb-book + .fr-rated { bottom: 16px; }
-@media (hover: hover) { .fr-tile > a:hover .kb-book { --turn: 0deg; --lift: -8px; --open: -28deg; --b-shade: 1; } .fr-tile > a:hover .kb-book::after { transform: translateX(0) scaleX(1.05); opacity: .75; } }
-@media (max-width: 600px) { .fr-tile .kb-book { --w: 116px; } }
-@media (prefers-reduced-motion: reduce) { .fr-tile > a:hover .kb-book { --lift: 0px; --open: 0deg; --b-shade: 0; } }
 
 /* ── A profile of one's own (2026-11): a band in their colour, them, their links, right now, then their apps ── */
 .fr-profile.fr-profile-v2 { display: block; max-width: 1080px; padding-bottom: 96px; }
@@ -296,7 +255,6 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 /* Right now: the song on, the book, the show. */
 .fr-now { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; padding: 0 28px; }
 .fr-now-one { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px; border-radius: var(--k-r-l); background: color-mix(in srgb, var(--fr-base, var(--fr-color)) 12%, var(--k-container-low)); color: var(--k-on-surface); text-decoration: none; }
-.fr-now-one .fr-cover { width: 52px; height: 52px; flex: none; border-radius: var(--k-r-s); }
 .fr-now-one > span { display: grid; min-width: 0; }
 .fr-now-one small { display: inline-flex; align-items: center; gap: 6px; font: 700 12.5px/16px var(--k-sans); color: var(--fr-base, var(--k-on-surface-variant)); }
 .fr-now-one b { font: 700 15px/20px var(--k-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -542,3 +500,5 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
   .fr-profile-v2 .fr-hero-body { grid-template-columns: auto minmax(0, 1fr); }
   .fr-profile-v2 .fr-hero-body > .fr-actions { grid-column: 2; justify-content: flex-start; }
 }
+
+.ta-card > .fr-from { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 13px; color: var(--on-surface-variant); }

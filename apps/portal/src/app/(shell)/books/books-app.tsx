@@ -3,7 +3,7 @@
 import { useTabTitle } from "@/components/tab-title";
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppLockup, InkPortraitFrame, InkWave, MorphLoader, type AppIdentity } from "@kimono/ui";
-import { Crossing } from "@/components/crossing";
+import { Crossing, CrossingSeal } from "@/components/crossing";
 import { Portrait } from "@/components/portrait";
 import Markdown, { type Components } from "react-markdown";
 import { asBook, booksApi, BooksError, count, ratingLabel, stateLabel, verdictOf, type Book, type BookFileInfo, type FriendOnBook, type FriendReading, type Genre, type GenrePage as GenrePageData, type Home, type Page, type Rating, type ReadingFormat, type ShelfItem, type ShelfState } from "./api";
@@ -516,7 +516,12 @@ function ShelfPage({ you, shelf, friends, onOpen, onDiscover }: { you: You; shel
   </header>;
   const friendsPart = friends?.length
     ? <FriendsShelf friends={friends} onOpen={onOpen} />
-    : <section className="kb-shelf kb-you-friends"><div className="kb-shelf-head"><h2>Friends</h2></div><p className="kb-note">See what your friends are reading. <Crossing kind="kakejiku" href="/account/friends">Find friends</Crossing></p></section>;
+    : <section className="kb-shelf kb-you-friends"><div className="kb-shelf-head"><h2>Friends</h2></div>
+      <div className="kb-friends-empty">
+        <span className="kb-friends-seats" aria-hidden="true"><i /><i /><i /></span>
+        <p>When friends share what they&rsquo;re reading, their books land here.</p>
+        <CrossingSeal tone="quiet" compact href="/account/friends">Find friends</CrossingSeal>
+      </div></section>;
   if (!shelf.length) return <>
     {head}
     <div className="kb-empty kb-empty-shelf">
