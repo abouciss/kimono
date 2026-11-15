@@ -1,7 +1,8 @@
 import "server-only";
 
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { readdirSync, realpathSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Worker } from "node:worker_threads";
 
 /*
@@ -23,13 +24,27 @@ import { Worker } from "node:worker_threads";
  */
 if (process.env.KIMONO_TRACE_WORKER_PACKAGES === "never") void Promise.all([import("jsdom"), import("bgutils-js/botguard"), import("bgutils-js/webpo"), import("bgutils-js/utils")]);
 
-/* Where the packages are: the Portal's folder in development, apps/portal in the standalone image. */
-function resolver() {
-  for (const dir of [process.cwd(), join(process.cwd(), "apps/portal")]) {
-    const req = createRequire(join(dir, "package.json"));
-    try { req.resolve("jsdom"); return req; } catch { /* the next */ }
+/*
+ * Where a package the worker needs is: the Portal's own node_modules in development; in the standalone image,
+ * where the build links its server externals, as `.next/node_modules/<name>-<hash>` (nothing else points there).
+ */
+function locate(spec: string): string {
+  const name = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
+  const roots = [process.cwd(), join(process.cwd(), "apps/portal")];
+  for (const dir of roots) {
+    try { return createRequire(join(dir, "package.json")).resolve(spec); } catch { /* the next */ }
   }
-  throw new Error("music: jsdom isn't installed where the Portal runs");
+  for (const dir of roots) {
+    const linked = join(dir, ".next/node_modules");
+    let entries: string[] = [];
+    try { entries = readdirSync(linked); } catch { continue; }
+    const hit = entries.find((e) => e.startsWith(`${name.replace("/", "+")}-`) || e.startsWith(`${name}-`));
+    if (!hit) continue;
+    /* The link leads into pnpm's store, beside the package's own dependencies: resolve from there. */
+    const real = realpathSync(join(linked, hit));
+    try { return createRequire(join(dirname(real), "_.js")).resolve(spec); } catch { /* the next */ }
+  }
+  throw new Error(`music: ${name} isn't installed where the Portal runs`);
 }
 
 const workerCode = `
@@ -69,11 +84,10 @@ const { parentPort, workerData } = require("node:worker_threads");
 type Minter = { mint(binding: string): Promise<string>; expires: number; stop(): void };
 
 function start(): Promise<Minter> {
-  const req = resolver();
-  const url = (spec: string) => `file://${req.resolve(spec)}`;
+  const url = (spec: string) => `file://${locate(spec)}`;
   const worker = new Worker(workerCode, {
     eval: true,
-    workerData: { jsdom: req.resolve("jsdom"), botguard: url("bgutils-js/botguard"), webpo: url("bgutils-js/webpo"), utils: url("bgutils-js/utils") },
+    workerData: { jsdom: locate("jsdom"), botguard: url("bgutils-js/botguard"), webpo: url("bgutils-js/webpo"), utils: url("bgutils-js/utils") },
     resourceLimits: { maxOldGenerationSizeMb: 256 },
   });
   worker.unref();
