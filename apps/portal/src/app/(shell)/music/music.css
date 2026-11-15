@@ -644,10 +644,10 @@
 
 /* ── Music's gold ─────────────────────────────────────────────────────────
    Every app's colour is rebuilt at one fixed tone, which turns yellow into
-   khaki. Music sets its gold itself, a step brighter and fuller; the other
-   roles still follow from it. */
-.app-frame.in-app[data-app="kimono-music"] { --k-app-accent: #b5820c; }
-:root[data-theme="dark"] .app-frame.in-app[data-app="kimono-music"] { --k-app-accent: oklch(.8 .15 82); --k-suo: oklch(.82 .15 84); --k-accent-pale: oklch(.48 .09 80); --k-primary-container: oklch(.56 .12 80); --k-secondary-container: oklch(.44 .07 78); --k-app-text: oklch(.87 .11 86); }
+   khaki. Music sets its gold itself: gilt, warm and metallic rather than
+   bright (bright reads yellow). The other roles still follow from it. */
+.app-frame.in-app[data-app="kimono-music"] { --k-app-accent: #946c25; }
+:root[data-theme="dark"] .app-frame.in-app[data-app="kimono-music"] { --k-app-accent: oklch(.74 .11 80); --k-suo: oklch(.76 .11 80); --k-accent-pale: oklch(.46 .07 80); --k-primary-container: oklch(.54 .09 80); --k-secondary-container: oklch(.43 .05 78); --k-app-text: oklch(.86 .08 82); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .app-frame.in-app[data-app="kimono-music"] { --k-app-accent: oklch(.8 .15 82); --k-suo: oklch(.82 .15 84); --k-accent-pale: oklch(.48 .09 80); --k-primary-container: oklch(.56 .12 80); --k-secondary-container: oklch(.44 .07 78); --k-app-text: oklch(.87 .11 86); }
+  :root:not([data-theme="light"]) .app-frame.in-app[data-app="kimono-music"] { --k-app-accent: oklch(.74 .11 80); --k-suo: oklch(.76 .11 80); --k-accent-pale: oklch(.46 .07 80); --k-primary-container: oklch(.54 .09 80); --k-secondary-container: oklch(.43 .05 78); --k-app-text: oklch(.86 .08 82); }
 }
