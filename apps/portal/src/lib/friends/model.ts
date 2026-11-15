@@ -53,6 +53,8 @@ export function migrateSocial(db: DatabaseSync) {
   if (!columns.includes("public")) db.exec("ALTER TABLE profiles ADD COLUMN public INTEGER NOT NULL DEFAULT 0");
   /* Apps whose sharing someone has chosen (comma-separated); until then, everything in that app stays theirs. */
   if (!columns.includes("decided")) db.exec("ALTER TABLE profiles ADD COLUMN decided TEXT NOT NULL DEFAULT ''");
+  /* On a public profile, what only friends see (comma-separated apps, rows "watch:listed", or "friends"); the rest anyone with the link sees. */
+  if (!columns.includes("friends_only")) db.exec("ALTER TABLE profiles ADD COLUMN friends_only TEXT NOT NULL DEFAULT ''");
   /* What a title taken off a profile is called, so it can be put back from a list. */
   const off = (db.prepare("PRAGMA table_info(profile_off)").all() as { name: string }[]).map((c) => c.name);
   for (const c of ["title", "subtitle", "cover"]) if (!off.includes(c)) db.exec(`ALTER TABLE profile_off ADD COLUMN ${c} TEXT`);
@@ -463,7 +465,32 @@ export function keptOf(db: DatabaseSync, username: string): string[] {
   return [...new Set([...(row?.kept ?? "").split(","), ...undecided])].filter((k) => k === "friends" || (k.includes(":") && rowsOf[k.split(":")[0]]?.some(([kind]) => kind === k.split(":")[1])));
 }
 
-const saveProfile = (db: DatabaseSync, u: string, column: "hidden" | "kept" | "invisible" | "public" | "decided", value: string | number, now: number) =>
+/** On a public profile, the apps, rows and parts only friends see: hidden from anyone else with the link. */
+export function friendsOnlyOf(db: DatabaseSync, username: string): string[] {
+  const row = db.prepare("SELECT friends_only FROM profiles WHERE username = ?").get(username.toLowerCase()) as { friends_only?: string } | undefined;
+  return (row?.friends_only ?? "").split(",").filter(Boolean);
+}
+
+/** Who [viewer] is to [username]'s profile: them, a friend, or anyone else (signed out, or not friends) at a public address. */
+export function audienceOf(db: DatabaseSync, viewer: string, username: string): "you" | "friend" | "stranger" {
+  const v = viewer.toLowerCase(), u = username.toLowerCase();
+  if (v !== "" && v === u) return "you";
+  return v !== "" && areFriends(db, v, u) ? "friend" : "stranger";
+}
+
+/**
+ * Who sees one app, row ("watch:listed") or your friends list ("friends"): "me", "friends", or "everyone"
+ * (anyone with a public profile's link). Answers what's kept and shown as it now is.
+ */
+export function setAudience(db: DatabaseSync, username: string, key: string, to: "me" | "friends" | "everyone", now = Date.now()) {
+  const u = username.toLowerCase();
+  if (apps[key]) setAppHidden(db, u, key, to === "me", now);
+  else setKept(db, u, key, to === "me", now);
+  const next = [...new Set([...friendsOnlyOf(db, u).filter((k) => k !== key), ...(to === "friends" ? [key] : [])])].sort();
+  saveProfile(db, u, "friends_only", next.join(","), now);
+}
+
+const saveProfile = (db: DatabaseSync, u: string, column: "hidden" | "kept" | "invisible" | "public" | "decided" | "friends_only", value: string | number, now: number) =>
   db.prepare(`INSERT INTO profiles (username, bio, updated_at, ${column}) VALUES (?, '', ?, ?) ON CONFLICT (username) DO UPDATE SET ${column} = excluded.${column}, updated_at = excluded.updated_at`).run(u, now, value);
 
 /** Shows or keeps one app's activity off your profile. Answers the apps kept off as you set them (going invisible doesn't change these). */
@@ -499,13 +526,16 @@ export function privacyOf(db: DatabaseSync, username: string) {
   const row = privacyRow(db, username);
   const hidden = (row?.hidden ?? "").split(",");
   const kept = keptOf(db, username);
+  const only = friendsOnlyOf(db, username);
+  /* `everyone`: anyone with a public profile's link sees it too, not just friends. */
   return {
     invisible: Number(row?.invisible ?? 0) === 1,
     visibility: visibilityOf(db, username),
     friends: !kept.includes("friends"),
+    friendsEveryone: !kept.includes("friends") && !only.includes("friends"),
     apps: Object.entries(apps).map(([app, { name }]) => ({
-      app, name, shown: !hidden.includes(app),
-      rows: (rowsOf[app] ?? []).map(([kind, title]) => ({ kind, title, shown: !kept.includes(`${app}:${kind}`) })),
+      app, name, shown: !hidden.includes(app), everyone: !hidden.includes(app) && !only.includes(app),
+      rows: (rowsOf[app] ?? []).map(([kind, title]) => ({ kind, title, shown: !kept.includes(`${app}:${kind}`), everyone: !kept.includes(`${app}:${kind}`) && !only.includes(`${app}:${kind}`) })),
     })),
   };
 }
@@ -530,8 +560,10 @@ export function profileFor<P extends { username: string }>(db: DatabaseSync, vie
   /* Signed out, at a public profile's address. */
   const visitor = v === "";
   if (!seesProfile(db, v, u)) return { ...person, you, link, ...(visitor ? { visitor } : {}), open: false as const };
-  const hidden = hiddenAppsOf(db, u);
-  const kept = keptOf(db, u);
+  /* Anyone else at a public address doesn't see what's for friends only. */
+  const only = audienceOf(db, v, u) === "stranger" ? friendsOnlyOf(db, u) : [];
+  const hidden = [...hiddenAppsOf(db, u), ...only.filter((k) => apps[k])];
+  const kept = [...keptOf(db, u), ...only.filter((k) => !apps[k])];
   const friends = friendsOf(db, u);
   return {
     ...person, you, link, ...(visitor ? { visitor } : {}), open: true as const,

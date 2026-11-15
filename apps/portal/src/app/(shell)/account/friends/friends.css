@@ -613,3 +613,15 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 .fr-profile-v2 .fr-hero-end .fr-actions { padding-bottom: 0; }
 @container fr-hero (max-width: 940px) { .fr-profile-v2 .fr-hero-body > .fr-hero-end { grid-column: 2; justify-items: start; padding-bottom: 0; } }
 @media (max-width: 720px) { .fr-profile-v2 .fr-hero-end { justify-items: center; } }
+
+/* ── Who sees what (2026-11-15): three ways on a public profile; each app folded until opened ── */
+.fr-who.is-three button { padding: 0 10px; }
+.fr-wsw-appname { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; padding: 4px 6px 4px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px 4px 12px 4px; }
+.fr-wsw-appname > span { display: grid; min-width: 0; }
+.fr-wsw-appname small { font-size: 12.5px; color: var(--k-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-wsw-appname > .line-icon { flex: none; width: 16px; height: 16px; margin-left: 2px; color: var(--k-on-surface-variant); transition: transform .3s var(--k-spring); }
+.fr-wsw-app.is-open .fr-wsw-appname > .line-icon { transform: rotate(180deg); }
+.fr-wsw-appname:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.fr-wsw-subs { animation: fr-rise .3s var(--k-spring) both; }
+.fr-app-glyph { width: 24px; height: 24px; }
+@media (max-width: 640px) { .fr-wsw-apphead { flex-wrap: wrap; } .fr-who.is-three button { padding: 0 8px; font-size: 12.5px; } }

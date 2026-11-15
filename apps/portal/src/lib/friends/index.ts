@@ -12,7 +12,7 @@ import { dropBanner, writeBanner } from "../banners";
 import { stateDir } from "../state";
 import {
   answerFriend, apps, askFriend, setLook, setBannerFile, keptOf, hiddenAppsOf, bioOf, dropRecommendation, FriendsProblem, friendsOf, importFriends, linkOf, linksOf, markSeen, migrateSocial, onProfile,
-  isInvisible, isOffProfile, offProfileList, offProfileOf, privacyOf, profileFor, putBackOnProfile, takeOffProfile, receivedBy, recommend, recommendedTo, removeFriend, seesProfile, sentBy, setAppHidden, setBio, setInvisible, setKept, unseenCount, setVisibility, visibilityOf, decideSharing, decidedOf, sharingAsks, type Visibility,
+  isInvisible, isOffProfile, audienceOf, friendsOnlyOf, setAudience, offProfileList, offProfileOf, privacyOf, profileFor, putBackOnProfile, takeOffProfile, receivedBy, recommend, recommendedTo, removeFriend, seesProfile, sentBy, setAppHidden, setBio, setInvisible, setKept, unseenCount, setVisibility, visibilityOf, decideSharing, decidedOf, sharingAsks, type Visibility,
   type LinkState, type Recommendation, type Section,
 } from "./model";
 import { friendsActivity, type Activity } from "./activity";
@@ -200,8 +200,9 @@ export async function profileOf(viewer: string, username: string, origin: string
   const kimonoRead = await import("./books-section").then((m) => m.kimonoReadOf(person.username)).catch(() => null);
   /* Music's and Books' widgets, each part only as far as they share it (their own profile shows it all). */
   const you = profile.you;
-  const kept = new Set(keptOf(db, person.username));
-  const hiddenApps = hiddenAppsOf(db, person.username);
+  const only = audienceOf(db, viewer, person.username) === "stranger" ? friendsOnlyOf(db, person.username) : [];
+  const kept = new Set([...keptOf(db, person.username), ...only]);
+  const hiddenApps = [...hiddenAppsOf(db, person.username), ...only];
   const shares = (app: string, kind: string) => you || (!hiddenApps.includes(app) && !kept.has(`${app}:${kind}`));
   const songs = (profile.widgets ?? []).filter((w) => w.kind === "song" && w.config?.key).map((w) => w.config!.key!);
   const fullMusic = shares("music", "playing") || shares("music", "stats")
@@ -240,6 +241,7 @@ export function changePrivacy(username: string, body: Record<string, unknown>) {
   if (typeof body.visibility === "string") setVisibility(db, username, body.visibility as Visibility);
   else if (typeof body.share === "string") decideSharing(db, username, body.share, Array.isArray(body.on) ? body.on.map(String) : []);
   else if (typeof body.invisible === "boolean") setInvisible(db, username, body.invisible);
+  else if (typeof body.audience === "string" && ["me", "friends", "everyone"].includes(String(body.to))) setAudience(db, username, body.audience, body.to as "me" | "friends" | "everyone");
   else if (typeof body.keep === "string") setKept(db, username, body.keep, !shown);
   else if (typeof body.app === "string") setAppHidden(db, username, body.app, !shown);
   else throw new FriendsProblem("Pick what friends see.");
