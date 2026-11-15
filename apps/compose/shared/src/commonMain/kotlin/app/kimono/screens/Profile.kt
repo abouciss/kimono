@@ -196,20 +196,9 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
     val color = profileColor(p?.color)
     AppAccentTheme(color.hex()) {
         CompositionLocalProvider(LocalBoardColor provides color, LocalStill provides still) {
+            /* Your own profile has no bar: its few controls sit on the band. Someone else's keeps its way back. */
             Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
-                KimonoTopBar("", onBack = back) {
-                    if (p?.you == true) {
-                        if (!asFriend) Box(
-                            Modifier.size(40.dp).clip(CircleShape).clickable { privacyOpen = true }.semantics { contentDescription = "Who sees what" },
-                            contentAlignment = Alignment.Center,
-                        ) { Icon(kimonoIcon("eye"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)) }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(end = 4.dp)) {
-                            Text("As a friend", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Switch(asFriend, { asFriend = it; if (it) arranging = false })
-                        }
-                        Seal("Settings", onClick = toSettings, tone = SealTone.Quiet, compact = true, icon = "cog")
-                    }
-                }
+                if (p?.you != true || back != null) KimonoTopBar("", onBack = back)
             }) { padding ->
                 KimonoRefresh(refreshing, onRefresh = { scope.launch { refreshing = true; load(); refreshing = false } }, modifier = Modifier.padding(padding).fillMaxSize()) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -230,6 +219,12 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
                         Hero(
                             p, color, own.takeIf { p.you && !preview }, preview, closedToFriends,
                             banner = p.banner?.let { (server ?: "") + it },
+                            controls = if (p.you) ({
+                                if (!preview && p.open) BandButton("camera", if (p.banner != null) "Change banner" else "Add a banner") { if (p.banner != null) bannerMenu = true else newBanner() }
+                                if (!preview) BandButton("eye", "Who sees what") { privacyOpen = true }
+                                BandButton("person", if (asFriend) "Stop viewing as a friend" else "View as a friend", on = asFriend) { asFriend = !asFriend; if (asFriend) arranging = false }
+                                BandButton("cog", "Settings", onClick = toSettings)
+                            }) else null,
                             yours = if (mineNow) Yours(
                                 banner = { if (p.banner != null) bannerMenu = true else newBanner() },
                                 look = { editing = true },
@@ -320,7 +315,7 @@ internal fun visibilityOf(p: Privacy) = p.visibility ?: if (p.invisible) "privat
 private class Yours(val banner: () -> Unit, val look: () -> Unit, val links: () -> Unit, val bio: suspend (String) -> Unit)
 
 @Composable
-private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Boolean, closed: Boolean, banner: String?, yours: Yours?, actions: @Composable () -> Unit) {
+private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Boolean, closed: Boolean, banner: String?, yours: Yours?, controls: (@Composable () -> Unit)? = null, actions: @Composable () -> Unit) {
     val still = app.kimono.screens.LocalStill.current
     val pop = remember { Animatable(if (still) 1f else 0f) }
     LaunchedEffect(Unit) { if (!still) pop.animateTo(1f, spring(.5f, 260f)) }
@@ -331,17 +326,14 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
             Band(color, still, banner)
-            yours?.let { y ->
-                Row(
-                    Modifier.align(Alignment.TopEnd).padding(end = 24.dp, top = 14.dp).clip(RoundedCornerShape(topStart = 10.dp, bottomEnd = 10.dp, topEnd = 4.dp, bottomStart = 4.dp))
-                        .background(Color.Black.copy(alpha = .38f)).clickable(onClick = y.banner).padding(horizontal = 10.dp, vertical = 7.dp)
-                        .semantics { contentDescription = if (banner != null) "Change banner" else "Add a banner" },
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(kimonoIcon("camera"), null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Text(if (banner != null) "Banner" else "Add a banner", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
-                }
+            controls?.let { c ->
+                Row(Modifier.align(Alignment.TopEnd).padding(end = 22.dp, top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { c() }
             }
+            /* Seeing it as a friend: said on the band, so it's never mistaken for how you see it. */
+            if (preview) Text(
+                "As a friend sees it", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White,
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 20.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = .38f)).padding(horizontal = 10.dp, vertical = 6.dp),
+            )
         }
         Box(Modifier.pullUp(66.dp).graphicsLayer { scaleX = .7f + .3f * pop.value; scaleY = .7f + .3f * pop.value; alpha = pop.value }) {
             val ring = MaterialTheme.colorScheme.surface
@@ -396,6 +388,15 @@ private fun Hero(p: KimonoProfile, color: Color, own: OwnProfile?, preview: Bool
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) { actions() }
         }
     }
+}
+
+/** One of your profile's few controls, a round mark on the band; [on] fills it. */
+@Composable
+private fun BandButton(icon: String, label: String, on: Boolean = false, onClick: () -> Unit) {
+    Box(
+        Modifier.size(40.dp).clip(CircleShape).background(if (on) Color.White else Color.Black.copy(alpha = .32f)).clickable(onClick = onClick).semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) { Icon(kimonoIcon(icon), null, tint = if (on) Color.Black.copy(alpha = .8f) else Color.White, modifier = Modifier.size(20.dp)) }
 }
 
 /** Your bio, changed where it sits: tap it, type, Done saves. */
