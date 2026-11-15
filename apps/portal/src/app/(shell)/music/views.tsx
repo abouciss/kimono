@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppLockup, cx, InkPortraitFrame, Seal, type AppIdentity } from "@kimono/ui";
 import { useTabTitle } from "@/components/tab-title";
-import { ago, byline, clock, forget, hrefOf, length, musicApi, share, useMusic, type Album, type FriendListening, type Person, type PlaylistPage, type Track } from "./api";
+import { ago, byline, clock, forget, hrefOf, length, musicApi, share, songKeyOf, useMusic, type Album, type FriendListening, type Person, type PlaylistPage, type Track } from "./api";
 import { InkSheet } from "@/components/ink-sheet";
 import { ImportSheet } from "./import-ui";
 import { askName, askSure } from "./ask";
@@ -300,7 +300,7 @@ export function SearchView() {
 const kindOrder: Album["kind"][] = ["album", "ep", "single", "compile"];
 
 export function ArtistView({ id }: { id: string }) {
-  const key = `dz:${id}`;
+  const key = songKeyOf(id);
   const p = usePlayer();
   const { data, error, retry } = useMusic(`artist:${key}`, () => musicApi.artist(key));
   const [more, setMore] = useState(false);
@@ -365,8 +365,8 @@ export function SongView({ id }: { id: string }) {
   const p = usePlayer();
   const { data, error, retry } = useMusic(`song:${key}`, () => musicApi.track(key));
   const t = data?.track ?? null;
-  const { data: album } = useMusic(t?.album ? `album:${t.album.key}` : null, () => musicApi.album(t!.album!.key));
-  const { data: artist } = useMusic(t?.artists[0] ? `artist:${t.artists[0].key}` : null, () => musicApi.artist(t!.artists[0].key));
+  const { data: album } = useMusic(t?.album?.key ? `album:${t.album.key}` : null, () => musicApi.album(t!.album!.key));
+  const { data: artist } = useMusic(t?.artists[0]?.key ? `artist:${t.artists[0].key}` : null, () => musicApi.artist(t!.artists[0].key));
   const { data: lyrics } = useMusic(t ? `lyrics:${key}` : null, () => musicApi.lyrics(key).then((r) => r.lyrics));
   const [allWords, setAllWords] = useState(false);
   const [sending, setSending] = useState(false);
@@ -379,7 +379,7 @@ export function SongView({ id }: { id: string }) {
   const more = (artist?.top ?? []).filter((x) => x.key !== t.key).slice(0, 5);
   return <div className="km-page">
     <Head kind={t.album && album?.album.year ? `Song · ${album.album.year}` : "Song"} title={t.title} art={<Cover src={t.album?.cover} quality="full" className="km-head-cover" />}
-      meta={<><ArtistLinksBold artists={t.artists} />{t.album ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)}>{t.album.title}</Crossing></> : null} · {clock(t.duration)}</>}>
+      meta={<><ArtistLinksBold artists={t.artists} />{t.album?.key ? <> · <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)}>{t.album.title}</Crossing></> : t.album?.title ? <> · {t.album.title}</> : null} · {clock(t.duration)}</>}>
       <Seal onClick={() => (here ? p.toggle() : p.play([t], 0, { kind: "song", id: t.key, title: t.title }))}>
         <Icon name={here && p.playing ? "pause" : "play"} />{here && p.playing ? "Pause" : "Play"}
       </Seal>
@@ -416,7 +416,7 @@ export function SongView({ id }: { id: string }) {
 }
 
 function ArtistLinksBold({ artists }: { artists: Track["artists"] }) {
-  return <span>{artists.filter((a, i, all) => all.findIndex((b) => b.key === a.key) === i).map((a, i) => <span key={a.key}>{i ? ", " : ""}<Crossing kind="kakejiku" href={hrefOf.artist(a.key)}>{a.name}</Crossing></span>)}</span>;
+  return <span>{artists.filter((a, i, all) => all.findIndex((b) => b.key === a.key && b.name === a.name) === i).map((a, i) => <span key={a.key || a.name}>{i ? ", " : ""}{a.key ? <Crossing kind="kakejiku" href={hrefOf.artist(a.key)}>{a.name}</Crossing> : a.name}</span>)}</span>;
 }
 
 /* ── A playlist ────────────────────────────────────────────────────────── */

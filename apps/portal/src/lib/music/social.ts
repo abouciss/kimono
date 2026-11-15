@@ -150,7 +150,7 @@ export async function me(config: MusicConfig, username: string): Promise<Me> {
   const repeat = db.prepare("SELECT track, count(*) AS n FROM plays WHERE username = ? AND played_at > ? AND seconds >= length * 0.6 GROUP BY track HAVING n >= 2 ORDER BY n DESC, max(played_at) DESC LIMIT 20").all(user(username), since) as { track: string }[];
   const recent = (db.prepare("SELECT track, max(played_at) AS at FROM plays WHERE username = ? AND seconds >= 30 GROUP BY track ORDER BY at DESC LIMIT 20").all(user(username)) as { track: string }[]).map((r) => r.track);
   const t = await taste(config, username);
-  const artists = (await Promise.all(t.artists.slice(0, 10).map((a) => getArtist(config, a.key).then((p) => p?.artist ?? null).catch(() => null)))).filter((a): a is Artist => Boolean(a));
+  const artists = (await Promise.all(t.artists.filter((a) => a.key).slice(0, 10).map((a) => getArtist(config, a.key).then((p) => p?.artist ?? null).catch(() => null)))).filter((a): a is Artist => Boolean(a));
   return {
     plays: totals.n,
     minutes: Math.round(totals.s / 60),
@@ -184,7 +184,7 @@ export async function playlistsOf(viewer: string, username: string): Promise<Pla
 
 /* ── On a Kimono profile ───────────────────────────────────────────────── */
 
-const albumHref = (t: Track) => (t.album ? `/music/album/${t.album.key.replace(/^dz:/, "")}` : null);
+const albumHref = (t: Track) => (t.album?.key ? `/music/album/${t.album.key.replace(/^dz:/, "")}` : null);
 
 /** Music's rows on someone's profile: what they've been listening to, what they love, their playlists. */
 export async function musicSectionsFrom(username: string): Promise<Section[]> {

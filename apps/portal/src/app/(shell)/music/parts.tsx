@@ -182,8 +182,8 @@ function trackItems(t: Track, p: ReturnType<typeof usePlayer>, extra: Item[] = [
     { label: "Song radio", icon: "radio", run: () => { musicApi.radio(t.key, []).then(({ tracks }) => p.play([t, ...tracks], 0, { kind: "radio", id: t.key, title: `Like ${t.title}` })).catch(() => p.say("No radio for that one right now.")); } },
     { label: "Go to song", icon: "note", href: hrefOf.song(t.key), divide: true },
     { label: "Share", icon: "share", run: async () => { const said = await share(hrefOf.song(t.key), `${t.title} · ${byline(t)}`); if (said) p.say(said); } },
-    ...(t.artists[0] ? [{ label: "Go to artist", icon: "person" as const, href: hrefOf.artist(t.artists[0].key) }] : []),
-    ...(t.album ? [{ label: "Go to album", icon: "album" as const, href: hrefOf.album(t.album.key) }] : []),
+    ...(t.artists[0]?.key ? [{ label: "Go to artist", icon: "person" as const, href: hrefOf.artist(t.artists[0].key) }] : []),
+    ...(t.album?.key ? [{ label: "Go to album", icon: "album" as const, href: hrefOf.album(t.album.key) }] : []),
     ...extra.map((item, i) => (i ? item : { ...item, divide: true })),
   ];
 }
@@ -192,7 +192,10 @@ function trackItems(t: Track, p: ReturnType<typeof usePlayer>, extra: Item[] = [
 
 export function ArtistLinks({ artists }: { artists: Track["artists"] }) {
   /* Songs kept before Deezer's repeated names were dropped may still carry one. */
-  return <>{artists.filter((a, i, all) => all.findIndex((b) => b.key === a.key) === i).map((a, i) => <span key={a.key}>{i ? ", " : ""}<Crossing kind="kakejiku" href={hrefOf.artist(a.key)} onClick={(e) => e.stopPropagation()}>{a.name}</Crossing></span>)}</>;
+  return <>{artists.filter((a, i, all) => all.findIndex((b) => b.key === a.key && b.name === a.name) === i).map((a, i) => <span key={a.key || a.name}>{i ? ", " : ""}{a.key
+    ? <Crossing kind="kakejiku" href={hrefOf.artist(a.key)} onClick={(e) => e.stopPropagation()}>{a.name}</Crossing>
+    /* A YouTube song's channel: named, with no page to go to. */
+    : a.name}</span>)}</>;
 }
 
 /**
@@ -227,7 +230,7 @@ export function Songs({ tracks, source, numbered = false, art = true, album = tr
           <span className="km-song-title">{t.title}{t.explicit ? <abbr className="km-explicit" title="Explicit">E</abbr> : null}</span>
           <span className="km-song-by"><ArtistLinks artists={t.artists} /></span>
         </div>
-        {album ? <span className="km-song-album">{t.album ? <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)}>{t.album.title}</Crossing> : null}</span> : null}
+        {album ? <span className="km-song-album">{t.album?.key ? <Crossing kind="kakejiku" href={hrefOf.album(t.album.key)}>{t.album.title}</Crossing> : t.album?.title || null}</span> : null}
         <span className="km-song-end">
           {loved ? <Icon name="love" className="km-song-loved" /> : null}
           <span className="km-song-time">{clock(t.duration)}</span>

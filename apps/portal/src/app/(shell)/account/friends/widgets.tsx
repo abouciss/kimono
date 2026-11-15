@@ -160,7 +160,7 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
 
 const first = (name: string) => name.split(/\s+/)[0];
 const itemOf = (d: BoardData, app: string, kind: string) => d.sections.find((s) => s.app === app && s.kind === kind)?.items[0] ?? null;
-const songHref = (key: string) => `/music/song/${key.replace(/^dz:/, "")}`;
+const songHref = (key: string) => `/music/song/${key.startsWith("yt:") ? `yt-${key.slice(3)}` : key.replace(/^dz:/, "")}`;
 const albumHref = (key: string) => `/music/album/${key.replace(/^dz:/, "")}`;
 
 function ago(iso: string) {

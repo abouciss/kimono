@@ -235,9 +235,13 @@ class Music(val session: Session) {
         const val GOLD = "#946c25"
         private const val BASE = "/api/v1/music"
         val reactions = listOf("❤️", "🔥", "😂", "😮", "🕺", "👏")
-        /** Deezer's number in a path (/music/artist/27), and back. */
-        fun idOf(key: String) = key.removePrefix("dz:")
-        fun keyOf(id: String) = if (id.startsWith("dz:")) id else "dz:$id"
+        /** Deezer's number in a path (/music/artist/27), and back; a song only YouTube has is yt-<video> (its key, yt:<video>). */
+        fun idOf(key: String) = if (key.startsWith("yt:")) "yt-" + key.removePrefix("yt:") else key.removePrefix("dz:")
+        fun keyOf(id: String) = when {
+            id.startsWith("dz:") || id.startsWith("yt:") -> id
+            id.startsWith("yt-") -> "yt:" + id.removePrefix("yt-")
+            else -> "dz:$id"
+        }
         fun clock(seconds: Double): String {
             val total = if (seconds.isFinite() && seconds > 0) seconds.toInt() else 0
             val h = total / 3600; val m = (total / 60) % 60; val s = total % 60

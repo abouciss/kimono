@@ -346,7 +346,8 @@ export type ActivityView = Omit<Activity, "from"> & { from: Person; appName: str
 
 const recommendationHref = (r: Recommendation) =>
   r.app === "watch" ? `/watch?t=${encodeURIComponent(r.itemId)}` : r.app === "books" ? `/books?b=${encodeURIComponent(r.itemId)}`
-    : r.app === "music" && /^dz:\d+$/.test(r.itemId) ? `/music/song/${r.itemId.slice(3)}` : null;
+    : r.app === "music" && /^dz:\d+$/.test(r.itemId) ? `/music/song/${r.itemId.slice(3)}`
+    : r.app === "music" && /^yt:[A-Za-z0-9_-]{11}$/.test(r.itemId) ? `/music/song/yt-${r.itemId.slice(3)}` : null;
 
 /**
  * What friends are up to, for Home (./activity.ts keeps it to what each lets friends see): watching now and

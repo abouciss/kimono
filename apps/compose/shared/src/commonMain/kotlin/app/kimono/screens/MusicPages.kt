@@ -136,14 +136,14 @@ fun MusicAlbumScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -> U
 @Composable
 fun MusicSongScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -> Unit) {
     val key = Music.keyOf(id)
-    val (page, problem, retry) = loaded(key, player.music.known<TrackPage>("track?key=dz%3A$id")) { player.music.track(key) }
+    val (page, problem, retry) = loaded(key, player.music.known<TrackPage>("track?key=${key.replace(":", "%3A")}")) { player.music.track(key) }
     var lyrics by remember(key) { mutableStateOf<Lyrics?>(null) }
     var friends by remember(key) { mutableStateOf<List<FriendOnSong>>(emptyList()) }
     var more by remember(key) { mutableStateOf<List<Track>>(emptyList()) }
     var menu by remember { mutableStateOf(false) }
     LaunchedEffect(key) { lyrics = runCatching { player.music.lyrics(key) }.getOrNull() }
     LaunchedEffect(key) { friends = runCatching { player.music.songFriends(key) }.getOrDefault(emptyList()) }
-    LaunchedEffect(page?.track?.album?.key) { page?.track?.album?.key?.let { more = runCatching { player.music.album(it).album.tracks }.getOrDefault(emptyList()) } }
+    LaunchedEffect(page?.track?.album?.key) { page?.track?.album?.key?.takeIf { it.isNotBlank() }?.let { more = runCatching { player.music.album(it).album.tracks }.getOrDefault(emptyList()) } }
     Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
         KimonoTopBar("", onBack = back) { IconButton(onClick = { player.share("/music/song/$id") }) { Icon(kimonoIcon("share"), "Share") } }
     }) { pad ->
