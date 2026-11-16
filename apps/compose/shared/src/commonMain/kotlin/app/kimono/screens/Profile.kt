@@ -146,8 +146,8 @@ class OwnProfile(
     val portrait: @Composable () -> Unit,
     val rename: suspend (String) -> Unit,
     val settings: () -> Unit,
-    /** A photo for the banner, cut 3:1 (Platform.pickBanner); null when the person backs out. */
-    val pickBanner: suspend () -> ByteArray? = { null },
+    /** The phone, for picking and cropping a banner photo (Platform.pickPhoto, cropPhoto). */
+    val platform: app.kimono.data.Platform? = null,
 )
 
 @Composable
@@ -173,12 +173,11 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
     /* Live: what they're playing and watching changes under you, so the profile reads itself again while it's in front. */
     WhileShown(username) { while (true) { delay(12_000); runCatching { profile = friends.profile(username) } } }
     var bannerMenu by remember { mutableStateOf(false) }
+    /* A banner photo, picked and waiting in Kimono's cropper. */
+    var bannerPhoto by remember { mutableStateOf<app.kimono.data.PickedPhoto?>(null) }
+    var bannerBusy by remember { mutableStateOf(false) }
     fun newBanner() = scope.launch {
-        try {
-            val jpeg = own?.pickBanner?.invoke() ?: return@launch
-            val banner = friends.saveBanner(jpeg)
-            profile = profile?.copy(banner = banner); toast = "Banner up"
-        } catch (e: KimonoProblem) { problem = e.message } catch (_: Exception) { problem = "Your banner could not be saved." }
+        try { bannerPhoto = own?.platform?.pickPhoto() ?: return@launch } catch (_: Exception) { problem = "That photo couldn't be opened." }
     }
     val mine = profile?.you == true
     LaunchedEffect(mine) { if (mine) runCatching { asked = friends.list().asked.size } }
@@ -294,6 +293,19 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
             val privacy = p?.privacy
             if (privacyOpen && p != null && privacy != null) WhoSeesWhat(friends, privacy, p.username, p.off.size, onDismiss = { privacyOpen = false }, onOff = { privacyOpen = false; offOpen = true }) { now ->
                 profile = profile?.copy(privacy = now.privacy, hidden = now.hidden, kept = now.privacy.kept)
+            }
+            bannerPhoto?.let { photo ->
+                app.kimono.ui.PhotoCropDialog(photo, aspect = 3f, round = false, title = "Banner", busy = bannerBusy, onDismiss = { bannerPhoto = null }) { x, y, w, h ->
+                    scope.launch {
+                        try {
+                            bannerBusy = true
+                            val jpeg = own?.platform?.cropPhoto(photo, x, y, w, h, 2400, 800, png = false) ?: throw IllegalStateException()
+                            val banner = friends.saveBanner(jpeg)
+                            profile = profile?.copy(banner = banner); toast = "Banner up"
+                        } catch (e: KimonoProblem) { problem = e.message } catch (_: Exception) { problem = "Your banner could not be saved." }
+                        bannerBusy = false; bannerPhoto = null
+                    }
+                }
             }
             if (bannerMenu) app.kimono.ui.InkDialog(title = "Banner", onDismiss = { bannerMenu = false }, icon = "camera", actions = {
                 Seal("Remove", compact = true, tone = SealTone.Quiet, onClick = { bannerMenu = false; scope.launch { try { friends.dropBanner(); profile = profile?.copy(banner = null); toast = "Banner off" } catch (e: KimonoProblem) { problem = e.message } } })

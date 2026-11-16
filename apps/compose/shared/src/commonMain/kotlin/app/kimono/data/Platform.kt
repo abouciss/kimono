@@ -4,6 +4,9 @@ package app.kimono.data
  * What the shared app needs from the phone it runs on. Android implements it
  * in androidApp; the iPhone version comes with the iOS target.
  */
+/** A photo as picked: its bytes and its size in pixels. */
+class PickedPhoto(val bytes: ByteArray, val width: Int, val height: Int)
+
 interface Platform {
     /** Reads a value kept between launches, encrypted by the OS keystore. */
     suspend fun readKept(key: String): String?
@@ -21,6 +24,10 @@ interface Platform {
     suspend fun pickPicture(): ByteArray?
     /** Asks the person for a photo for their profile banner; returns it cut 3:1 from the middle as a 2400×800 JPEG, or null. */
     suspend fun pickBanner(): ByteArray? = null
+    /** Asks the person for a photo and hands it back whole (upright, its longest side at most 2400px) for Kimono's own cropper; null if they backed out. */
+    suspend fun pickPhoto(): PickedPhoto? = null
+    /** Cuts [x],[y],[w],[h] (in [photo]'s pixels) out of it, drawn at [outW]×[outH]: a PNG when [png], else a JPEG. Drawing it afresh leaves its metadata behind. */
+    suspend fun cropPhoto(photo: PickedPhoto, x: Int, y: Int, w: Int, h: Int, outW: Int, outH: Int, png: Boolean): ByteArray? = null
 
     /** "android" or "ios": which store a phone app lives in. */
     val os: String

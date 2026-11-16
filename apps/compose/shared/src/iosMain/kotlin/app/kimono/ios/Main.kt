@@ -47,6 +47,8 @@ interface IosHost {
     fun pickPicture(done: (NSData?) -> Unit)
     /** A photo from the picker, cut 3:1 from the middle to a 2400×800 JPEG, or null. */
     fun pickBanner(done: (NSData?) -> Unit)
+    /** A photo from the picker, whole and upright, its longest side at most 2400px, as a JPEG; or null. */
+    fun pickPhoto(done: (NSData?) -> Unit)
     fun openUrl(url: String)
     fun cacheDir(): String
     /** Shows a downloaded file in Quick Look, with its share button. */
@@ -126,6 +128,18 @@ private class IosPlatform(private val host: IosHost) : Platform {
         suspendCancellableCoroutine { waiting -> host.pickPicture { waiting.resume(it?.toByteArray()) } }
     override suspend fun pickBanner(): ByteArray? =
         suspendCancellableCoroutine { waiting -> host.pickBanner { waiting.resume(it?.toByteArray()) } }
+    override suspend fun pickPhoto(): app.kimono.data.PickedPhoto? {
+        val bytes = suspendCancellableCoroutine<ByteArray?> { waiting -> host.pickPhoto { waiting.resume(it?.toByteArray()) } } ?: return null
+        val image = runCatching { org.jetbrains.skia.Image.makeFromEncoded(bytes) }.getOrNull() ?: return null
+        return app.kimono.data.PickedPhoto(bytes, image.width, image.height)
+    }
+    override suspend fun cropPhoto(photo: app.kimono.data.PickedPhoto, x: Int, y: Int, w: Int, h: Int, outW: Int, outH: Int, png: Boolean): ByteArray? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val image = org.jetbrains.skia.Image.makeFromEncoded(photo.bytes)
+            val surface = org.jetbrains.skia.Surface.makeRasterN32Premul(outW, outH)
+            surface.canvas.drawImageRect(image, org.jetbrains.skia.Rect.makeXYWH(x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat()), org.jetbrains.skia.Rect.makeWH(outW.toFloat(), outH.toFloat()))
+            surface.makeImageSnapshot().encodeToData(if (png) org.jetbrains.skia.EncodedImageFormat.PNG else org.jetbrains.skia.EncodedImageFormat.JPEG, if (png) 100 else 86)?.bytes
+        }
     override val os = "ios"
     override fun openUrl(url: String) = host.openUrl(url)
     /* Only for the schemes listed under LSApplicationQueriesSchemes; any other answers false. */

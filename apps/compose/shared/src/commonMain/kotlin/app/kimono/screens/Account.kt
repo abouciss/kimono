@@ -105,15 +105,25 @@ fun YouScreen(session: Session, platform: Platform, me: AccountProfile?, friends
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { InkLoader() }
         return
     }
+    /* The photo picked, waiting in Kimono's cropper. */
+    var cropping by remember { mutableStateOf<app.kimono.data.PickedPhoto?>(null) }
     val choose: () -> Unit = {
         problem = null
         scope.launch {
-            try {
-                val png = platform.pickPicture() ?: return@launch
-                busy = true
-                session.usePicture(png)
-            } catch (p: KimonoProblem) { problem = p.message } catch (_: Exception) { problem = "Your picture could not be saved." }
-            busy = false
+            try { cropping = platform.pickPhoto() ?: return@launch } catch (_: Exception) { problem = "That photo couldn't be opened." }
+        }
+    }
+    cropping?.let { photo ->
+        app.kimono.ui.PhotoCropDialog(photo, aspect = 1f, round = true, title = "Your picture", busy = busy, onDismiss = { cropping = null }) { x, y, w, h ->
+            scope.launch {
+                try {
+                    busy = true
+                    val png = platform.cropPhoto(photo, x, y, w, h, 512, 512, png = true) ?: throw IllegalStateException()
+                    session.usePicture(png)
+                    cropping = null
+                } catch (p: KimonoProblem) { problem = p.message; cropping = null } catch (_: Exception) { problem = "Your picture could not be saved."; cropping = null }
+                busy = false
+            }
         }
     }
     val remove: () -> Unit = {
@@ -146,7 +156,7 @@ fun YouScreen(session: Session, platform: Platform, me: AccountProfile?, friends
             session.refreshMe()
         },
         settings = { open("settings") },
-        pickBanner = { platform.pickBanner() },
+        platform = platform,
     ))
 }
 
