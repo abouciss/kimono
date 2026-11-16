@@ -421,7 +421,7 @@ private fun FriendsRow(friends: List<app.kimono.data.FriendPerson>, activity: Li
         }
         item(key = "add") {
             Person(if (shown.isEmpty()) "Add friends" else "Add", onClick = onAdd) {
-                InkBlot("add-friend", size = 60.dp) { Icon(kimonoIcon("plus"), null, modifier = Modifier.align(Alignment.Center).size(24.dp)) }
+                InkBlot("add-friend", size = 60.dp) { Icon(kimonoIcon("plus"), null, tint = Kata.plum, modifier = Modifier.align(Alignment.Center).size(24.dp)) }
             }
         }
     }
