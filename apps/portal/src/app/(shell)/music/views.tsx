@@ -154,8 +154,10 @@ export function HomeView() {
  * Listen again: the songs you play most, nine to a page (three by three), and
  * swiped sideways for the next nine. The first page is your top nine.
  */
-function ListenAgain({ tracks }: { tracks: Track[] }) {
+function ListenAgain({ tracks: all }: { tracks: Track[] }) {
   const p = usePlayer();
+  /* Thumbed down here: gone from the grid at once, not on the next visit. */
+  const tracks = all.filter((t) => p.ratingOf("track", t.key) !== "down");
   const row = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
   const pages: Track[][] = [];

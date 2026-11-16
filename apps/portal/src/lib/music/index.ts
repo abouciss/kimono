@@ -324,13 +324,16 @@ export function history(username: string, limit = 50): (Track & { playedAt: stri
  * The songs you come back to: each play heard past 30s counts, less as it ages
  * (half every 30 days), so this month's favourite beats last spring's. Four
  * pages of nine; when that many haven't been played through, the rest are
- * other songs you've played, latest first.
+ * other songs you've played, latest first. Nothing you've thumbed down (the
+ * song, or its artist).
  */
 export function mostPlayed(username: string, limit = 36): Track[] {
   const now = Date.now();
+  const down = downRated(username);
   const rows = musicDb().prepare("SELECT track, played_at FROM plays WHERE username = ? AND seconds >= 30 AND played_at > ?").all(user(username), now - 180 * DAY) as { track: string; played_at: number }[];
   const score = new Map<string, { s: number; last: number }>();
   for (const r of rows) {
+    if (down.has(r.track)) continue;
     const x = score.get(r.track) ?? { s: 0, last: 0 };
     x.s += Math.pow(0.5, (now - r.played_at) / (30 * DAY));
     x.last = Math.max(x.last, r.played_at);
@@ -338,11 +341,11 @@ export function mostPlayed(username: string, limit = 36): Track[] {
   }
   const keys = [...score.entries()].sort((a, b) => b[1].s - a[1].s || b[1].last - a[1].last).slice(0, limit).map(([k]) => k);
   if (keys.length < limit) {
-    const more = musicDb().prepare("SELECT track, MAX(played_at) AS at FROM plays WHERE username = ? GROUP BY track ORDER BY at DESC LIMIT ?").all(user(username), limit * 2) as { track: string }[];
-    for (const r of more) { if (keys.length >= limit) break; if (!keys.includes(r.track)) keys.push(r.track); }
+    const more = musicDb().prepare("SELECT track, MAX(played_at) AS at FROM plays WHERE username = ? GROUP BY track ORDER BY at DESC LIMIT ?").all(user(username), limit * 3) as { track: string }[];
+    for (const r of more) { if (keys.length >= limit) break; if (!keys.includes(r.track) && !down.has(r.track)) keys.push(r.track); }
   }
   const tracks = keptTracks(keys);
-  return keys.flatMap((k) => tracks.get(k) ?? []);
+  return keys.flatMap((k) => tracks.get(k) ?? []).filter((t) => !t.artists.some((a) => a.key && down.has(a.key)));
 }
 
 /* ── Ratings ───────────────────────────────────────────────────────────── */
