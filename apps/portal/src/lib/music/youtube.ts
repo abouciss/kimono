@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Innertube, Platform } from "youtubei.js";
-import { matchScore, MusicProblem, videoTrack, type Candidate, type Track } from "./model";
+import { matchScore, MusicProblem, plainTitle, songOfVideo, videoTrack, type Candidate, type Track } from "./model";
 import { poExpires, poToken } from "./po-token";
 
 /*
@@ -81,6 +81,26 @@ async function candidates(yt: Innertube, query: string, type: "song" | "video"):
     if (!it.id || !it.title) return [];
     return [{ id: it.id, title: it.title, artists: (it.artists ?? it.authors ?? []).map((a) => a.name), seconds: it.duration?.seconds ?? 0, kind: type, cover: bestThumb(it.thumbnail ?? it.thumbnails), album: it.album?.name ?? null }];
   });
+}
+
+/**
+ * What YouTube Music has for a search: its own songs, and videos that are
+ * plainly one song ("3rd Coast - Jealousy (Lyrics)"), read as that song.
+ * For what Deezer doesn't carry: game and anime music, niche uploads.
+ */
+export async function searchYouTube(text: string): Promise<{ songs: Track[]; videos: Track[] }> {
+  const yt = await searchSession();
+  const allowed = plainTitle(text);
+  const [songs, videos] = await Promise.all([candidates(yt, text, "song").catch(() => []), candidates(yt, text, "video").catch(() => [])]);
+  return {
+    songs: songs.filter((c) => c.seconds > 0).slice(0, 12).map((c) => videoTrack({ id: c.id, title: c.title, artists: c.artists, seconds: c.seconds, cover: c.cover, album: c.album })),
+    videos: videos.flatMap((c) => {
+      /* A song is a few minutes: not a 30-second clip, not an hour. */
+      if (c.seconds < 45 || c.seconds > 900) return [];
+      const song = songOfVideo(c.title, c.artists[0] ?? "", allowed);
+      return song ? [videoTrack({ id: c.id, title: song.title, artists: song.artists, seconds: c.seconds, cover: c.cover })] : [];
+    }).slice(0, 8),
+  };
 }
 
 /**
