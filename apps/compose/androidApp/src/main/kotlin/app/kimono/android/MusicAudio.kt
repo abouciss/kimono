@@ -54,6 +54,16 @@ class AndroidMusicAudio(private val context: Context) : MusicAudio {
         }
     }.build()
     private var resumeOnGain = false
+    /* Between songs MediaPlayer holds no wake lock: with the screen off the phone would sleep (and Wi-Fi doze) before the next one loads. Held while a song is meant to play. */
+    private val wake = context.getSystemService(android.os.PowerManager::class.java).newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "kimono:music").apply { setReferenceCounted(false) }
+    @Suppress("DEPRECATION")
+    private val wifi = context.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)?.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "kimono:music")?.apply { setReferenceCounted(false) }
+    private fun awake(on: Boolean) {
+        if (on) { wake.acquire(15 * 60_000L); runCatching { wifi?.acquire() } }
+        else { if (wake.isHeld) wake.release(); runCatching { if (wifi?.isHeld == true) wifi.release() } }
+    }
+    /** Playing, or meant to be: loading or between songs. The service stays in the foreground for it. */
+    val active: Boolean get() = wantPlay
     /* Some streams (HE-AAC signalled implicitly) read at twice their real length: their clock is scaled back to the song's. */
     private var scale = 1.0
 
@@ -80,6 +90,7 @@ class AndroidMusicAudio(private val context: Context) : MusicAudio {
         prepared = false
         scale = 1.0
         wantPlay = play
+        if (play) awake(true)
         startAt = at
         this.info = info
         val made = MediaPlayer()
@@ -117,6 +128,7 @@ class AndroidMusicAudio(private val context: Context) : MusicAudio {
     override fun play() {
         val p = player ?: return
         wantPlay = true
+        awake(true)
         if (!prepared) { events?.changed(false, true); return }
         if (audioManager.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
         if (!noisyOn) { context.registerReceiver(noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)); noisyOn = true }
@@ -130,6 +142,7 @@ class AndroidMusicAudio(private val context: Context) : MusicAudio {
 
     override fun pause() {
         wantPlay = false
+        awake(false)
         val p = player ?: return
         if (prepared && p.isPlaying) p.pause()
         events?.changed(false, false)
@@ -153,6 +166,7 @@ class AndroidMusicAudio(private val context: Context) : MusicAudio {
 
     override fun stop() {
         player?.release(); player = null; prepared = false; wantPlay = false
+        awake(false)
         audioManager.abandonAudioFocusRequest(focus)
         if (noisyOn) { runCatching { context.unregisterReceiver(noisy) }; noisyOn = false }
         session.isActive = false
@@ -194,7 +208,7 @@ class AndroidMusicAudio(private val context: Context) : MusicAudio {
             .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_SEEK_TO or PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS)
             .setState(if (!prepared && wantPlay) PlaybackState.STATE_BUFFERING else if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED, (position * 1000).toLong(), if (playing) rate else 0f)
             .build())
-        MusicService.refresh(context, this, playing)
+        MusicService.refresh(context, this, playing || wantPlay)
     }
 
     fun notification(playing: Boolean): Notification {
@@ -231,7 +245,8 @@ class MusicService : Service() {
             PREV -> audio?.events?.remote("prev", 0.0)
         }
         if (audio == null) { stopSelf(); return START_NOT_STICKY }
-        val playing = audio.isPlaying
+        /* Meant to play counts: dropping out of the foreground while the next song loads lets Android freeze the app, and it can't come back. */
+        val playing = audio.isPlaying || audio.active
         val n = audio.notification(playing)
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK) else startForeground(ID, n)
         if (!playing) stopForeground(STOP_FOREGROUND_DETACH)
@@ -240,7 +255,7 @@ class MusicService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         val audio = (application as KimonoApplication).platform.musicAudio as? AndroidMusicAudio
-        if (audio?.isPlaying != true) stopSelf()
+        if (audio?.isPlaying != true && audio?.active != true) stopSelf()
     }
 
     companion object {

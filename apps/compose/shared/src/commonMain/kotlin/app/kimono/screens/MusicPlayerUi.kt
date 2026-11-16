@@ -90,8 +90,9 @@ fun MusicBar(player: MusicPlayer, hem: Boolean) {
                     Text(sub, style = MaterialTheme.typography.bodySmall, color = if (player.arriving != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                    if (player.waiting) LoadingIndicator(Modifier.size(44.dp), color = MaterialTheme.colorScheme.primary)
-                    IconButton(onClick = { player.toggle() }) { MusicGlyph(if (player.playing && !player.waiting) "pause" else "play", MaterialTheme.colorScheme.onSurface, 26.dp) }
+                    /* Loading: the spinner alone (a tap still pauses), not a play button under it. */
+                    if (player.waiting) LoadingIndicator(Modifier.size(44.dp).clip(CircleShape).clickable { player.toggle() }, color = MaterialTheme.colorScheme.primary)
+                    else IconButton(onClick = { player.toggle() }) { MusicGlyph(if (player.playing) "pause" else "play", MaterialTheme.colorScheme.onSurface, 26.dp) }
                 }
                 IconButton(onClick = { player.next() }) { MusicGlyph("next", MaterialTheme.colorScheme.onSurface, 24.dp) }
             }
@@ -169,7 +170,10 @@ fun NowPlaying(player: MusicPlayer, go: MusicGo) {
                                 Text(t.byline, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             IconButton(onClick = { player.prev() }) { MusicGlyph("prev", MaterialTheme.colorScheme.onSurface, 22.dp, filled = true) }
-                            FilledIconButtonBig(if (player.playing && !player.waiting) "pause" else "play", "Play", 48.dp) { player.toggle() }
+                            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                if (player.waiting) LoadingIndicator(Modifier.size(48.dp).clip(CircleShape).clickable { player.toggle() }, color = MaterialTheme.colorScheme.primary)
+                                else FilledIconButtonBig(if (player.playing) "pause" else "play", "Play", 48.dp) { player.toggle() }
+                            }
                             IconButton(onClick = { player.next() }) { MusicGlyph("next", MaterialTheme.colorScheme.onSurface, 22.dp, filled = true) }
                         }
                         Scrubber(player)
@@ -258,8 +262,8 @@ private fun Controls(player: MusicPlayer) {
         Toggle(player.shuffle, enabled = !inParty, onClick = { player.toggleShuffle() }) { MusicGlyph("shuffle", it, 22.dp) }
         IconButton(onClick = { player.prev() }, modifier = Modifier.size(56.dp)) { MusicGlyph("prev", MaterialTheme.colorScheme.onSurface, 30.dp, filled = true) }
         Box(contentAlignment = Alignment.Center) {
-            if (player.waiting) LoadingIndicator(Modifier.size(84.dp), color = MaterialTheme.colorScheme.primaryContainer)
-            FilledIconButtonBig(if (player.playing && !player.waiting) "pause" else "play", "Play", 72.dp) { player.toggle() }
+            if (player.waiting) LoadingIndicator(Modifier.size(84.dp).clip(CircleShape).clickable { player.toggle() }, color = MaterialTheme.colorScheme.primary)
+            else FilledIconButtonBig(if (player.playing) "pause" else "play", "Play", 72.dp) { player.toggle() }
         }
         IconButton(onClick = { player.next() }, modifier = Modifier.size(56.dp)) { MusicGlyph("next", MaterialTheme.colorScheme.onSurface, 30.dp, filled = true) }
         Box(contentAlignment = Alignment.TopEnd) {
