@@ -290,7 +290,7 @@ fun MusicSearchScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
             if (f.artists.isNotEmpty()) item { Shelf("Artists") { items(f.artists, key = { it.key }) { ArtistTile(it, go, 100.dp) } } }
             if (f.tracks.isNotEmpty()) {
                 item { Text("Songs", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp)) }
-                itemsIndexed(f.tracks, key = { _, t -> "s" + t.key }) { i, t -> SongRow(player, t, { player.play(listOf(t) + player.music.let { _ -> f.tracks.filter { it.key != t.key } }, 0, QueueSource("search", text, "“$text”")) }, go) }
+                itemsIndexed(f.tracks, key = { _, t -> "s" + t.key }) { i, t -> SongRow(player, t, { player.playWithRadio(t) }, go) }
             }
             if (f.albums.isNotEmpty()) item { Shelf("Albums") { items(f.albums, key = { it.key }) { AlbumTile(player, it, go) } } }
             if (f.tracks.isEmpty() && f.albums.isEmpty() && f.artists.isEmpty()) item { Text("Nothing by that name.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(20.dp)) }
