@@ -108,6 +108,7 @@ fun HomeScreen(
     var tasks by remember { mutableStateOf(code.knownWorkspaces()) }
     var devices by remember { mutableStateOf(vpn.known()) }
     var activity by remember { mutableStateOf(friends.knownActivity()) }
+    var people by remember { mutableStateOf(friends.known()) }
     var book by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -121,6 +122,7 @@ fun HomeScreen(
         if (codeApp != null) tasks = runCatching { code.workspaces() }.getOrNull() ?: tasks
         if (vpnApp != null) devices = runCatching { vpn.view() }.getOrNull() ?: devices
         activity = runCatching { friends.activity() }.getOrNull() ?: activity
+        people = runCatching { friends.list() }.getOrNull() ?: people
     }
     LaunchedEffect(codeApp != null, vpnApp != null) { load() }
 
@@ -187,6 +189,12 @@ fun HomeScreen(
                 Box(Modifier.padding(horizontal = 16.dp, vertical = 1.dp)) {
                     AppLine(app, here(app), index, fresh.size, canPin = canPin, fresh = true, beta = app.id in betaIds, pin = { pin(app) }) { open(app) }
                 }
+            }
+
+            /* ── Friends ── */
+            people?.let { list ->
+                item(key = "friends-label") { FriendsPart(list.asked.size) { go("friends") } }
+                item(key = "friends") { FriendsRow(list.friends, activity.orEmpty(), onPerson = { go("people/$it") }) { go("friends") } }
             }
 
             /* ── Now ── */
@@ -380,6 +388,53 @@ private fun Glance(app: LauncherApp?, title: String, note: String?, onOpen: (() 
             if (onOpen != null) Icon(kimonoIcon("go"), null, modifier = Modifier.size(16.dp))
         }
         Column(Modifier.padding(bottom = 8.dp)) { lines() }
+    }
+}
+
+/** Friends' heading: it opens Friends, and says when someone's asked you. */
+@Composable
+private fun FriendsPart(asked: Int, onOpen: () -> Unit) {
+    Row(
+        Modifier.padding(start = 8.dp, end = 20.dp, top = 12.dp).clip(MaterialTheme.shapes.large).clickable(onClick = onOpen).padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Friends", style = MaterialTheme.typography.titleLarge)
+        if (asked > 0) Text("$asked asked you", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/** Your friends as portraits: whoever's watching now first, then whoever did something last; a + to find more. */
+@Composable
+private fun FriendsRow(friends: List<app.kimono.data.FriendPerson>, activity: List<app.kimono.data.FriendActivity>, onPerson: (String) -> Unit, onAdd: () -> Unit) {
+    val live = activity.filter { it.kind == "watching" }.map { it.from.username }.toSet()
+    val last = activity.groupBy { it.from.username }.mapValues { (_, all) -> all.maxOf { it.at } }
+    val shown = friends.sortedWith(compareByDescending<app.kimono.data.FriendPerson> { it.username in live }.thenByDescending { last[it.username] ?: 0L })
+    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        items(shown.size, key = { shown[it].username }) { i ->
+            val p = shown[i]
+            Person(p.name.substringBefore(' ').ifBlank { p.username }, onClick = { onPerson(p.username) }) {
+                app.kimono.ui.Portrait(p.picture, p.name, p.username, 60.dp)
+                if (p.username in live) Box(Modifier.align(Alignment.BottomEnd).size(16.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Kata.moss))
+                }
+            }
+        }
+        item(key = "add") {
+            Person(if (shown.isEmpty()) "Add friends" else "Add", onClick = onAdd) {
+                InkBlot("add-friend", size = 60.dp) { Icon(kimonoIcon("plus"), null, modifier = Modifier.align(Alignment.Center).size(24.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Person(name: String, onClick: () -> Unit, face: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) {
+    Column(
+        Modifier.width(80.dp).clip(MaterialTheme.shapes.large).clickable(onClick = onClick).padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(60.dp), content = face)
+        Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
