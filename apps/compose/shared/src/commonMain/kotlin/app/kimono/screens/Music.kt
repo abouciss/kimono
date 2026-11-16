@@ -300,6 +300,7 @@ fun MusicYouScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go:
     var problem by remember { mutableStateOf<String?>(null) }
     var tries by remember { mutableIntStateOf(0) }
     var making by remember { mutableStateOf(false) }
+    var bringing by remember { mutableStateOf(false) }
     LaunchedEffect(tries) { runCatching { player.music.me() }.onSuccess { mine = it; problem = null }.onFailure { if (mine == null) problem = it.message } }
     val kept = player.downloads.kept.collectAsState().value
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -334,6 +335,7 @@ fun MusicYouScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go:
             item {
                 Shelf("Your playlists") {
                     item { NewPlaylistTile { making = true } }
+                    item { BringInTile { bringing = true } }
                     items(m.playlists, key = { it.id }) { PlaylistTile(player, it, go) }
                 }
             }
@@ -341,6 +343,7 @@ fun MusicYouScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go:
             if (m.artists.isNotEmpty()) item { Shelf("Your top artists") { items(m.artists, key = { it.key }) { ArtistTile(it, go, 104.dp) } } }
         }
     }
+    if (bringing) BringInDialog(player, onClose = { bringing = false; tries++ }, open = go)
     if (making) NewPlaylistDialog(player, onDone = { made -> making = false; if (made != null) { tries++; go(MusicRoutes.playlist(made)) } })
 }
 
