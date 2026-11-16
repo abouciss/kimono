@@ -13,7 +13,7 @@ import { myApps } from "@/lib/my-apps";
 import { AppBloom, InkBlot } from "@kimono/ui";
 import { Portrait } from "@/components/portrait";
 import { portalOrigin } from "@/lib/account";
-import { activityOf, type ActivityView } from "@/lib/friends";
+import { activityOf, friendsList, type ActivityView } from "@/lib/friends";
 import type { RailApp } from "@/components/rail";
 import type { ReactNode } from "react";
 
@@ -21,7 +21,8 @@ import type { ReactNode } from "react";
  * 家 Home, in three parts that don't run into each other: Your apps (the same
  * list as the rail and the phone's flower), Now (a few lines each from Kimono
  * AI, Drive and your devices, only those with something to say), and More
- * apps, every other app by what it's for. Friends' latest (lib/friends activityOf) is one of Now's glances.
+ * apps, every other app by what it's for. Friends' latest (lib/friends activityOf) is one of Now's glances,
+ * and Friends, your people as portraits, sits between Your apps and Now.
  */
 export default async function HomePage() {
   const session = await auth();
@@ -29,7 +30,8 @@ export default async function HomePage() {
   const user = session.user;
   const [settings, apps, offer, mine] = await Promise.all([getPlatformSettings(), railApps(user.username), appOffer(), myApps(user.username)]);
   const ids = apps.map((app) => app.id);
-  const [glance, lines, activity] = [await homeGlance(user, ids), homeLines(user.username, ids), await activityOf(user.username, portalOrigin(), 4).then((a) => a.items).catch(() => [] as ActivityView[])];
+  const [glance, lines, recent, people] = [await homeGlance(user, ids), homeLines(user.username, ids), await activityOf(user.username, portalOrigin(), 24).then((a) => a.items).catch(() => [] as ActivityView[]), await friendsList(user.username).catch(() => null)];
+  const activity = recent.slice(0, 4);
   const tiles = apps.map((app) => ({ ...app, line: lines[app.id] }));
   const groups = categorize(tiles).map((group) => ({ id: group.id, label: group.label, apps: group.apps.map((app) => app.id) }));
   const displayName = user.name?.split(" ")[0] || user.username || "home";
@@ -45,6 +47,7 @@ export default async function HomePage() {
           <h1>Welcome home, <strong>{displayName}.</strong></h1>
         </header>
         <HomeApps apps={tiles} mine={mine} groups={groups}>
+          {people ? <Friends people={people} recent={recent} /> : null}
           {glance.chats || glance.files || glance.devices?.length || activity.length ? <section className="home-section home-now">
           <h2 className="home-section-title">Now</h2>
           <div className="home-glances">
@@ -87,6 +90,33 @@ function Line({ href, mark, title, detail }: { href: string; mark: ReactNode; ti
     <span className="home-line-mark">{mark}</span>
     <span className="home-line-text"><b>{title}</b>{detail ? <small>{detail}</small> : null}</span>
   </Crossing>;
+}
+
+type FriendsNow = Awaited<ReturnType<typeof friendsList>>;
+
+/** Your friends as portraits: whoever's watching now first, then whoever did something last, then by name; a + to find more. */
+function Friends({ people, recent }: { people: FriendsNow; recent: ActivityView[] }) {
+  const live = new Set(recent.filter((a) => a.kind === "watching").map((a) => a.from.username));
+  const last = new Map<string, number>();
+  for (const a of recent) last.set(a.from.username, Math.max(last.get(a.from.username) ?? 0, a.at));
+  const shown = [...people.friends].sort((a, b) => Number(live.has(b.username)) - Number(live.has(a.username)) || (last.get(b.username) ?? 0) - (last.get(a.username) ?? 0));
+  const asked = people.asked.length;
+  return <section className="home-section home-friends">
+    <h2 className="home-section-title"><Crossing kind="kakejiku" href="/account/friends">Friends</Crossing>{asked ? <span className="home-friends-asked">{asked} asked you</span> : null}</h2>
+    <div className="home-people">
+      {shown.map((p) => <Crossing key={p.username} kind="kakejiku" href={`/account/people/${encodeURIComponent(p.username)}`} className="home-person" aria-label={p.name || p.username}>
+        <span className="home-person-face">
+          <Portrait name={p.name} username={p.username} picture={p.picture} size={64} />
+          {live.has(p.username) ? <span className="home-dot is-live" /> : null}
+        </span>
+        <span className="home-person-name">{p.name?.split(" ")[0] || p.username}</span>
+      </Crossing>)}
+      <Crossing kind="kakejiku" href="/account/friends" className="home-person home-person-add" aria-label="Add friends">
+        <span className="home-person-face"><InkBlot seed="add-friend" tint="#a84d63"><span className="home-plus">+</span></InkBlot></span>
+        <span className="home-person-name">{shown.length ? "Add" : "Add friends"}</span>
+      </Crossing>
+    </div>
+  </section>;
 }
 
 /** A friend's latest: their portrait opens their profile, the rest the title. */
