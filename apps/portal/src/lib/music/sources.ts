@@ -170,6 +170,16 @@ export function lastfm(key: string) {
       const r = await call("tag.getTopTracks", { tag, limit: String(limit) });
       return ((r?.tracks?.track ?? []) as Json[]).map((t) => ({ artist: String(t.artist?.name ?? ""), title: String(t.name ?? "") })).filter((t) => t.artist && t.title);
     },
+    /** A tag as Last.fm knows it: its name as people write it, and how many listeners use it (0: nobody, so not a genre). */
+    async tagInfo(tag: string): Promise<{ name: string; reach: number } | null> {
+      const r = await call("tag.getInfo", { tag });
+      const t = r?.tag;
+      return t?.name ? { name: String(t.name), reach: Number(t.reach) || 0 } : null;
+    },
+    async tagArtists(tag: string, limit = 20): Promise<string[]> {
+      const r = await call("tag.getTopArtists", { tag, limit: String(limit) });
+      return ((r?.topartists?.artist ?? []) as Json[]).map((a) => String(a.name ?? "")).filter(Boolean);
+    },
     async similarArtists(artist: string, limit = 20): Promise<string[]> {
       const r = await call("artist.getSimilar", { artist, limit: String(limit) });
       return ((r?.similarartists?.artist ?? []) as Json[]).map((a) => String(a.name ?? "")).filter(Boolean);

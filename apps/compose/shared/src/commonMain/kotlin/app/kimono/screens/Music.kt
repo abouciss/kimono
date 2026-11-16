@@ -278,7 +278,7 @@ fun MusicSearchScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
             Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).then(if (stuck) Modifier.windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars) else Modifier)) {
                 OutlinedTextField(
                     text, { text = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus), singleLine = true,
-                    placeholder = { Text("Songs, albums, artists") }, leadingIcon = { Icon(kimonoIcon("search"), null) },
+                    placeholder = { Text("Songs, albums, artists, genres") }, leadingIcon = { Icon(kimonoIcon("search"), null) },
                     trailingIcon = { if (busy) app.kimono.ui.InkLoader(size = 22.dp) else if (text.isNotEmpty()) IconButton(onClick = { text = "" }) { Icon(kimonoIcon("close"), "Clear") } },
                     shape = RoundedCornerShape(28.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = {}),
                 )
@@ -286,7 +286,30 @@ fun MusicSearchScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
         }
         problem?.let { p -> item { Text(p, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(20.dp)) } }
         val f = found
-        if (f != null) {
+        val g = f?.genre
+        if (f != null && g != null) {
+            /* A genre typed ("city pop", "90s"): the genre first, its songs and artists, then what's named that. */
+            val src = QueueSource("genre", "tag:${g.tag}", g.title)
+            item(key = "genre") {
+                Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp)) {
+                    Text("Genre", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(g.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    if (g.artists.isNotEmpty()) Text(g.artists.take(3).joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                PlayAll(player, g.tracks, src, Modifier.padding(vertical = 8.dp), download = false)
+            }
+            itemsIndexed(g.tracks.take(8), key = { _, t -> "g" + t.key }) { i, t -> SongRow(player, t, { player.play(g.tracks, i, src) }, go) }
+            if (g.artists.isNotEmpty()) item(key = "gartists") { Shelf("Artists") { items(g.artists, key = { "ga" + it.key }) { ArtistTile(it, go, 100.dp) } } }
+            if (g.tracks.size > 8) {
+                item(key = "gmore") { Text("More ${g.title}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp)) }
+                itemsIndexed(g.tracks.drop(8), key = { _, t -> "gm" + t.key }) { i, t -> SongRow(player, t, { player.play(g.tracks, i + 8, src) }, go) }
+            }
+            if (f.albums.isNotEmpty()) item { Shelf("Albums") { items(f.albums, key = { it.key }) { AlbumTile(player, it, go) } } }
+            if (f.tracks.isNotEmpty()) {
+                item { Text("Named “$text”", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp)) }
+                itemsIndexed(f.tracks.take(10), key = { _, t -> "s" + t.key }) { _, t -> SongRow(player, t, { player.playWithRadio(t) }, go) }
+            }
+        } else if (f != null) {
             if (f.artists.isNotEmpty()) item { Shelf("Artists") { items(f.artists, key = { it.key }) { ArtistTile(it, go, 100.dp) } } }
             if (f.tracks.isNotEmpty()) {
                 item { Text("Songs", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp)) }

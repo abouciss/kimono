@@ -144,17 +144,58 @@ const idOf = (key: string) => {
  * once; songs are ranked by how well they answer the words typed, then how
  * popular they are, and a song both have is shown once, from Deezer.
  */
-export async function search(q: string) {
-  const text = q.trim().slice(0, 200);
-  if (!text) return { tracks: [], albums: [], artists: [] };
+/** A genre (or mood, decade, scene) that a search names: its best songs, two an artist, and its artists. */
+export type GenreFound = { tag: string; title: string; tracks: Track[]; artists: Artist[] };
+
+/*
+ * Whether what was typed is a genre people tag music with on Last.fm ("city
+ * pop", "lofi", "90s", "sad"), and if so its songs; without Last.fm, Deezer's
+ * own genres by name. Slow the first time (each song is looked up on Deezer),
+ * then kept for a week.
+ */
+async function genreSearch(config: MusicConfig, text: string): Promise<(GenreFound & { reach: number }) | null> {
   const key = text.toLowerCase();
-  const [found, yt] = await Promise.all([
+  if (key.length < 3) return null;
+  const titled = (s: string) => s.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+  if (!config.lastfmKey) {
+    const g = (await genres().catch(() => [])).find((x) => x.id !== 0 && x.name.toLowerCase() === key);
+    if (!g) return null;
+    const c = await chart(g.id);
+    return { tag: g.name.toLowerCase(), title: g.name, tracks: spread(c.tracks, 2).slice(0, 30), artists: c.artists.slice(0, 12), reach: 100_000 };
+  }
+  const fm = lastfm(config.lastfmKey);
+  const info = await kept("tag-info", key, 30 * DAY, () => fm.tagInfo(key)).catch(() => null);
+  /* A tag a few people used isn't a genre; and it has to be what was typed, not something near it. */
+  if (!info || info.reach < 500 || info.name.toLowerCase() !== key) return null;
+  const [named, names] = await Promise.all([
+    kept("tag-tracks-deep", key, 7 * DAY, () => fm.tagTracks(key, 150)).catch(() => null),
+    kept("tag-artists", key, 7 * DAY, () => fm.tagArtists(key, 20)).catch(() => null),
+  ]);
+  const [songs, artists] = await Promise.all([
+    byName((named ?? []).slice(0, 50), 45),
+    inTurn((names ?? []).slice(0, 12), (n) => kept<Artist>("artist-named", n.toLowerCase(), 60 * DAY, () => dz.findArtist(n)).catch(() => null), 6),
+  ]);
+  const tracks = spread(songs, 2).slice(0, 30);
+  if (tracks.length < 5) return null;
+  return { tag: key, title: titled(info.name), tracks, artists: artists.filter((a): a is Artist => Boolean(a)), reach: info.reach };
+}
+
+export async function search(q: string, config?: MusicConfig) {
+  const text = q.trim().slice(0, 200);
+  if (!text) return { tracks: [], albums: [], artists: [], genre: null };
+  const key = text.toLowerCase();
+  const [found, yt, genre] = await Promise.all([
     kept(`search`, key, DAY, () => dz.search(text)),
     /* YouTube is the extra, never the wait: a slow answer is left out. */
     Promise.race([
       kept<{ songs: Track[]; videos: Track[] }>("yt-search-3", key, DAY, () => searchYouTube(text)).catch(() => null),
       new Promise<null>((done) => setTimeout(() => done(null), 6000)),
     ]),
+    /* The same for a genre's songs: the first time can take a while, and the search doesn't wait on it past eight seconds (it's kept for next time). */
+    config ? Promise.race([
+      genreSearch(config, text).catch(() => null),
+      new Promise<null>((done) => setTimeout(() => done(null), 8000)),
+    ]) : null,
   ]);
   const out = found ?? { tracks: [], albums: [], artists: [] };
   const seen = new Set<string>();
@@ -181,7 +222,10 @@ export async function search(q: string) {
   for (const t of yt?.videos ?? []) add(righted(t), 1, 7);
   const tracks = scored.sort((a, b) => b.s - a.s).map((x) => x.t).slice(0, 30);
   keepTracks(tracks);
-  return { ...out, tracks };
+  /* A name that's an artist and a small tag ("taylor") is the artist. */
+  const artistNamed = out.artists.some((a) => a.name.toLowerCase() === key);
+  const g = genre && !(artistNamed && genre.reach < 5000) ? { tag: genre.tag, title: genre.title, tracks: genre.tracks, artists: genre.artists } : null;
+  return { ...out, tracks, genre: g };
 }
 
 export async function getTrack(key: string): Promise<Track | null> {
