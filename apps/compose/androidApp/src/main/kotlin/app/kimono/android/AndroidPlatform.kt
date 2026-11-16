@@ -156,6 +156,28 @@ class AndroidPlatform(private val context: Context) : Platform {
         return squarePicture(uri)
     }
 
+    override suspend fun pickPhoto(): app.kimono.data.PickedPhoto? {
+        val waiting = CompletableDeferred<Uri?>()
+        picking = waiting
+        launchPicker?.invoke() ?: return null
+        val uri = waiting.await() ?: return null
+        return withContext(Dispatchers.Default) {
+            val bitmap = decodePicked(uri) ?: return@withContext null
+            val scale = minOf(1f, 2400f / maxOf(bitmap.width, bitmap.height))
+            val fit = if (scale < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
+            val bytes = ByteArrayOutputStream().use { out -> fit.compress(Bitmap.CompressFormat.JPEG, 92, out); out.toByteArray() }
+            app.kimono.data.PickedPhoto(bytes, fit.width, fit.height)
+        }
+    }
+
+    override suspend fun cropPhoto(photo: app.kimono.data.PickedPhoto, x: Int, y: Int, w: Int, h: Int, outW: Int, outH: Int, png: Boolean): ByteArray? = withContext(Dispatchers.Default) {
+        val bitmap = BitmapFactory.decodeByteArray(photo.bytes, 0, photo.bytes.size) ?: return@withContext null
+        val left = x.coerceIn(0, bitmap.width - 1); val top = y.coerceIn(0, bitmap.height - 1)
+        val cut = Bitmap.createBitmap(bitmap, left, top, w.coerceIn(1, bitmap.width - left), h.coerceIn(1, bitmap.height - top))
+        val scaled = Bitmap.createScaledBitmap(cut, outW, outH, true)
+        ByteArrayOutputStream().use { out -> scaled.compress(if (png) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, if (png) 100 else 86, out); out.toByteArray() }
+    }
+
     override suspend fun pickBanner(): ByteArray? {
         val waiting = CompletableDeferred<Uri?>()
         picking = waiting

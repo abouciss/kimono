@@ -294,15 +294,17 @@ final class Host: NSObject, IosHost, @unchecked Sendable {
     // MARK: Photos
 
     private var picked: ((Data?) -> Void)?
-    /// What the picked photo becomes: a square picture, or a 3:1 banner.
-    private var pickedAsBanner = false
+    /// What the picked photo becomes: a square picture, a 3:1 banner, or itself, whole, for Kimono's cropper.
+    private enum PickShape { case square, banner, whole }
+    private var pickShape = PickShape.square
 
-    func pickPicture(done: @escaping (Data?) -> Void) { pick(banner: false, done: done) }
-    func pickBanner(done: @escaping (Data?) -> Void) { pick(banner: true, done: done) }
+    func pickPicture(done: @escaping (Data?) -> Void) { pick(.square, done: done) }
+    func pickBanner(done: @escaping (Data?) -> Void) { pick(.banner, done: done) }
+    func pickPhoto(done: @escaping (Data?) -> Void) { pick(.whole, done: done) }
 
-    private func pick(banner: Bool, done: @escaping (Data?) -> Void) {
+    private func pick(_ shape: PickShape, done: @escaping (Data?) -> Void) {
         DispatchQueue.main.async {
-            self.pickedAsBanner = banner
+            self.pickShape = shape
             var config = PHPickerConfiguration()
             config.filter = .images
             config.selectionLimit = 1
@@ -322,6 +324,18 @@ final class Host: NSObject, IosHost, @unchecked Sendable {
             let scale = 512 / side
             let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
             image.draw(in: CGRect(x: (512 - size.width) / 2, y: (512 - size.height) / 2, width: size.width, height: size.height))
+        }
+    }
+
+    /// The photo upright (its orientation drawn in), its longest side at most 2400px, as a JPEG.
+    fileprivate static func whole(_ image: UIImage) -> Data? {
+        let scale = min(1, 2400 / max(image.size.width, image.size.height))
+        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format).jpegData(withCompressionQuality: 0.92) { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
         }
     }
 
@@ -358,11 +372,11 @@ extension Host: PHPickerViewControllerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
         let done = picked
-        let banner = pickedAsBanner
+        let shape = pickShape
         picked = nil
         guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else { done?(nil); return }
         provider.loadObject(ofClass: UIImage.self) { image, _ in
-            let made = (image as? UIImage).flatMap(banner ? Host.banner : Host.square)
+            let made = (image as? UIImage).flatMap(shape == .banner ? Host.banner : shape == .whole ? Host.whole : Host.square)
             DispatchQueue.main.async { done?(made) }
         }
     }
