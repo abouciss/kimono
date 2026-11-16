@@ -156,6 +156,17 @@ export async function findRecording(track: Track): Promise<string | null> {
   return best?.id ?? null;
 }
 
+/** What YouTube Music offers for a song, as findRecording weighs it (score 0 is turned down): for Music's "Why?". */
+export async function recordingCandidates(track: Track) {
+  const yt = await searchSession();
+  const query = `${track.artists[0]?.name ?? ""} ${track.title.replace(/\s*[([](feat|ft|with)\.?\s[^)\]]*[)\]]/gi, "")}`;
+  const out: { kind: string; id: string; title: string; by: string; seconds: number; score: number }[] = [];
+  for (const type of ["song", "video"] as const) {
+    for (const c of (await candidates(yt, query, type).catch(() => [])).slice(0, 5)) out.push({ kind: type, id: c.id, title: c.title, by: c.artists.join(", "), seconds: c.seconds, score: Math.round(matchScore(track, c) * 10) / 10 });
+  }
+  return { query, offered: out };
+}
+
 export type Stream = { url: string; size: number; mime: string; expires: number };
 
 const streams = new Map<string, Stream>();

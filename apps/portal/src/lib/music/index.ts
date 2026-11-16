@@ -273,6 +273,11 @@ export async function recordingOf(key: string): Promise<string> {
   return video;
 }
 
+/** Forgets that a song's recording couldn't be found, so the next ask looks again (Music's "Why?"). */
+export function forgetMissingRecording(key: string) {
+  musicDb().prepare("DELETE FROM recordings WHERE track = ? AND video IS NULL").run(key);
+}
+
 /** The recording a song came with (a YouTube Music playlist's own upload of it), kept unless one was already found. */
 export function seedRecording(key: string, video: string) {
   if (!deezerId(key) || !/^[A-Za-z0-9_-]{11}$/.test(video)) return;
