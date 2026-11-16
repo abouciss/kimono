@@ -845,8 +845,21 @@ export async function homeFor(config: MusicConfig, username: string): Promise<Ho
   const known = familiar(username).artists;
   for (const a of t.artists) known.add(a.key);
   let artists: Artist[] = top.artists;
-  const pages = await inTurn(t.artists.slice(0, 10), (a) => getArtist(config, a.key).catch(() => null));
-  const yourArtists = pages.flatMap((p) => p ? [p.artist] : []);
+  const pages = await inTurn(t.artists.slice(0, 16), (a) => getArtist(config, a.key).catch(() => null));
+  /*
+   * Your artists, as faces: not a credit Deezer filed as one artist
+   * ("Shihoko Hirata / ATLUS Sound Team"), not one with no picture, and not a
+   * picture already shown (labels that share their album's cover).
+   */
+  const shown = new Set<string>();
+  const yourArtists = pages.flatMap((p) => {
+    const a = p?.artist;
+    if (!a?.picture || /\s[/&,]\s|\s(feat\.?|ft\.?|x)\s/i.test(a.name)) return [];
+    const face = a.picture.replace(/\/\d+x\d+.*$/, "");
+    if (shown.has(face)) return [];
+    shown.add(face);
+    return [a];
+  }).slice(0, 10);
   if (t.artists.length) {
     const related = pages.slice(0, 6).map((p) => p?.related ?? []);
     const fresh = related.flat().filter((a, i, all) => !known.has(a.key) && !t.disliked.has(a.key) && all.findIndex((b) => b.key === a.key) === i);
