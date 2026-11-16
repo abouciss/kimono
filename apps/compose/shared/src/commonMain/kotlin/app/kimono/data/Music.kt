@@ -120,6 +120,18 @@ data class PartyView(
 
 private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
 
+@Serializable data class ImportAccount(val service: String, val ready: Boolean = false, val connected: Boolean = false)
+@Serializable private data class ImportAccounts(val accounts: List<ImportAccount> = emptyList())
+@Serializable data class ImportMine(val id: String, val name: String = "", val count: Int? = null, val cover: String? = null)
+@Serializable private data class ImportMines(val playlists: List<ImportMine> = emptyList())
+@Serializable data class ImportedPlaylist(val id: String, val name: String = "")
+@Serializable data class ImportMissed(val title: String = "", val artists: List<String> = emptyList())
+/** One line of an import as it goes (lib/music/imports.ts): read, match, done or error. */
+@Serializable data class ImportStep(
+    val stage: String, val name: String = "", val total: Int = 0, val done: Int = 0, val found: Int = 0, val cut: Boolean = false,
+    val playlist: ImportedPlaylist? = null, val missed: List<ImportMissed> = emptyList(), val error: String? = null,
+)
+
 /**
  * 音 Kimono Music: Deezer's catalogue, Last.fm's taste and LRCLIB's lyrics
  * as the Portal serves them, and the audio itself from /stream. The same API
@@ -173,6 +185,27 @@ class Music(val session: Session) {
     suspend fun setPlaylist(id: String, keys: List<String>): PlaylistPage = send<OnePlaylist>("playlists/${id.encodeURLPathPart()}", HttpMethod.Patch, buildJsonObject { putJsonArray("keys") { keys.forEach { add(it) } } }).playlist
     suspend fun addToPlaylist(id: String, keys: List<String>): PlaylistPage = send<OnePlaylist>("playlists/${id.encodeURLPathPart()}", HttpMethod.Patch, buildJsonObject { putJsonArray("add") { keys.forEach { add(it) } } }).playlist
     suspend fun deletePlaylist(id: String) { session.call("$BASE/playlists/${id.encodeURLPathPart()}", HttpMethod.Delete) }
+
+    /** Spotify, Apple Music and YouTube: which can bring playlists in, and which you've connected (on the web). */
+    suspend fun importAccounts(): List<ImportAccount> = json.decodeFromString<ImportAccounts>(session.call("$BASE/connect")).accounts
+    /** Your own playlists on a service you've connected. */
+    suspend fun importPlaylistsOf(service: String): List<ImportMine> = json.decodeFromString<ImportMines>(session.call("$BASE/connect/${service.encodeURLPathPart()}/playlists")).playlists
+    /**
+     * Brings a playlist in, from a link or (with [service]) one of your own; [each] hears every step as the
+     * server reads it and finds each song: `read`, `match`…, then `done` or `error`.
+     */
+    suspend fun importPlaylist(url: String?, service: String?, playlist: String?, each: suspend (ImportStep) -> Unit) {
+        val body = buildJsonObject { if (url != null) put("url", url) else { put("service", service); put("playlist", playlist) } }
+        session.respond("$BASE/import", HttpMethod.Post, long = true, configure = { contentType(ContentType.Application.Json); setBody(body.toString()) }) { response ->
+            if (!response.status.isSuccess()) throw session.problemOf(response, "That playlist couldn't be brought in.")
+            val channel = response.bodyAsChannel()
+            while (true) {
+                val line = channel.readUTF8Line() ?: break
+                if (line.isBlank()) continue
+                runCatching { json.decodeFromString<ImportStep>(line) }.getOrNull()?.let { each(it) }
+            }
+        }
+    }
     /** A change to a playlist's sharing: `{public}`, `{invite}`, `{drop}`, `{join}`, `{leave}`. Answers the playlist as it is now. */
     suspend fun changePlaylist(id: String, body: JsonObject): PlaylistPage = send<OnePlaylist>("playlists/${id.encodeURLPathPart()}", HttpMethod.Patch, body).playlist
     suspend fun setPublic(id: String, on: Boolean) = changePlaylist(id, buildJsonObject { put("public", on) })
