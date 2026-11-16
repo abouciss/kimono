@@ -16,6 +16,7 @@ import { TitleCard, TitleRow } from "@/components/title-art";
 import "./recommend-sheet.css";
 import { LinksEditor } from "./links-editor";
 import { BannerSheet } from "./banner-sheet";
+import { PictureSheet } from "./picture-sheet";
 
 /*
  * 友 Friends, profiles and recommendations on the web (lib/friends has the
@@ -240,6 +241,7 @@ export function ProfileView({ username, home = false, standalone = false }: { us
   const [editing, setEditing] = useState(false);
   const [editingLinks, setEditingLinks] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
+  const [pictureOpen, setPictureOpen] = useState(false);
   /* Your own profile as a friend sees it. */
   const [asFriend, setAsFriend] = useState(false);
   /* Arranging the home screen's widgets (the board saves when it's done). */
@@ -317,8 +319,8 @@ export function ProfileView({ username, home = false, standalone = false }: { us
         </span> : null}
       </div>}
       <div className="fr-hero-body">
-        {p.you && !preview ? <Crossing kind="kakejiku" className="you-picture fr-hero-face" href="/account?sheet=picture" aria-label="Change your picture" data-named="">
-          <Face person={p} size={148} /><span className="you-camera"><LineIcon name="camera" /></span></Crossing>
+        {p.you && !preview ? <button type="button" className="you-picture fr-hero-face" onClick={() => setPictureOpen(true)} aria-label="Change your picture" data-named="">
+          <Face person={p} size={148} /><span className="you-camera"><LineIcon name="camera" /></span></button>
           : <span className="you-picture fr-hero-face" data-named=""><Face person={p} size={148} /></span>}
         <div className="fr-hero-words">
           <h1 className="fr-name">{p.you && !preview && p.open ? <button type="button" className="fr-name-edit" onClick={() => setEditing(true)} title="Edit name, pronouns and colour">{p.name}<LineIcon name="brush" /></button> : p.name}{p.open && p.pronouns && !closedToFriends ? <small className="fr-pronouns">{p.pronouns}</small> : null}</h1>
@@ -368,6 +370,7 @@ export function ProfileView({ username, home = false, standalone = false }: { us
       onChanged={(r) => { if (p.open) setProfile({ ...p, privacy: r.privacy, hidden: r.hidden, kept: keptFrom(r.privacy) }); }} /> : null}
     {editing && p.open ? <EditProfileSheet profile={p} onClose={() => setEditing(false)} onSaved={(next) => { setProfile(next); setToast("Saved"); }} onLinks={() => setEditingLinks(true)} onBanner={() => setBannerOpen(true)} /> : null}
     {bannerOpen && p.open ? <BannerSheet banner={p.banner ?? null} color={color.hex} onClose={() => setBannerOpen(false)} onSaved={(banner) => { setProfile((was) => was && was.open ? { ...was, banner } : was); setToast(banner ? "Banner up" : "Banner off"); }} /> : null}
+    {pictureOpen ? <PictureSheet name={p.name} username={p.username} picture={p.picture} onClose={() => setPictureOpen(false)} onSaved={(picture) => { setProfile((was) => was ? { ...was, picture } : was); setToast(picture ? "Picture up" : "Picture off"); }} /> : null}
     {editingLinks && p.open ? <LinksEditor links={p.links} onClose={() => setEditingLinks(false)}
       onSave={(links) => call<{ links: { title: string; url: string; icon?: string; show?: LinkShow }[] }>("/api/v1/profile", "PATCH", { links }).then((r) => { setProfile((was) => was && was.open ? { ...was, links: r.links } : was); return true; }, (e) => { setProblem(message(e)); return false; })} /> : null}
     {removing ? <InkSheet title={`Remove ${first(p)}?`} icon="people" onClose={() => setRemoving(false)} actions={<>
