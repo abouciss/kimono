@@ -268,15 +268,21 @@ fun MusicSearchScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
         runCatching { player.music.search(text) }.onSuccess { found = it; problem = null }.onFailure { problem = it.message }
         busy = false
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    val list = androidx.compose.foundation.lazy.rememberLazyListState()
+    /* Once the title has scrolled away, the field holds the top: below the status bar, on the page's own paper. */
+    val stuck by remember { androidx.compose.runtime.derivedStateOf { list.firstVisibleItemIndex > 0 } }
+    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 24.dp)) {
         item { MusicHead("Search", null) }
-        item {
-            OutlinedTextField(
-                text, { text = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus), singleLine = true,
-                placeholder = { Text("Songs, albums, artists") }, leadingIcon = { Icon(kimonoIcon("search"), null) },
-                trailingIcon = { if (busy) app.kimono.ui.InkLoader(size = 22.dp) else if (text.isNotEmpty()) IconButton(onClick = { text = "" }) { Icon(kimonoIcon("close"), "Clear") } },
-                shape = RoundedCornerShape(28.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = {}),
-            )
+        @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+        stickyHeader(key = "field") {
+            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).then(if (stuck) Modifier.windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars) else Modifier)) {
+                OutlinedTextField(
+                    text, { text = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus), singleLine = true,
+                    placeholder = { Text("Songs, albums, artists") }, leadingIcon = { Icon(kimonoIcon("search"), null) },
+                    trailingIcon = { if (busy) app.kimono.ui.InkLoader(size = 22.dp) else if (text.isNotEmpty()) IconButton(onClick = { text = "" }) { Icon(kimonoIcon("close"), "Clear") } },
+                    shape = RoundedCornerShape(28.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = {}),
+                )
+            }
         }
         problem?.let { p -> item { Text(p, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(20.dp)) } }
         val f = found
