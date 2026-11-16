@@ -132,8 +132,9 @@
 .fr-edit-name input:focus, .fr-edit-bio:focus { background-image: none; background-color: var(--sc-high); box-shadow: inset 0 -2px 0 var(--primary); }
 .fr-edit-bio::placeholder { color: var(--on-surface-variant); opacity: 1; }
 .fr-handle { font-size: 15px; }
-a.you-picture { display: inline-block; border-radius: 50%; }
-a.you-picture .you-camera { width: 44px; height: 44px; }
+button.you-picture { display: inline-block; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; }
+button.you-picture:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 4px; }
+button.you-picture .you-camera { width: 44px; height: 44px; }
 .fr .you-head .k-ink-portrait { width: 120px; height: 120px; }
 .fr .you-head .k-ink-portrait .portrait { width: 101px; height: 101px; font-size: 48px; }
 
@@ -561,15 +562,11 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 
 /* ── The banner sheet: the 3:1 frame, as the profile will show it ── */
 .fr-banner-edit { display: grid; gap: 12px; width: min(640px, 80vw); }
-.fr-banner-stage { position: relative; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: 0; padding: 0; border-radius: var(--k-r-l); background: var(--k-container-high) center / cover no-repeat; cursor: grab; touch-action: none; }
-.fr-banner-stage:active { cursor: grabbing; }
+.fr-banner-stage { position: relative; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: 0; padding: 0; border-radius: var(--k-r-l); background: var(--k-container-high) center / cover no-repeat; }
 .fr-banner-stage:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 3px; }
-.fr-banner-stage img { position: absolute; top: 50%; left: 50%; max-width: none; pointer-events: none; }
 .fr-banner-stage.is-current { cursor: pointer; display: grid; place-items: center; }
 .fr-banner-stage.is-current > span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--k-r-full); background: color-mix(in srgb, #000 30%, transparent); color: #fff; font: 600 14px/1 var(--k-sans); }
 .fr-banner-stage.is-current .line-icon { width: 18px; height: 18px; }
-.fr-banner-zoom { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; font: 600 12.5px/1.4 var(--k-sans); color: var(--k-on-surface-variant); }
-.fr-banner-zoom input { width: 100%; accent-color: var(--fr-color, var(--k-accent)); }
 .fr-banner-mark { background-size: cover; background-position: center; }
 @media (max-width: 720px) { .fr-banner-edit { width: 100%; } }
 
@@ -594,16 +591,35 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 .ink-sheet:has(.fr-banner-edit) .ink-sheet-body { overflow-x: hidden; }
 .fr-banner-edit { width: 100%; min-width: 0; }
 .fr-banner-stage { max-width: 100%; }
+/* ── One cropper for the picture and the banner (photo-crop.tsx) ── */
+.photo-crop { display: grid; gap: 12px; min-width: 0; }
+.photo-crop-stage { position: relative; width: 100%; max-width: 100%; overflow: hidden; border-radius: var(--k-r-l); background: var(--k-container-high); cursor: grab; touch-action: none; user-select: none; }
+.photo-crop-stage:active { cursor: grabbing; }
+.photo-crop-stage:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 3px; }
+.photo-crop-stage img { position: absolute; top: 50%; left: 50%; max-width: none; pointer-events: none; }
+.photo-crop.is-round .photo-crop-stage { width: min(360px, 100%); justify-self: center; }
 /* Thirds, faintly, while you place it; and a word on what to do. */
-.fr-banner-thirds { position: absolute; inset: 0; pointer-events: none; opacity: .5; transition: opacity var(--k-t-state);
+.photo-crop-thirds { position: absolute; inset: 0; pointer-events: none; opacity: .5; transition: opacity var(--k-t-state);
   background: linear-gradient(90deg, transparent calc(33.33% - .5px), rgba(255, 255, 255, .5) calc(33.33% - .5px) calc(33.33% + .5px), transparent calc(33.33% + .5px) calc(66.66% - .5px), rgba(255, 255, 255, .5) calc(66.66% - .5px) calc(66.66% + .5px), transparent calc(66.66% + .5px)),
     linear-gradient(transparent calc(33.33% - .5px), rgba(255, 255, 255, .5) calc(33.33% - .5px) calc(33.33% + .5px), transparent calc(33.33% + .5px) calc(66.66% - .5px), rgba(255, 255, 255, .5) calc(66.66% - .5px) calc(66.66% + .5px), transparent calc(66.66% + .5px));
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .7); border-radius: inherit; }
-.fr-banner-stage:active .fr-banner-thirds { opacity: 1; }
-.fr-banner-hint { position: absolute; left: 50%; bottom: 10px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--k-r-full); background: rgba(0, 0, 0, .45); color: #fff; font: 600 12.5px/1 var(--k-sans); pointer-events: none; transition: opacity .3s; }
-.fr-banner-hint .line-icon { width: 15px; height: 15px; }
-.fr-banner-stage:active .fr-banner-hint { opacity: 0; }
-.ink-sheet .fr-banner-edit ~ * .line-icon, .ink-sheet-actions .line-icon { width: 18px; height: 18px; margin-right: 6px; }
+.photo-crop-stage:active .photo-crop-thirds { opacity: 1; }
+/* Round: what's outside the circle is dimmed, so what stays lit is what's kept. */
+.photo-crop-ring { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 999px rgba(20, 14, 16, .58), inset 0 0 0 2px rgba(255, 255, 255, .75); }
+.photo-crop-hint { position: absolute; left: 50%; bottom: 10px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--k-r-full); background: rgba(0, 0, 0, .45); color: #fff; font: 600 12.5px/1 var(--k-sans); white-space: nowrap; pointer-events: none; transition: opacity .3s; }
+.photo-crop-hint .line-icon { width: 15px; height: 15px; }
+.photo-crop-stage:active .photo-crop-hint, .photo-crop-hint.is-gone { opacity: 0; }
+.photo-crop-zoom { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; font: 600 12.5px/1.4 var(--k-sans); color: var(--k-on-surface-variant); }
+.photo-crop.is-round .photo-crop-zoom { width: min(360px, 100%); justify-self: center; }
+.photo-crop-zoom input { width: 100%; accent-color: var(--fr-color, var(--k-accent)); }
+/* The picture sheet: your portrait as it is, then the round frame. */
+.ink-sheet:has(.fr-picture-edit) .ink-sheet-body { overflow-x: hidden; }
+.fr-picture-edit { display: grid; gap: 12px; width: min(420px, calc(100vw - 80px)); min-width: 0; }
+.fr-picture-current { position: relative; display: grid; place-items: center; justify-self: center; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.fr-picture-current:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 4px; }
+.fr-picture-hint { position: absolute; bottom: 18px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--k-r-full); background: color-mix(in srgb, #000 40%, transparent); color: #fff; font: 600 13px/1 var(--k-sans); white-space: nowrap; }
+.fr-picture-hint .line-icon { width: 16px; height: 16px; }
+.ink-sheet .fr-banner-edit ~ * .line-icon, .ink-sheet .fr-picture-edit ~ * .line-icon, .ink-sheet-actions .line-icon { width: 18px; height: 18px; margin-right: 6px; }
 /* The right of the header: the Silkscreen badge, level with the name, and (on someone else's) how you're linked. */
 .fr-profile-v2 .fr-hero-end { display: grid; justify-items: end; align-content: end; gap: 10px; padding-bottom: 10px; animation: fr-rise .7s .2s var(--k-spring) both; }
 .fr-hero-end .fr-silkscreen { display: inline-flex; align-items: center; gap: 10px; padding: 4px 16px 4px 4px; border-radius: var(--k-r-full); background: var(--k-container-low); }

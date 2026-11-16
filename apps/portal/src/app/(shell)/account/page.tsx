@@ -1,6 +1,5 @@
-import { Crossing } from "@/components/crossing";
 import { accountContext } from "./account-frame";
-import { PictureEditor } from "./picture-editor";
+import { PictureSheetRoute } from "./friends/picture-sheet";
 import { ProfileView } from "./friends/friends-ui";
 import "./friends/friends.css";
 import "./friends/widgets.css";
@@ -15,11 +14,6 @@ export default async function YouPage({ searchParams }: { searchParams: Promise<
   return <>
     {query.saved ? <p className="admin-notice success" role="status">Saved.</p> : null}
     <ProfileView username={account.username} home />
-    {query.sheet === "picture" ? <div className="scrim open"><div className="sheet">
-      <span className="handle" />
-      <h3>Your picture</h3>
-      <PictureEditor name={account.name} username={account.username} picture={account.picture} />
-      <div style={{ display: "flex", justifyContent: "flex-end" }}><Crossing kind="kakejiku" className="k-seal k-tone-quiet" href="/account">Done</Crossing></div>
-    </div></div> : null}
+    {query.sheet === "picture" ? <PictureSheetRoute name={account.name} username={account.username} picture={account.picture} /> : null}
   </>;
 }
