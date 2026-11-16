@@ -472,14 +472,7 @@ a.wg-reading:hover .kb-book { --open: -50deg; --b-shade: 1; --lift: -4px; }
   filter: blur(10px); opacity: .55; animation: wg-glow 5s ease-in-out infinite; transition: opacity .6s, scale .6s var(--k-spring); pointer-events: none; }
 @keyframes wg-glow { 50% { opacity: .8; scale: 1.08; } }
 a.wg-reading:hover .wg-book-glow { opacity: 1; scale: 1.25; }
-/* Motes: specks of gold drifting up off the pages, more of them while it's open. */
-.wg-motes { position: absolute; z-index: 2; inset: -10% 0 20%; pointer-events: none; }
-.wg-motes i { position: absolute; left: calc(18% + var(--i) * 11%); bottom: 10%; width: 4px; height: 4px; border-radius: 50%; background: #ffe2a6; box-shadow: 0 0 6px 2px rgba(255, 210, 130, .7);
-  opacity: 0; animation: wg-mote 4.2s ease-out infinite; animation-delay: calc(var(--i) * -0.63s); }
-.wg-motes i:nth-child(even) { width: 3px; height: 3px; animation-duration: 5.4s; }
-a.wg-reading:hover .wg-motes i { animation-duration: 2.2s; }
-@keyframes wg-mote { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(calc((var(--i) - 3) * 5px), -90px) scale(1.1); } }
-@media (prefers-reduced-motion: reduce) { .wg-book-float, .wg-book-glow, .wg-motes i { animation: none !important; } .wg-motes { display: none; } }
+@media (prefers-reduced-motion: reduce) { .wg-book-float, .wg-book-glow { animation: none !important; } }
 
 /* A widget your privacy settings keep from people who can see your profile: a warning tag on its foot, the widget itself untouched. */
 .wg-kept { position: absolute; z-index: 4; left: 50%; bottom: -11px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 4px 0 9px; white-space: nowrap; border-radius: 10px 4px 10px 4px;
