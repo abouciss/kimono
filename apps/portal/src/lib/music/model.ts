@@ -104,8 +104,10 @@ export function songOfVideo(title: string, channel: string, allowed: string): { 
   for (const m of plain.matchAll(new RegExp(otherVersion, "g"))) if (!allowed.includes(m[0])) return null;
   const clean = title.replace(videoDressing, "").replace(/\s*【[^】]*】/g, "").replace(/\s{2,}/g, " ").trim();
   const split = /^(.+?)\s+[-–—|]\s+(.+)$/.exec(clean);
-  if (split) return { artists: split[1].split(/\s*(?:,|&| x | feat\.? | ft\.? )\s*/i).map((a) => a.trim()).filter(Boolean), title: split[2].trim() };
-  return { artists: channel ? [channel] : [], title: clean };
+  /* A soundtrack's "[Game OST] 4-04 Jealousy": the song's own name is what's after the tag and the track number. */
+  const bare = (s: string) => s.replace(/^\s*(?:[([][^)\]]*[)\]]\s*)+/, "").replace(/^\d{1,2}[-.]\d{1,3}\.?\s+/, "").trim() || s.trim();
+  if (split) return { artists: split[1].split(/\s*(?:,|&| x | feat\.? | ft\.? )\s*/i).map((a) => bare(a)).filter(Boolean), title: bare(split[2]) };
+  return { artists: channel ? [channel] : [], title: bare(clean) };
 }
 
 /** How well a song answers a search: the share of the words typed found in its name and artists (the last word may be half-typed), with the name itself counting most. */

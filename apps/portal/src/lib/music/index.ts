@@ -152,7 +152,7 @@ export async function search(q: string) {
     kept(`search`, key, DAY, () => dz.search(text)),
     /* YouTube is the extra, never the wait: a slow answer is left out. */
     Promise.race([
-      kept<{ songs: Track[]; videos: Track[] }>("yt-search-2", key, DAY, () => searchYouTube(text)).catch(() => null),
+      kept<{ songs: Track[]; videos: Track[] }>("yt-search-3", key, DAY, () => searchYouTube(text)).catch(() => null),
       new Promise<null>((done) => setTimeout(() => done(null), 6000)),
     ]),
   ]);
@@ -169,10 +169,16 @@ export async function search(q: string) {
     seen.add(id);
     scored.push({ t, s: s * 10 + lift });
   };
+  /* A video can name the artist second ("My Jealousy - 3rd Coast"): when its "title" is an artist the search knows and its "artist" isn't, it's the other way round. */
+  const artistsKnown = new Set([...out.artists.map((a) => plainTitle(a.name)), ...out.tracks.flatMap((t) => t.artists.map((a) => plainTitle(a.name)))]);
+  const righted = (t: Track): Track => {
+    const by = t.artists[0]?.name ?? "";
+    return artistsKnown.has(plainTitle(t.title)) && !artistsKnown.has(plainTitle(by)) && by ? { ...t, title: by, artists: [{ key: "", name: t.title }] } : t;
+  };
   for (const t of out.tracks) add(t, Math.log10((t.rank ?? 0) + 10), 0);
   for (const t of yt?.songs ?? []) add(t, 3, 4);
   /* A video only when it answers most of what was typed. */
-  for (const t of yt?.videos ?? []) add(t, 1, 7);
+  for (const t of yt?.videos ?? []) add(righted(t), 1, 7);
   const tracks = scored.sort((a, b) => b.s - a.s).map((x) => x.t).slice(0, 30);
   keepTracks(tracks);
   return { ...out, tracks };
