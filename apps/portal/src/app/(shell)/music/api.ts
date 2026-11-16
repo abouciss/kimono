@@ -13,6 +13,8 @@ export type PlaylistPage = { id: string; name: string; updatedAt: string; tracks
 export type SongStatus = { stage: "finding" } | { stage: "fetching"; fraction: number } | { stage: "ready" };
 export type Genre = { id: number; name: string; picture: string | null };
 export type Results = { tracks: Track[]; albums: Album[]; artists: Artist[] };
+/** A genre a search named ("city pop", "90s"): its songs and artists. */
+export type GenreFound = { tag: string; title: string; tracks: Track[]; artists: Artist[] };
 
 export class MusicError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
@@ -32,7 +34,7 @@ export const musicApi = {
   me: () => call<Me>("me"),
   friends: () => call<{ friends: FriendListening[] }>("friends"),
   status: (key: string) => call<SongStatus>(`status?key=${q(key)}`),
-  search: (text: string) => call<Results>(`search?q=${q(text)}`),
+  search: (text: string) => call<Results & { genre: GenreFound | null }>(`search?q=${q(text)}`),
   album: (key: string) => call<{ album: Album; rating: Rating | null }>(`album?key=${q(key)}`),
   artist: (key: string) => call<ArtistPage>(`artist?key=${q(key)}`),
   genre: (id: number) => call<Results & { genre: Genre }>(`genre?id=${id}`),

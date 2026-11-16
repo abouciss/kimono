@@ -81,7 +81,9 @@ data class PlaylistPage(
     val edits get() = who == "owner" || who == "member"
     val joined get() = members.filter { it.joined }
 }
-@Serializable data class SearchResults(val tracks: List<Track> = emptyList(), val albums: List<Album> = emptyList(), val artists: List<Artist> = emptyList())
+@Serializable data class SearchResults(val tracks: List<Track> = emptyList(), val albums: List<Album> = emptyList(), val artists: List<Artist> = emptyList(), val genre: GenreFound? = null)
+/** A genre a search named ("city pop", "90s"): its songs, two an artist, and its artists. */
+@Serializable data class GenreFound(val tag: String, val title: String, val tracks: List<Track> = emptyList(), val artists: List<Artist> = emptyList())
 @Serializable data class SongStatus(val stage: String, val fraction: Double? = null)
 @Serializable data class QueueSource(val kind: String, val id: String, val title: String)
 @Serializable

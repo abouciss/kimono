@@ -271,10 +271,35 @@ export function SearchView() {
   useTabTitle(q ? `“${q}”` : "Search", "Kimono Music");
   /* As you type, the last results stay until the new ones come, rather than blanking for each letter. */
   const { data, error, retry, stale } = useMusic(q ? `search:${q.toLowerCase()}` : null, () => musicApi.search(q), true);
-  if (!q) return <div className="km-page"><p className="km-quiet">Find any song, album or artist.</p></div>;
+  if (!q) return <div className="km-page"><p className="km-quiet">Find any song, album, artist or genre.</p></div>;
   if (error) return <Problem text={error} onRetry={retry} />;
   if (!data) return <Loading />;
-  if (!data.tracks.length && !data.albums.length && !data.artists.length) return <div className="km-page"><p className="km-quiet">Nothing found for “{q}”.</p></div>;
+  if (!data.tracks.length && !data.albums.length && !data.artists.length && !data.genre) return <div className="km-page"><p className="km-quiet">Nothing found for “{q}”.</p></div>;
+  /* A genre typed ("city pop", "90s"): the genre first, its songs and artists, then what's named that. */
+  const g = data.genre;
+  if (g) {
+    const gs = { kind: "genre", id: `tag:${g.tag}`, title: g.title };
+    return <div className={cx("km-page km-results", stale && "is-stale")} aria-busy={stale || undefined}>
+      <div className="km-results-top">
+        <section className="km-best">
+          <h2 className="k-heading">Genre</h2>
+          <div className="km-best-card">
+            <span className="km-best-name">{g.title}</span>
+            <span className="km-card-sub">{g.artists.slice(0, 3).map((a) => a.name).join(", ") || `${g.tracks.length} songs`}</span>
+            <div className="km-head-actions"><PlayActions tracks={g.tracks} source={gs} /></div>
+          </div>
+        </section>
+        <section className="km-results-songs">
+          <h2 className="k-heading">Songs</h2>
+          <Songs tracks={g.tracks.slice(0, 6)} source={gs} album={false} />
+        </section>
+      </div>
+      {g.artists.length ? <Shelf title="Artists">{g.artists.map((a) => <ArtistCard key={a.key} artist={a} />)}</Shelf> : null}
+      {g.tracks.length > 6 ? <section><h2 className="k-heading">More {g.title}</h2><Songs tracks={g.tracks.slice(6)} source={gs} /></section> : null}
+      {data.albums.length ? <Shelf title="Albums">{data.albums.map((a) => <AlbumCard key={a.key} album={a} />)}</Shelf> : null}
+      {data.tracks.length ? <section><h2 className="k-heading">Named “{q}”</h2><Songs tracks={data.tracks.slice(0, 10)} source={{ kind: "search", id: q, title: `“${q}”` }} /></section> : null}
+    </div>;
+  }
   const top = data.artists[0];
   return <div className={cx("km-page km-results", stale && "is-stale")} aria-busy={stale || undefined}>
     <div className="km-results-top">
