@@ -763,6 +763,8 @@ html:has(.km-np-in)::-webkit-scrollbar { display: none; }
 .km-again-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--k-outline-variant, var(--k-container-highest)); transition: width var(--k-t-state) var(--k-ease-settle), background var(--k-t-state) var(--k-ease-settle); }
 .km-again-dots i.is-on { width: 18px; background: var(--k-accent); }
 @media (min-width: 721px) { .km-again-dots { display: none; } }
+/* Wide screens: two whole pages across the width, turned one at a time. */
+@media (min-width: 1100px) { .km-again-row { grid-auto-columns: calc((100% - 2 * var(--km-gutter) - var(--k-space-5, 24px)) / 2); } }
 @media (max-width: 720px) {
   .km-again-row { grid-auto-columns: calc(100% - 28px); column-gap: 12px; }
   .km-again-page { gap: 14px 10px; }

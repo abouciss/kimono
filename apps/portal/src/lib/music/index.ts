@@ -322,9 +322,11 @@ export function history(username: string, limit = 50): (Track & { playedAt: stri
 
 /**
  * The songs you come back to: each play heard past 30s counts, less as it ages
- * (half every 30 days), so this month's favourite beats last spring's.
+ * (half every 30 days), so this month's favourite beats last spring's. Four
+ * pages of nine; when that many haven't been played through, the rest are
+ * other songs you've played, latest first.
  */
-export function mostPlayed(username: string, limit = 27): Track[] {
+export function mostPlayed(username: string, limit = 36): Track[] {
   const now = Date.now();
   const rows = musicDb().prepare("SELECT track, played_at FROM plays WHERE username = ? AND seconds >= 30 AND played_at > ?").all(user(username), now - 180 * DAY) as { track: string; played_at: number }[];
   const score = new Map<string, { s: number; last: number }>();
@@ -335,6 +337,10 @@ export function mostPlayed(username: string, limit = 27): Track[] {
     score.set(r.track, x);
   }
   const keys = [...score.entries()].sort((a, b) => b[1].s - a[1].s || b[1].last - a[1].last).slice(0, limit).map(([k]) => k);
+  if (keys.length < limit) {
+    const more = musicDb().prepare("SELECT track, MAX(played_at) AS at FROM plays WHERE username = ? GROUP BY track ORDER BY at DESC LIMIT ?").all(user(username), limit * 2) as { track: string }[];
+    for (const r of more) { if (keys.length >= limit) break; if (!keys.includes(r.track)) keys.push(r.track); }
+  }
   const tracks = keptTracks(keys);
   return keys.flatMap((k) => tracks.get(k) ?? []);
 }
