@@ -102,7 +102,7 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
         else {
             /* Yours first: the songs you play most, then your playlists and artists. */
             val personal = h.listenAgain.size >= 6
-            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain, me, firstName) }
+            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain.filter { player.ratingOf("track", it.key) != "down" }, me, firstName) }
             else if (h.jumpBack.size > 1) item {
                 Shelf("Jump back in") { items(h.jumpBack.take(12), key = { "jb" + it.key }) { t -> SleeveTile(t.title, t.byline, t.cover, player.current?.key == t.key && player.playing) { player.play(h.jumpBack, h.jumpBack.indexOf(t), QueueSource("history", "recent", "Played lately")) } } }
             }
