@@ -243,6 +243,19 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         save()
     }
 
+    /** One song and then songs like it (a song picked from search): the rest come in as soon as the server has them. */
+    fun playWithRadio(track: Track) {
+        if (party != null || offline) { play(listOf(track)); return }
+        play(listOf(track), 0, QueueSource("radio", track.key, "Like ${track.title}"))
+        scope.launch {
+            val more = runCatching { music.radio(track.key, listOf(track.key)) }.getOrNull().orEmpty()
+            /* Only if it's still this queue: you may have picked something else meanwhile. */
+            if (more.isEmpty() || tracks.firstOrNull()?.key != track.key || source?.kind != "radio") return@launch
+            tracks = tracks + more.filter { m -> tracks.none { it.key == m.key } }
+            upcoming(); save()
+        }
+    }
+
     /** The next two get ready on the server now, so they start the moment this one ends. */
     private fun upcoming() {
         val next = tracks.drop(index + 1).take(2).map { it.key }.filter { !downloads.here(it) }
