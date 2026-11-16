@@ -32,14 +32,18 @@ const chunk = 2 * 1024 * 1024;
 type Entry = { size: number; mime: string; at: number };
 type Job = { size: number; mime: string; got: number; done: boolean; failed: Error | null; wake: Set<() => void>; via: "youtube.js" | "yt-dlp" };
 
-const g = globalThis as unknown as { kimonoMusicAudio?: { index: Record<string, Entry>; jobs: Map<string, Job>; fastOffUntil: number } };
+/* Why a song last failed to arrive: each way tried and what it said, for Music's "Why?" (and the logs). */
+type Failure = { at: number; notes: string[] };
+const g = globalThis as unknown as { kimonoMusicAudio?: { index: Record<string, Entry>; jobs: Map<string, Job>; fastOffUntil: number; failures: Map<string, Failure> } };
 const state = () => {
   if (!g.kimonoMusicAudio) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     let index: Record<string, Entry> = {};
     try { index = JSON.parse(readFileSync(join(dir, "index.json"), "utf8")) as Record<string, Entry>; } catch { /* a fresh cache */ }
-    g.kimonoMusicAudio = { index, jobs: new Map(), fastOffUntil: 0 };
+    g.kimonoMusicAudio = { index, jobs: new Map(), fastOffUntil: 0, failures: new Map() };
   }
+  /* A server running since before failures were kept starts keeping them now. */
+  g.kimonoMusicAudio.failures ??= new Map();
   return g.kimonoMusicAudio;
 };
 
@@ -120,6 +124,8 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
   const s = state();
   const part = partOf(videoId);
   const fd = openSync(part, "w", 0o600);
+  const notes: string[] = [];
+  const said = (error: unknown) => (error instanceof Error ? error.message : String(error));
   try {
     let source: Source | null = null;
     let triedFast = false;
@@ -131,6 +137,7 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
       catch (error) {
         /* Sits out ten minutes, then gets another go. */
         s.fastOffUntil = Date.now() + 10 * 60_000;
+        notes.push(`youtube.js: ${said(error)}`);
         console.warn(`music: youtube.js couldn't get ${videoId}, using yt-dlp for a while: ${error instanceof Error ? error.message : error}`);
       }
     }
@@ -139,6 +146,7 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
       if (!source) {
         try { source = await viaYtDlp(config, videoId); job.via = "yt-dlp"; }
         catch (error) {
+          notes.push(`yt-dlp: ${said(error)}`);
           /* yt-dlp failing too: YouTube.js gets a go even while it's sitting out, rather than the song failing. */
           if (!fastAllowed || triedFast || job.got) throw error;
           triedFast = true;
@@ -164,6 +172,7 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
         /* The fast path gave out partway: yt-dlp carries on from where it got to. */
         if (attempt === 0 && job.via === "youtube.js") {
           s.fastOffUntil = Date.now() + 10 * 60_000;
+          notes.push(`youtube.js stopped at ${job.got} of ${job.size} bytes: ${said(error)}`);
           console.warn(`music: youtube.js stopped partway through ${videoId}: ${error instanceof Error ? error.message : error}`);
           source = null; skip = job.got;
           continue;
@@ -174,12 +183,15 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
     closeSync(fd);
     renameSync(part, fileOf(videoId));
     s.index[videoId] = { size: job.size, mime: job.mime, at: tick() };
+    s.failures.delete(videoId);
     evict();
     writeIndex();
   } catch (error) {
     try { closeSync(fd); } catch { /* closed */ }
     rmSync(part, { force: true });
     job.failed = error instanceof Error ? error : new Error(String(error));
+    const last = `gave up: ${job.failed.message}`;
+    s.failures.set(videoId, { at: Date.now(), notes: notes.at(-1)?.endsWith(job.failed.message) ? notes : [...notes, last] });
     console.warn(`music: couldn't get ${videoId}: ${job.failed.message}`);
     ready(false);
   } finally {
@@ -207,6 +219,38 @@ async function begin(config: MusicConfig, videoId: string): Promise<Job | Entry>
   }
   if (job.failed) throw new MusicProblem("This song won't play right now.", 502);
   return job;
+}
+
+/** What the server's copy of a song is doing: kept, on its way, or how it last failed. */
+export function audioReport(videoId: string) {
+  const s = state();
+  const entry = kept(videoId);
+  const job = s.jobs.get(videoId);
+  return {
+    kept: entry ? { size: entry.size, mime: entry.mime } : null,
+    arriving: job ? { got: job.got, size: job.size, via: job.via } : null,
+    lastFailure: s.failures.get(videoId) ?? null,
+    fastPathOff: Math.max(0, s.fastOffUntil - Date.now()),
+    youtubeJs: process.env.KIMONO_MUSIC_YOUTUBEJS === "off" ? "off" : "on",
+  };
+}
+
+/** Tries each way of getting a song's audio now, without keeping it: whether each answers, how fast, and what it says. */
+export async function probeSources(config: MusicConfig, videoId: string) {
+  const out: { via: string; ok: boolean; ms: number; said: string }[] = [];
+  for (const [via, get] of [["youtube.js", () => viaYoutubeJs(videoId)], ["yt-dlp", () => viaYtDlp(config, videoId)]] as const) {
+    const start = Date.now();
+    try {
+      const source = await get();
+      /* Only the answer: the rest of the song isn't fetched. */
+      const body = source.body as unknown as { cancel?: () => Promise<void>; return?: () => Promise<unknown> };
+      await (body.cancel?.() ?? body.return?.())?.catch?.(() => null);
+      out.push({ via, ok: true, ms: Date.now() - start, said: `${source.mime}, ${(source.size / 1024 / 1024).toFixed(1)} MB` });
+    } catch (error) {
+      out.push({ via, ok: false, ms: Date.now() - start, said: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  return out;
 }
 
 /** Gets a song ready ahead of being played (the next in the queue), without waiting for it. */

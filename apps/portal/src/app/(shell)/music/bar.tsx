@@ -1,6 +1,7 @@
 "use client";
 
 import { Crossing } from "@/components/crossing";
+import { InkSheet } from "@/components/ink-sheet";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { cx, InkWave, Seal } from "@kimono/ui";
@@ -401,19 +402,45 @@ function QueuePanel() {
   </aside>;
 }
 
+/** Why a song won't play, step by step as the server sees it (/api/v1/music/why): to read, copy and send on. */
+function WhySheet({ songKey, onClose }: { songKey: string; onClose: () => void }) {
+  const [steps, setSteps] = useState<{ step: string; ok: boolean; said: string }[] | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    fetch(`/api/v1/music/why?key=${encodeURIComponent(songKey)}`).then(async (r) => {
+      const b = await r.json().catch(() => ({})) as { steps?: { step: string; ok: boolean; said: string }[]; error?: string };
+      if (!r.ok) setProblem(b.error || "Music didn't answer."); else setSteps(b.steps ?? []);
+    }).catch(() => setProblem("Music didn't answer."));
+  }, [songKey, tries]);
+  const text = steps?.map((s) => `${s.ok ? "✓" : "✗"} ${s.step}: ${s.said}`).join("\n") ?? "";
+  return <InkSheet title="Why it won't play" icon="search" tint="#946c25" onClose={onClose} actions={<>
+    <Seal tone="quiet" compact onClick={() => { setSteps(null); setProblem(null); setTries((n) => n + 1); }} disabled={!steps && !problem}>Check again</Seal>
+    <Seal compact disabled={!steps} onClick={() => void navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })}>{copied ? "Copied" : "Copy"}</Seal>
+  </>}>
+    {problem ? <p className="km-why-problem">{problem}</p> : !steps ? <p className="km-why-wait">Trying each way to get it…</p>
+      : <ol className="km-why">{steps.map((s, i) => <li key={i} className={s.ok ? "is-ok" : "is-off"}><b>{s.ok ? "✓" : "✗"} {s.step}</b><code>{s.said}</code></li>)}</ol>}
+  </InkSheet>;
+}
+
 /** A word along the bottom. After a like it says where the song went, and offers a playlist then and there. */
 function Toast() {
   const p = usePlayer();
   const [menu, setMenu] = useState<{ at: HTMLElement; items: Item[] } | null>(null);
   const t = p.toast;
   const offer = t?.playlistFor;
+  const [why, setWhy] = useState<string | null>(null);
+  const acts = offer || t?.why;
   return <>
-    <div className={cx("km-toast", t && "km-on", offer && "km-toast-offer")} role="status" aria-live="polite"
-      onPointerEnter={() => { if (offer) p.holdToast(true); }} onPointerLeave={() => { if (offer && !menu) p.holdToast(false); }}>
+    <div className={cx("km-toast", t && "km-on", acts && "km-toast-offer")} role="status" aria-live="polite"
+      onPointerEnter={() => { if (acts) p.holdToast(true); }} onPointerLeave={() => { if (acts && !menu) p.holdToast(false); }}>
       <span>{t?.text}</span>
       {offer ? <button type="button" className="km-toast-action" aria-haspopup="menu" aria-expanded={Boolean(menu)}
         onClick={async (e) => { const at = e.currentTarget; p.holdToast(true); setMenu({ at, items: await playlistItems(offer, p.say)() }); }}>Add to playlist</button> : null}
+      {t?.why ? <button type="button" className="km-toast-action" onClick={() => { setWhy(t.why!); p.holdToast(false); }}>Why?</button> : null}
     </div>
     {menu ? <Menu anchor={menu.at} items={menu.items} onClose={() => { setMenu(null); p.holdToast(false); }} /> : null}
+    {why ? <WhySheet songKey={why} onClose={() => setWhy(null)} /> : null}
   </>;
 }

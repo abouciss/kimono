@@ -86,7 +86,7 @@ export type Remote = {
 };
 
 /** A word along the bottom. `playlistFor` offers those songs a playlist: after a like, which already put them in Liked songs. */
-export type Toast = { text: string; at: number; playlistFor?: string[]; held?: boolean };
+export type Toast = { text: string; at: number; playlistFor?: string[]; held?: boolean; /** A song that wouldn't play: offers "Why?". */ why?: string };
 
 const PlayerContext = createContext<Player | null>(null);
 export const usePlayer = () => {
@@ -155,7 +155,7 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
   const holdToast = useCallback((held: boolean) => setToast((t) => (t ? { ...t, held } : t)), []);
   useEffect(() => {
     if (!toast || toast.held) return;
-    const t = setTimeout(() => setToast(null), toast.playlistFor ? 5000 : 3200);
+    const t = setTimeout(() => setToast(null), toast.playlistFor || toast.why ? 6000 : 3200);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -229,7 +229,8 @@ export function MusicProvider({ you, children }: { you: Person; children: ReactN
       if (remoteRef.current) { say("That song won't play here; the party carries on."); return; }
       failures.current += 1;
       const t = live.current.tracks[live.current.index];
-      say(t ? `“${t.title}” won't play right now.` : "That won't play right now.");
+      if (t) setToast({ text: `“${t.title}” won't play right now.`, at: Date.now(), why: t.key });
+      else say("That won't play right now.");
       /* One song failing moves on; several in a row is the server, and waits for you. */
       if (failures.current < 3) setTimeout(() => void advance(true), 1200);
     };

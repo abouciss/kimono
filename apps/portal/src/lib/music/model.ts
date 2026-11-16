@@ -149,7 +149,9 @@ export function matchScore(track: Track, c: Candidate): number {
   for (const v of versions) if (!want.includes(v)) return 0;
   const names = track.artists.map((a) => plainTitle(a.name)).filter(Boolean);
   const by = plainTitle(c.artists.join(" "));
-  const theirs = names.some((n) => by.includes(n));
+  /* "Lyn Inaizumi" on Deezer is "Lyn" on YouTube Music: a name that is the other's first word(s) is the same artist. */
+  const theyre = c.artists.map(plainTitle).filter((a) => a.length >= 3);
+  const theirs = names.some((n) => by.includes(n) || theyre.some((a) => ` ${n} `.startsWith(` ${a} `)));
   /* A video naming the artist only in its title is someone else's upload: kept as a last resort. */
   if (!theirs && !(c.kind === "video" && names.some((n) => got.includes(n)))) return 0;
   /* The closer the title and length, the better; the artist's own upload, and a song over a video. */
