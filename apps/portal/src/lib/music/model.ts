@@ -86,6 +86,46 @@ export function plainTitle(title: string): string {
     .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+/* ── Search ─────────────────────────────────────────────────────────────── */
+
+/* What makes a video something other than a song to play: a loop, a game run, a reaction. */
+const notASong = /\b(\d+ ?hours?|1 ?hr|perfect play|full combo|gameplay|noobplay|walkthrough|playthrough|reaction|tutorial|review|loop(?:ed)?|compilation|full album|mix ?\d{4}|ost full|osu|bga|ctb|\d+b|mx|nm|insane|expert|chart|trailer)\b/;
+/* Words a video adds to a song's name that aren't the name: "(Lyrics)", "[Official Video]", "4K". */
+const videoDressing = /\s*[([](?:[^)\]]*\b(?:lyrics?|official|audio|video|visuali[sz]er|hd|hq|4k|mv|m\/v|color coded|eng|sub|romaji|kan)\b[^)\]]*)[)\]]/gi;
+
+/**
+ * A video's name as a song's: "3rd Coast - Jealousy (Lyrics)" is Jealousy by
+ * 3rd Coast. Null when the video is plainly not one song (an hour's loop, a
+ * game's full run), or, unless [allowed], a version the search didn't ask for.
+ */
+export function songOfVideo(title: string, channel: string, allowed: string): { title: string; artists: string[] } | null {
+  const plain = plainTitle(title);
+  if (notASong.test(plain) && !notASong.test(allowed)) return null;
+  for (const m of plain.matchAll(new RegExp(otherVersion, "g"))) if (!allowed.includes(m[0])) return null;
+  const clean = title.replace(videoDressing, "").replace(/\s*【[^】]*】/g, "").replace(/\s{2,}/g, " ").trim();
+  const split = /^(.+?)\s+[-–—|]\s+(.+)$/.exec(clean);
+  if (split) return { artists: split[1].split(/\s*(?:,|&| x | feat\.? | ft\.? )\s*/i).map((a) => a.trim()).filter(Boolean), title: split[2].trim() };
+  return { artists: channel ? [channel] : [], title: clean };
+}
+
+/** How well a song answers a search: the share of the words typed found in its name and artists (the last word may be half-typed), with the name itself counting most. */
+export function searchScore(query: string, t: Track): number {
+  const words = plainTitle(query).split(" ").filter(Boolean);
+  if (!words.length) return 0;
+  const name = plainTitle(t.title), by = plainTitle(t.artists.map((a) => a.name).join(" "));
+  const hay = ` ${name} ${by} `;
+  let got = 0;
+  words.forEach((w, i) => { if (hay.includes(` ${w} `) || (i === words.length - 1 && hay.includes(` ${w}`))) got += 1; });
+  const share = got / words.length;
+  /* "Jealousy 3rd coast": the name and the artist both, exactly, is the song asked for. */
+  const exact = plainTitle(query) === name || plainTitle(query) === `${name} ${by}` || plainTitle(query) === `${by} ${name}` ? 3 : 0;
+  const named = words.some((w) => ` ${name} `.includes(` ${w} `)) ? 1 : 0;
+  /* A cover, a parody, a karaoke or 8-bit take waits behind the song, unless that's what was asked for. */
+  const typed = plainTitle(query);
+  const other = [...name.matchAll(new RegExp(otherVersion, "g")), ...name.matchAll(/\b(8 ?bit|emulation|in the style of|made famous by|originally performed)\b/g)].some((m) => !typed.includes(m[0])) ? 6 : 0;
+  return share * 10 + exact + named - other;
+}
+
 /* ── Finding the recording on YouTube Music ─────────────────────────────── */
 
 /** A YouTube Music search result, as matching sees it. */

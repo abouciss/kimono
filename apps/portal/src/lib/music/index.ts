@@ -9,9 +9,9 @@ import { getPlatformSettings } from "../settings";
 import { stateDir } from "../state";
 import { audioStatus, prefetch } from "./audio";
 import { musicConfig, type MusicConfig } from "./config";
-import { deezerId, isTrackKey, MusicProblem, videoId, type Album, type Artist, type Lyrics, type Playlist, type RatedKind, type Rating, type Row, type Track } from "./model";
+import { deezerId, isTrackKey, MusicProblem, plainTitle, searchScore, videoId, type Album, type Artist, type Lyrics, type Playlist, type RatedKind, type Rating, type Row, type Track } from "./model";
 import { deezerSource as dz, lastfm, lrclib } from "./sources";
-import { findRecording, videoAsTrack } from "./youtube";
+import { findRecording, searchYouTube, videoAsTrack } from "./youtube";
 
 export * from "./model";
 
@@ -138,13 +138,44 @@ const idOf = (key: string) => {
 
 /* ── Catalogue ─────────────────────────────────────────────────────────── */
 
+/**
+ * Songs, albums and artists for what was typed. Deezer's catalogue and
+ * YouTube Music's (its songs, and videos that are one song) are asked at
+ * once; songs are ranked by how well they answer the words typed, then how
+ * popular they are, and a song both have is shown once, from Deezer.
+ */
 export async function search(q: string) {
   const text = q.trim().slice(0, 200);
   if (!text) return { tracks: [], albums: [], artists: [] };
-  const found = await kept(`search`, text.toLowerCase(), DAY, () => dz.search(text));
+  const key = text.toLowerCase();
+  const [found, yt] = await Promise.all([
+    kept(`search`, key, DAY, () => dz.search(text)),
+    /* YouTube is the extra, never the wait: a slow answer is left out. */
+    Promise.race([
+      kept<{ songs: Track[]; videos: Track[] }>("yt-search-2", key, DAY, () => searchYouTube(text)).catch(() => null),
+      new Promise<null>((done) => setTimeout(() => done(null), 6000)),
+    ]),
+  ]);
   const out = found ?? { tracks: [], albums: [], artists: [] };
-  keepTracks(out.tracks);
-  return out;
+  const seen = new Set<string>();
+  /* The same song whichever way round a video names it ("3rd Coast - Jealousy", "Jealousy - 3rd Coast"). */
+  const same = (t: Track) => [plainTitle(t.title.replace(/\s*[([][^)\]]*[)\]]/g, "")), plainTitle(t.artists[0]?.name ?? "")].sort().join("|");
+  const scored: { t: Track; s: number }[] = [];
+  const add = (t: Track, lift: number, least: number) => {
+    const id = same(t);
+    if (seen.has(id)) return;
+    const s = searchScore(text, t);
+    if (s < least) return;
+    seen.add(id);
+    scored.push({ t, s: s * 10 + lift });
+  };
+  for (const t of out.tracks) add(t, Math.log10((t.rank ?? 0) + 10), 0);
+  for (const t of yt?.songs ?? []) add(t, 3, 4);
+  /* A video only when it answers most of what was typed. */
+  for (const t of yt?.videos ?? []) add(t, 1, 7);
+  const tracks = scored.sort((a, b) => b.s - a.s).map((x) => x.t).slice(0, 30);
+  keepTracks(tracks);
+  return { ...out, tracks };
 }
 
 export async function getTrack(key: string): Promise<Track | null> {
