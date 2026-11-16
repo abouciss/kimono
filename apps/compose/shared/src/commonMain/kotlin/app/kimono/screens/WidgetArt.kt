@@ -442,29 +442,17 @@ private fun Reading(w: Widget, d: BoardData, act: BoardActions) {
     }
 }
 
-/** A book in its own lamplight: a warm pool that breathes behind it, and specks of gold drifting up off the pages. */
+/** A book in its own lamplight: a warm pool that breathes behind it. */
 @Composable
 private fun Lamplit(width: Dp, book: @Composable () -> Unit) {
     val still = LocalStill.current
     val t = rememberInfiniteTransition(label = "lamp")
     val breath = if (still) .5f else t.animateFloat(0f, 1f, infiniteRepeatable(tween(2500, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breath").value
-    val drift = if (still) 0f else t.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = LinearEasing)), label = "drift").value
     val tint = LocalBoardColor.current
     Box(
         Modifier.width(width).drawBehind {
             val r = size.width * (1.15f + .12f * breath)
             drawCircle(Brush.radialGradient(listOf(Color(0xFFFFD38A).copy(alpha = .34f + .16f * breath), tint.copy(alpha = .14f), Color.Transparent), center, r), r, center)
-        }.drawWithContent {
-            drawContent()
-            if (still) return@drawWithContent
-            repeat(7) { i ->
-                val phase = (drift + i / 7f) % 1f
-                val x = size.width * (.12f + i * .13f) + sin((phase * 2 + i) * PI.toFloat()) * 4.dp.toPx()
-                val y = size.height * (.9f - phase * .95f)
-                val a = sin(phase * PI.toFloat())
-                drawCircle(Color(0xFFFFD282).copy(alpha = .28f * a), 5.dp.toPx(), Offset(x, y))
-                drawCircle(Color(0xFFFFE2A6).copy(alpha = .95f * a), (if (i % 2 == 0) 1.8f else 1.3f).dp.toPx(), Offset(x, y))
-            }
         },
         contentAlignment = Alignment.Center,
     ) { book() }

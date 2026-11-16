@@ -289,7 +289,6 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
     <span className="wg-book">
       <span className="wg-book-glow" aria-hidden="true" />
       <span className="wg-book-float"><Book3D book={{ key: b.itemId, title: b.title, authors: author ? [author] : [], cover: b.cover, pages: null }} progress={b.progress ?? undefined} /></span>
-      <span className="wg-motes" aria-hidden="true">{[0, 1, 2, 3, 4, 5, 6].map((i) => <i key={i} style={{ "--i": i } as React.CSSProperties} />)}</span>
     </span>
     {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Reading</small><b>{b.title}</b>{author ? <em>{author}</em> : null}
       {b.progress ? <span className="wg-progress"><InkMeter className="wg-wave" value={b.progress} label="Read" /><small>{Math.round(b.progress * 100)}%</small></span> : null}</span> : null}
