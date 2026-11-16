@@ -641,6 +641,74 @@ function mixed(tracks: Track[], username: string, disliked: Set<string>, skip = 
   });
 }
 
+/* Who a song is by, for keeping one artist from taking over a mix. */
+const byWhom = (t: Track) => t.artists[0]?.key || t.artists[0]?.name.toLowerCase() || t.key;
+
+/**
+ * At most [cap] songs by any one artist ([caps] for some), then reordered so
+ * the same artist doesn't come twice in a row where it can be helped.
+ */
+function spread(list: Track[], cap = 2, caps: Record<string, number> = {}): Track[] {
+  const count = new Map<string, number>();
+  const left = list.filter((t) => {
+    const a = byWhom(t);
+    const n = count.get(a) ?? 0;
+    if (n >= (caps[a] ?? cap)) return false;
+    count.set(a, n + 1);
+    return true;
+  });
+  const out: Track[] = [];
+  while (left.length) {
+    const last = out.length ? byWhom(out[out.length - 1]) : null;
+    const i = left.findIndex((t) => byWhom(t) !== last);
+    out.push(...left.splice(i < 0 ? 0 : i, 1));
+  }
+  return out;
+}
+
+/** What you've heard (past 30s, this past year), and every artist you've played at all: what isn't new to you. */
+function familiar(username: string) {
+  const rows = musicDb().prepare("SELECT track, artists, seconds FROM plays WHERE username = ? AND played_at > ?").all(user(username), Date.now() - 365 * DAY) as { track: string; artists: string; seconds: number }[];
+  const songs = new Set<string>();
+  const artists = new Set<string>();
+  for (const r of rows) {
+    if (r.seconds >= 30) songs.add(r.track);
+    for (const a of JSON.parse(r.artists) as { key: string }[]) if (a.key) artists.add(a.key);
+  }
+  return { songs, artists };
+}
+
+/* A few at a time: a cold start asks Deezer for four things per artist, and it allows fifty every five seconds. */
+async function inTurn<T, R>(list: T[], each: (x: T) => Promise<R>, at = 4): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < list.length; i += at) out.push(...await Promise.all(list.slice(i, i + at).map(each)));
+  return out;
+}
+
+const artistPage = (key: string) => kept("artist", key, 7 * DAY, () => dz.artist(idOf(key))).catch(() => null);
+
+/**
+ * New to you: artists Deezer puts beside the ones you play that you've never
+ * played, the ones beside several of yours first, two of their best songs
+ * each. Changes daily.
+ */
+async function newToYou(t: Awaited<ReturnType<typeof taste>>, username: string, known: ReturnType<typeof familiar>, daySeed: number): Promise<Track[]> {
+  const seeds = t.artists.slice(0, 10);
+  const pages = await inTurn(seeds, (a) => artistPage(a.key));
+  const near = new Map<string, number>();
+  pages.forEach((p, i) => (p?.related ?? []).forEach((a, rank) => {
+    if (known.artists.has(a.key) || t.disliked.has(a.key)) return;
+    near.set(a.key, (near.get(a.key) ?? 0) + seeds[i].score * (1 - rank * 0.05));
+  }));
+  /* The closest twenty-four, a different fifteen of them each day. */
+  const closest = [...near.entries()].sort((a, b) => b[1] - a[1]).slice(0, 24).map(([k]) => k);
+  const picked = shuffled(closest, daySeed).slice(0, 15);
+  const tops = await inTurn(picked, (k) => artistPage(k));
+  const songs = tops.flatMap((p) => shuffled((p?.top ?? []).slice(0, 6), daySeed).filter((s) => !known.songs.has(s.key)).slice(0, 2));
+  keepTracks(songs);
+  return spread(mixed(songs, username, t.disliked), 2).slice(0, 25);
+}
+
 /** More like a song, for when the queue runs out: Last.fm's similar songs, else Deezer's radio of its artist. */
 export async function radio(config: MusicConfig, username: string, seed: string, skip: string[] = []): Promise<Track[]> {
   const track = await getTrack(seed);
@@ -651,8 +719,16 @@ export async function radio(config: MusicConfig, username: string, seed: string,
     const similar = await kept("similar", seed, 30 * DAY, () => lastfm(config.lastfmKey).similarTracks(track.artists[0]?.name ?? "", track.title, 60)).catch(() => null);
     found = await byName(similar ?? [], 30);
   }
-  if (found.length < 10 && track.artists[0]?.key) found.push(...await artistRadio(track.artists[0].key));
-  return mixed(found, username, disliked, new Set([seed, ...skip])).slice(0, 25);
+  const first = track.artists[0]?.key;
+  if (found.length < 10 && first) found.push(...await artistRadio(first));
+  /* Not a run of one artist: two each, the song's own artist included. */
+  let out = spread(mixed(found, username, disliked, new Set([seed, ...skip])), 2);
+  if (out.length < 15 && first) {
+    const near = (await artistPage(first))?.related.slice(0, 8) ?? [];
+    const tops = await inTurn(near, (a) => artistPage(a.key));
+    out = spread(mixed([...out, ...tops.flatMap((p) => (p?.top ?? []).slice(0, 3))], username, disliked, new Set([seed, ...skip])), 2);
+  }
+  return out.slice(0, 25);
 }
 
 export async function artistRadio(key: string): Promise<Track[]> {
@@ -695,27 +771,40 @@ export async function homeFor(config: MusicConfig, username: string): Promise<Ho
   const daySeed = Math.floor(Date.now() / DAY);
   const mixes: Row[] = [];
   if (t.plays >= 10 || t.artists.length >= 3) {
-    /* One mix for each of your top genres (Last.fm's tag charts), one for each of your top artists (their radio). */
+    const known = familiar(username);
+    /* First, what you haven't heard: artists beside yours you've never played. */
+    const fresh = await newToYou(t, username, known, daySeed).catch(() => []);
+    if (fresh.length >= 8) mixes.push({ id: "new", title: "New to you", items: fresh });
+    /*
+     * One mix for each of your top genres (Last.fm's tag charts, deep into
+     * them): songs you haven't heard, two an artist, the ones you don't
+     * already play first.
+     */
     if (config.lastfmKey) {
       const tagMixes = await Promise.all(t.tags.slice(0, 3).map(async ({ tag }) => {
-        const named = await kept("tag-tracks", tag, 7 * DAY, () => lastfm(config.lastfmKey).tagTracks(tag, 60)).catch(() => null);
-        const tracks = mixed(await byName(shuffled(named ?? [], daySeed).slice(0, 30), 20), username, t.disliked);
-        return { id: `tag:${tag}`, title: tag.replace(/\b\p{L}/gu, (c) => c.toUpperCase()), items: tracks };
+        const named = await kept("tag-tracks-deep", tag, 7 * DAY, () => lastfm(config.lastfmKey).tagTracks(tag, 150)).catch(() => null);
+        const found = mixed(await byName(shuffled(named ?? [], daySeed).slice(0, 45), 40), username, t.disliked, known.songs);
+        const ordered = [...found.filter((x) => !known.artists.has(byWhom(x))), ...found.filter((x) => known.artists.has(byWhom(x)))];
+        return { id: `tag:${tag}`, title: tag.replace(/\b\p{L}/gu, (c) => c.toUpperCase()), items: spread(ordered, 2).slice(0, 25) };
       }));
       mixes.push(...tagMixes.filter((m) => m.items.length >= 6));
     }
-    const artistMixes = await Promise.all(t.artists.slice(0, 3).map(async (a) => ({
-      id: `artist:${a.key}`, title: `${a.name} and more`, items: mixed(shuffled(await artistRadio(a.key).catch(() => []), daySeed), username, t.disliked).slice(0, 20),
-    })));
+    /* One for each of your top artists: their radio, a few of theirs and the rest by others, the unheard ahead. */
+    const artistMixes = await Promise.all(t.artists.slice(0, 3).map(async (a) => {
+      const radio = mixed(shuffled(await artistRadio(a.key).catch(() => []), daySeed), username, t.disliked);
+      const ordered = [...radio.filter((x) => !known.songs.has(x.key)), ...radio.filter((x) => known.songs.has(x.key))];
+      return { id: `artist:${a.key}`, title: `${a.name} and more`, items: spread(ordered, 2, { [a.key]: 4 }).slice(0, 25) };
+    }));
     mixes.push(...artistMixes.filter((m) => m.items.length >= 6));
   }
-  /* Artists like the ones you play that you haven't played yet. */
-  const known = new Set(t.artists.map((a) => a.key));
+  /* Artists like the ones you play that you've never played. */
+  const known = familiar(username).artists;
+  for (const a of t.artists) known.add(a.key);
   let artists: Artist[] = top.artists;
-  const pages = await Promise.all(t.artists.slice(0, 10).map((a) => getArtist(config, a.key).catch(() => null)));
+  const pages = await inTurn(t.artists.slice(0, 10), (a) => getArtist(config, a.key).catch(() => null));
   const yourArtists = pages.flatMap((p) => p ? [p.artist] : []);
   if (t.artists.length) {
-    const related = pages.slice(0, 4).map((p) => p?.related ?? []);
+    const related = pages.slice(0, 6).map((p) => p?.related ?? []);
     const fresh = related.flat().filter((a, i, all) => !known.has(a.key) && !t.disliked.has(a.key) && all.findIndex((b) => b.key === a.key) === i);
     if (fresh.length >= 4) artists = shuffled(fresh, daySeed).slice(0, 12);
   }
