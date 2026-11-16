@@ -198,17 +198,22 @@ export async function search(q: string, config?: MusicConfig) {
     ]) : null,
   ]);
   const out = found ?? { tracks: [], albums: [], artists: [] };
-  const seen = new Set<string>();
   /* The same song whichever way round a video names it ("3rd Coast - Jealousy", "Jealousy - 3rd Coast"). */
   const same = (t: Track) => [plainTitle(t.title.replace(/\s*[([][^)\]]*[)\]]/g, "")), plainTitle(t.artists[0]?.name ?? "")].sort().join("|");
-  const scored: { t: Track; s: number }[] = [];
+  /*
+   * Each song once. When two answers are the same song, the closer match
+   * stays (the studio recording, not its live take); equally close, the first
+   * (Deezer's, with its album and lyrics) stays, placed as high as either.
+   */
+  const best = new Map<string, { t: Track; match: number; s: number }>();
   const add = (t: Track, lift: number, least: number) => {
+    const match = searchScore(text, t);
+    if (match < least) return;
+    const total = match * 10 + lift;
     const id = same(t);
-    if (seen.has(id)) return;
-    const s = searchScore(text, t);
-    if (s < least) return;
-    seen.add(id);
-    scored.push({ t, s: s * 10 + lift });
+    const had = best.get(id);
+    if (!had || match > had.match) best.set(id, { t, match, s: had ? Math.max(total, had.s) : total });
+    else had.s = Math.max(had.s, total);
   };
   /* A video can name the artist second ("My Jealousy - 3rd Coast"): when its "title" is an artist the search knows and its "artist" isn't, it's the other way round. */
   const artistsKnown = new Set([...out.artists.map((a) => plainTitle(a.name)), ...out.tracks.flatMap((t) => t.artists.map((a) => plainTitle(a.name)))]);
@@ -217,10 +222,11 @@ export async function search(q: string, config?: MusicConfig) {
     return artistsKnown.has(plainTitle(t.title)) && !artistsKnown.has(plainTitle(by)) && by ? { ...t, title: by, artists: [{ key: "", name: t.title }] } : t;
   };
   for (const t of out.tracks) add(t, Math.log10((t.rank ?? 0) + 10), 0);
-  for (const t of yt?.songs ?? []) add(t, 3, 4);
+  /* YouTube Music's songs come most played first: its first answer is usually the one meant. */
+  (yt?.songs ?? []).forEach((t, i) => add(t, [7, 5.5, 4.5][i] ?? 3, 4));
   /* A video only when it answers most of what was typed. */
   for (const t of yt?.videos ?? []) add(righted(t), 1, 7);
-  const tracks = scored.sort((a, b) => b.s - a.s).map((x) => x.t).slice(0, 30);
+  const tracks = [...best.values()].sort((a, b) => b.s - a.s).map((x) => x.t).slice(0, 30);
   keepTracks(tracks);
   /* A name that's an artist and a small tag ("taylor") is the artist. */
   const artistNamed = out.artists.some((a) => a.name.toLowerCase() === key);
