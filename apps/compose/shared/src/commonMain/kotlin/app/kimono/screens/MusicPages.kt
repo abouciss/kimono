@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import app.kimono.data.AlbumPage
 import app.kimono.data.ArtistPage
 import app.kimono.data.FriendOnSong
+import app.kimono.data.GenrePage
+import app.kimono.data.MixPage
+import io.ktor.http.encodeURLQueryComponent
 import app.kimono.data.KimonoProblem
 import app.kimono.data.Lyrics
 import app.kimono.data.Music
@@ -352,6 +355,46 @@ private fun ArrangeSheet(p: PlaylistPage, onMove: (Int, Int) -> Unit, onRemove: 
 }
 
 private fun Modifier.graphicsRotate(deg: Float) = this.rotate(deg)
+
+/* ── A genre, and a mix ─────────────────────────────────────────────────── */
+
+@Composable
+fun MusicGenreScreen(player: MusicPlayer, id: Int, go: MusicGo, back: () -> Unit) {
+    val (page, problem, retry) = loaded("genre:$id", player.music.known<GenrePage>("genre?id=$id")) { player.music.genre(id) }
+    Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = { KimonoTopBar("", onBack = back) }) { pad ->
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 24.dp)) {
+            val p = page
+            if (p == null) { item { if (problem != null) MusicProblem(problem, retry) else MusicLoading() }; return@LazyColumn }
+            val src = QueueSource("genre", id.toString(), p.genre.name)
+            item { Head({ Cover(p.genre.picture, 200.dp) }, "Genre", p.genre.name, "") }
+            item { PlayAll(player, p.tracks, src, Modifier.padding(vertical = 12.dp)) }
+            if (p.tracks.isNotEmpty()) item { Text("Top songs", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+            itemsIndexed(p.tracks.take(20), key = { _, t -> "t" + t.key }) { i, t -> SongRow(player, t, { player.play(p.tracks, i, src) }, go, number = i + 1) }
+            if (p.artists.isNotEmpty()) item { Shelf("Artists") { items(p.artists, key = { it.key }) { ArtistTile(it, go, 104.dp) } } }
+            if (p.albums.isNotEmpty()) item { Shelf("Albums") { items(p.albums, key = { it.key }) { AlbumTile(player, it, go) } } }
+        }
+    }
+}
+
+/** A mix from Home (New to you, a genre's, an artist's), or the chart, in full. */
+@Composable
+fun MusicMixScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -> Unit) {
+    val (mix, problem, retry) = loaded("mix:$id", player.music.known<MixPage>("mix?id=${id.encodeURLQueryComponent()}")?.mix) { player.music.mix(id) }
+    Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = { KimonoTopBar("", onBack = back) }) { pad ->
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 24.dp)) {
+            val m = mix
+            if (m == null) { item { if (problem != null) MusicProblem(problem, retry) else MusicLoading() }; return@LazyColumn }
+            val src = QueueSource(if (id == "chart") "chart" else "mix", id, m.title)
+            val minutes = m.items.sumOf { it.duration }.toInt() / 60
+            item {
+                Head({ Mosaic(m.items.mapNotNull { it.cover }.distinct().take(4), 200.dp, Modifier.clip(RoundedCornerShape(12.dp))) },
+                    if (id == "chart") "Chart" else "Mix", m.title, "${m.items.size} songs${if (minutes > 0) ", ${if (minutes >= 60) "${minutes / 60} hr ${minutes % 60} min" else "$minutes min"}" else ""}")
+            }
+            item { PlayAll(player, m.items, src, Modifier.padding(vertical = 12.dp)) }
+            itemsIndexed(m.items, key = { _, t -> t.key }) { i, t -> SongRow(player, t, { player.play(m.items, i, src) }, go, number = i + 1) }
+        }
+    }
+}
 
 /* ── A listen party, by its link ───────────────────────────────────────── */
 

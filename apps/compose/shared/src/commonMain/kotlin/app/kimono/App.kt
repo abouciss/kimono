@@ -3,6 +3,7 @@
 package app.kimono
 
 import app.kimono.ui.InkDialog
+import io.ktor.http.decodeURLPart
 import app.kimono.data.appFor
 import app.kimono.ui.InkConfirm
 import app.kimono.ui.InkTitle
@@ -391,6 +392,8 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             composable("music/album/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicAlbumScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
             composable("music/song/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicSongScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
             composable("music/playlist/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicPlaylistScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
+            composable("music/genre/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicGenreScreen(player, b.arguments?.read { getStringOrNull("id") }?.toIntOrNull() ?: 0, ::musicGo) { nav.popBackStack() } } }
+            composable("music/mix/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicMixScreen(player, (b.arguments?.read { getStringOrNull("id") } ?: "").decodeURLPart(), ::musicGo) { nav.popBackStack() } } }
             composable("music/party/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicPartyScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
             /* Notes: the list with its drawer of notebooks, and a note full screen over it. */
             fun notesAccent() = model.drive.launcher.value?.firstOrNull { it.id == app.kimono.data.Notes.APP_ID }?.accent ?: "#b56d78"

@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.kimono.data.FriendListening
+import app.kimono.data.FriendParty
 import app.kimono.data.Music
 import app.kimono.data.MusicHome
 import app.kimono.data.MusicMe
@@ -72,6 +73,8 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
     val music = player.music
     var home by remember { mutableStateOf(music.known<MusicHome>("home")) }
     var friends by remember { mutableStateOf<List<FriendListening>>(emptyList()) }
+    var parties by remember { mutableStateOf<List<FriendParty>>(emptyList()) }
+    var sent by remember { mutableStateOf<List<app.kimono.data.Recommendation>>(emptyList()) }
     var problem by remember { mutableStateOf<String?>(null) }
     var tries by remember { mutableIntStateOf(0) }
     LaunchedEffect(tries) {
@@ -81,7 +84,8 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
     }
     /* Offline: look again now and then, and say so once it's back. */
     if (player.offline) WhileShown(Unit) { while (true) { delay(15_000); runCatching { music.home() }.onSuccess { home = it; problem = null; player.connected(true) } ; if (!player.offline) break } }
-    WhileShown(Unit) { while (true) { runCatching { music.friends() }.onSuccess { friends = it }; delay(30_000) } }
+    WhileShown(Unit) { while (true) { runCatching { music.friends() }.onSuccess { friends = it }; runCatching { music.parties() }.onSuccess { parties = it }; delay(30_000) } }
+    LaunchedEffect(Unit) { runCatching { music.sent() }.onSuccess { sent = it } }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { MusicHead("Music", openSearch) }
         item {
@@ -90,6 +94,8 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
         /* The turntable: what's on, or what was, ready to carry on. */
         val lead = player.current ?: home?.jumpBack?.firstOrNull()
         if (lead != null) item { Deck(player, lead, onOpen = { if (player.current != null) player.nowPlayingOpen = true else player.play(listOf(lead) + home?.jumpBack.orEmpty().drop(1), 0, QueueSource("history", "recent", "Played lately")) }) }
+        /* Parties someone asked you to: a line to join each. */
+        parties.filter { it.invited && it.id != player.party?.id }.forEach { x -> item(key = "invite" + x.id) { PartyInvite(x) { go(MusicRoutes.party(x.id)) } } }
         if (friends.isNotEmpty()) item {
             Shelf("Friends listening") {
                 items(friends, key = { it.username }) { f -> FriendRecord(player, f, go) }
@@ -110,25 +116,94 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
                 Shelf("Your playlists", more = { go("music/you") }) { items(h.playlists, key = { it.id }) { PlaylistTile(player, it, go) } }
             }
             if (h.yourArtists.isNotEmpty()) item { Shelf("Your artists") { items(h.yourArtists, key = { "ya" + it.key }) { ArtistTile(it, go) } } }
-            if (h.mixes.isNotEmpty()) item {
-                Shelf("Made for you") {
-                    items(h.mixes, key = { it.id }) { m ->
-                        val src = QueueSource("mix", m.id, m.title)
-                        SleeveTile(m.title, m.items.take(3).joinToString(", ") { it.artists.firstOrNull()?.name.orEmpty() }, m.items.firstOrNull()?.cover, player.source?.id == m.id && player.playing, covers = m.items.mapNotNull { it.cover }.distinct().take(4)) {
-                            player.play(m.items, 0, src)
+            /* Sent by friends, with their notes. */
+            if (sent.isNotEmpty()) item { Shelf("Sent to you") { items(sent, key = { "sent" + it.id }) { r -> SentTile(r) { go(MusicRoutes.song(r.itemId)) } } } }
+            /* With a history: your mixes, artists like yours, then the chart. Someone new starts from the chart beside a mix or two, then popular artists. */
+            val mixes = {
+                if (h.mixes.isNotEmpty()) item {
+                    Shelf("Made for you") {
+                        items(h.mixes, key = { it.id }) { m ->
+                            SleeveTile(m.title, "${m.items.size} songs", m.items.firstOrNull()?.cover, player.source?.id == m.id && player.playing, covers = m.items.mapNotNull { it.cover }.distinct().take(4)) {
+                                go(MusicRoutes.mix(m.id))
+                            }
                         }
                     }
                 }
             }
-            /* Then what's out there: artists like yours, and what everyone's playing. */
-            if (h.artists.isNotEmpty()) item { Shelf(if (h.greeting == "back") "Artists for you" else "Popular artists") { items(h.artists, key = { it.key }) { ArtistTile(it, go) } } }
-            h.charts?.takeIf { it.items.isNotEmpty() }?.let { chart -> item {
-                Column(Modifier.padding(top = 24.dp)) {
-                    Text(if (personal) "Popular right now" else chart.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-                    chart.items.take(5).forEachIndexed { i, t -> SongRow(player, t, { player.play(chart.items, i, QueueSource("chart", "chart", chart.title)) }, go, number = i + 1) }
-                }
-            } }
+            val artists = {
+                if (h.artists.isNotEmpty()) item { Shelf(if (personal || h.greeting == "back") "Artists for you" else "Popular artists") { items(h.artists, key = { it.key }) { ArtistTile(it, go) } } }
+            }
+            val chart = {
+                h.charts?.takeIf { it.items.isNotEmpty() }?.let { chart -> item {
+                    Column(Modifier.padding(top = 24.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (personal) "Popular right now" else chart.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            TextButtonSmall("See all") { go(MusicRoutes.mix("chart")) }
+                        }
+                        chart.items.take(5).forEachIndexed { i, t -> SongRow(player, t, { player.play(chart.items, i, QueueSource("chart", "chart", chart.title)) }, go, number = i + 1) }
+                    }
+                } }
+            }
+            if (personal) { mixes(); artists(); chart() } else { mixes(); chart(); artists() }
             if (h.albums.isNotEmpty()) item { Shelf("Popular albums") { items(h.albums, key = { it.key }) { AlbumTile(player, it, go) } } }
+            if (h.genres.isNotEmpty()) item { Genres(h.genres) { go(MusicRoutes.genre(it)) } }
+        }
+    }
+}
+
+/** A friend asked you to listen together: who's in, what's on, and Join. */
+@Composable
+private fun PartyInvite(x: FriendParty, onJoin: () -> Unit) {
+    val people = listOf(x.host) + x.members.filter { it.username != x.host.username }
+    Row(
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer).clickable(onClick = onJoin).padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width((32 + 18 * (people.take(3).size - 1)).dp)) {
+            people.take(3).forEachIndexed { i, m -> Portrait(m.picture, m.name, m.username, 32.dp, Modifier.offset(x = (18 * i).dp)) }
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text("${x.host.name.substringBefore(' ').ifBlank { x.host.username }} asked you to listen together", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            x.song?.let { Text("${it.title} · ${it.byline}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .75f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+        app.kimono.ui.Seal("Join", onJoin, compact = true, icon = "play")
+    }
+}
+
+/** A song a friend sent: its cover with their face on the corner, and their note. */
+@Composable
+private fun SentTile(r: app.kimono.data.Recommendation, onClick: () -> Unit) {
+    Column(Modifier.width(148.dp).clickable(onClick = onClick)) {
+        Box(Modifier.size(148.dp)) {
+            Cover(r.cover, 136.dp, Modifier.align(Alignment.TopStart))
+            Portrait(r.from.picture, r.from.name, r.from.username, 34.dp, Modifier.align(Alignment.BottomEnd))
+        }
+        Text(r.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+        Text("from ${r.from.name.substringBefore(' ').ifBlank { r.from.username }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        r.note?.takeIf { it.isNotBlank() }?.let { Text("“$it”", style = MaterialTheme.typography.bodySmall, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
+    }
+}
+
+/** Genres, two across: each a flat card with its name and its picture tipped into the corner. */
+@Composable
+private fun Genres(genres: List<app.kimono.data.Genre>, open: (Int) -> Unit) {
+    Column(Modifier.padding(top = 24.dp)) {
+        Text("Genres", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            genres.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEachIndexed { n, g ->
+                        Box(Modifier.weight(1f).height(76.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer).clickable { open(g.id) }) {
+                            if (g.picture != null) AsyncImage(model = g.picture, contentDescription = null, contentScale = ContentScale.Crop,
+                                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 14.dp, y = 10.dp).size(64.dp).graphicsLayer { rotationZ = if (n == 0) 18f else -14f; shape = RoundedCornerShape(6.dp); clip = true })
+                            Text(g.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 2,
+                                modifier = Modifier.padding(start = 14.dp, top = 12.dp, end = 56.dp))
+                        }
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
         }
     }
 }

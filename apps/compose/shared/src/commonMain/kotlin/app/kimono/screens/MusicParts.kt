@@ -2,6 +2,8 @@
 
 package app.kimono.screens
 
+import io.ktor.http.encodeURLPathPart
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -68,6 +70,8 @@ object MusicRoutes {
     fun song(key: String) = "music/song/${Music.idOf(key)}"
     fun playlist(id: String) = "music/playlist/$id"
     fun party(id: String) = "music/party/$id"
+    fun genre(id: Int) = "music/genre/$id"
+    fun mix(id: String) = "music/mix/${id.encodeURLPathPart()}"
 }
 
 /* ── Art ────────────────────────────────────────────────────────────────── */

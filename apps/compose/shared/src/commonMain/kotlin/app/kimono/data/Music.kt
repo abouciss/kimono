@@ -53,6 +53,10 @@ data class Album(
 @Serializable data class LyricLine(val at: Double, val line: String)
 @Serializable data class Lyrics(val synced: List<LyricLine>? = null, val plain: String? = null, val instrumental: Boolean = false)
 @Serializable data class MusicPerson(val username: String, val name: String = "", val picture: String? = null)
+/** A Deezer genre's page: its chart of songs, albums and artists. */
+@Serializable data class GenrePage(val genre: Genre, val tracks: List<Track> = emptyList(), val albums: List<Album> = emptyList(), val artists: List<Artist> = emptyList())
+/** A party you could join now: yours, one you were asked to, a friend's open one. */
+@Serializable data class FriendParty(val id: String, val host: MusicPerson, val invited: Boolean = false, val members: List<MusicPerson> = emptyList(), val song: Track? = null)
 
 @Serializable
 data class MusicHome(
@@ -115,7 +119,8 @@ data class PartyView(
 @Serializable private data class QueueAnswer(val queue: SavedQueue? = null)
 @Serializable private data class FriendsAnswer(val friends: List<FriendListening> = emptyList())
 @Serializable private data class SongFriends(val friends: List<FriendOnSong> = emptyList())
-@Serializable private data class MixAnswer(val mix: TrackRow)
+@Serializable data class MixPage(val mix: TrackRow)
+@Serializable private data class PartiesAnswer(val parties: List<FriendParty> = emptyList())
 @Serializable private data class Started(val id: String)
 @Serializable private data class Clock(val now: Long)
 @Serializable data class PartyAnswer(val ok: Boolean = false, val state: PartyView? = null, val error: String? = null, val reason: String? = null)
@@ -154,7 +159,11 @@ class Music(val session: Session) {
     suspend fun artist(key: String): ArtistPage = get("artist?key=${q(key)}")
     suspend fun album(key: String): AlbumPage = get("album?key=${q(key)}")
     suspend fun track(key: String): TrackPage = get("track?key=${q(key)}")
-    suspend fun mix(id: String): TrackRow = get<MixAnswer>("mix?id=${q(id)}").mix
+    suspend fun mix(id: String): TrackRow = get<MixPage>("mix?id=${q(id)}").mix
+    suspend fun genre(id: Int): GenrePage = get("genre?id=$id")
+    suspend fun parties(): List<FriendParty> = get<PartiesAnswer>("party").parties
+    /** Songs friends sent you, with their notes. */
+    suspend fun sent(): List<Recommendation> = json.decodeFromString<Recommendations>(session.fetch("/api/v1/recommendations?app=music")).received.filter { it.app == "music" }
     suspend fun lyrics(key: String): Lyrics? = get<LyricsAnswer>("lyrics?key=${q(key)}").lyrics
     suspend fun status(key: String): SongStatus = json.decodeFromString(session.call("$BASE/status?key=${q(key)}"))
     suspend fun songFriends(key: String): List<FriendOnSong> = get<SongFriends>("song-friends?key=${q(key)}").friends
