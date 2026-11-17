@@ -2532,10 +2532,12 @@ const Chat = memo(function Chat({ workspace, events, drafts, running, blocked, t
   /* Its questions waiting for an answer take the writing bar's place once its turn is over (until then, Stop stays there). */
   const asked = (flat.findLast((i) => i.type === "question" && !i.answer) as Extract<Item, { type: "question" }> | undefined)?.event;
   const lastContext = (flat.findLast((i) => i.type === "done" && i.event.context) as Extract<Item, { type: "done" }> | undefined)?.event.context ?? null;
+  /* The pair the chat is still on: nothing asked since (the sandbox going to sleep, or files sent back, after it doesn't count). */
+  const lastPair = items.findLast((i) => i.type === "takes" || i.type === "ask");
   /* One item of the timeline, or of a take. */
   const show = (item: Item): React.ReactNode => {
     switch (item.type) {
-      case "takes": return <Takes key={`takes-${item.seq}`} workspace={workspace} item={item} show={show} running={running} latest={item === items.at(-1)} tail={item === items.at(-1) && running ? tail : null} />;
+      case "takes": return <Takes key={`takes-${item.seq}`} workspace={workspace} item={item} show={show} running={running} latest={item === lastPair} tail={item === items.at(-1) && running ? tail : null} />;
         case "ask": return <Ask key={item.seq} workspace={workspace} item={item} running={running} />;
         /* Let out once: shown again (another tab, scrolled back, opened again), it just shows. */
         case "text": return item.seq > liveFrom && (lettedOut.get(`${workspace.id}:${item.seq}`) ?? -1) < item.text.length

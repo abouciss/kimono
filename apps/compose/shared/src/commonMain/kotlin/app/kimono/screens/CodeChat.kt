@@ -564,6 +564,8 @@ private fun ChatBody(code: Code, drive: Drive, platform: Platform, marks: AiMark
     }
     /* What it's writing now, and that it's working: inside the last take while a pair runs, else at the end. */
     val tailInPair = w.running && items.lastOrNull() is Item.Takes
+    /* The pair the chat is still on: nothing asked since (the sandbox going to sleep, or files sent back, after it doesn't count). */
+    val lastPair = items.lastOrNull { it is Item.Takes || it is Item.Ask }
     @Composable
     fun Tail() {
         writing.forEach { name -> ArtifactCard(code, platform, artifacts, name) }
@@ -574,7 +576,7 @@ private fun ChatBody(code: Code, drive: Drive, platform: Platform, marks: AiMark
     @Composable
     fun Show(item: Item) {
         when (item) {
-            is Item.Takes -> TakesBlock(code, w, item, latest = item === items.lastOrNull(), withTail = tailInPair && item === items.lastOrNull(), tail = { Tail() }, show = { Show(it) })
+            is Item.Takes -> TakesBlock(code, w, item, latest = item === lastPair, withTail = tailInPair && item === items.lastOrNull(), tail = { Tail() }, show = { Show(it) })
             is Item.Ask -> AskBubble(code, platform, people, w, item.event, seq = item.key)
             /* Let out once: scrolled away and back, or already out, it just shows. */
             is Item.Say -> if (item.key > liveFrom && (revealed[item.key] ?: -1) < item.text.length) RevealWords(item.text, from = revealed[item.key]) { revealed[item.key] = it } else Markdown(item.text)
