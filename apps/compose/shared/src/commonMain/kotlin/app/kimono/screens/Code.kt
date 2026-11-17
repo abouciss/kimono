@@ -139,6 +139,50 @@ private fun reposOf(list: List<CodeWorkspace>) = list.filter { it.isProject }.gr
  */
 @Composable
 fun AiDrawer(code: Code, admin: Boolean, current: String?, open: (String) -> Unit, content: @Composable (menu: () -> Unit) -> Unit) {
+    /* With room for the chats and a readable chat beside them (an iPad on its side), the drawer is a sidebar. */
+    androidx.compose.foundation.layout.BoxWithConstraints(propagateMinConstraints = true) {
+        if (maxWidth >= 840.dp) AiSidebar(code, admin, current, open, content) else AiModalDrawer(code, admin, current, open, content)
+    }
+}
+
+/** Whether the sidebar was left open, kept across chats so opening another doesn't undo a choice to hide it. */
+private val aiSidebarOpen = androidx.compose.runtime.mutableStateOf(true)
+
+/**
+ * The chats as a sidebar beside the open chat, as on the website: it stays put while you move
+ * between chats, and the menu button hides or shows it rather than sliding a sheet over the chat.
+ */
+@Composable
+private fun AiSidebar(code: Code, admin: Boolean, current: String?, open: (String) -> Unit, content: @Composable (menu: () -> Unit) -> Unit) {
+    val drawer = androidx.compose.material3.rememberDrawerState(if (aiSidebarOpen.value) androidx.compose.material3.DrawerValue.Open else androidx.compose.material3.DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(drawer) { app.kimono.AiDrawerAsk.open.collect { if (it) { app.kimono.AiDrawerAsk.open.value = false; aiSidebarOpen.value = true; drawer.open() } } }
+    androidx.compose.material3.DismissibleNavigationDrawer(
+        drawerState = drawer,
+        drawerContent = {
+            androidx.compose.material3.DismissibleDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                drawerShape = RoundedCornerShape(0.dp),
+                modifier = Modifier.width(320.dp),
+            ) {
+                AiDrawerSheet(code, admin, current, shown = drawer.targetValue == androidx.compose.material3.DrawerValue.Open) { to ->
+                    if (!(to == "code" && current == null)) open(to)
+                }
+            }
+        },
+    ) {
+        content {
+            scope.launch {
+                val opening = drawer.isClosed
+                aiSidebarOpen.value = opening
+                if (opening) drawer.open() else drawer.close()
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiModalDrawer(code: Code, admin: Boolean, current: String?, open: (String) -> Unit, content: @Composable (menu: () -> Unit) -> Unit) {
     val drawer = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     LaunchedEffect(drawer) { app.kimono.AiDrawerAsk.open.collect { if (it) { app.kimono.AiDrawerAsk.open.value = false; drawer.open() } } }

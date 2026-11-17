@@ -14,6 +14,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.key
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -103,6 +110,9 @@ import app.kimono.ui.kimonoIcon
 import kotlinx.coroutines.launch
 import app.kimono.ui.InkLoader
 import app.kimono.ui.AppAccentTheme
+import app.kimono.ui.LocalWindowWidth
+import app.kimono.ui.ProvideWindowWidth
+import app.kimono.ui.WidthClass
 
 /**
  * The Kimono app. [shared] is whatever another app has just shared into
@@ -123,6 +133,8 @@ fun KimonoApp(session: Session, platform: Platform, shared: SharedItem?, onShare
         suspend fun recheck() { session.checkUpdate()?.let { update = it; later = false } }
         /* A surface, not a painted box: it also hands text its on-surface ink, which a bare Text would leave black in dark mode. */
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            /* How wide the window is, measured here so rotation, Split View and Stage Manager all reach every screen. */
+            ProvideWindowWidth {
             val required = update?.takeIf { it.required }
             if (required != null) UpdateScreen(required, platform) else when (val s = state) {
                 SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { InkLoader() }
@@ -131,6 +143,7 @@ fun KimonoApp(session: Session, platform: Platform, shared: SharedItem?, onShare
                     SignedIn(session, platform, s.me, update?.takeIf { !later }, ::recheck) { later = true }
                     if (shared != null) ShareSheet(session, s.me, shared, onSharedHandled)
                 }
+            }
             }
         }
     }
@@ -240,19 +253,24 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         platform.driveAvailable(on)
         if (!on && route != null && route !in setOf("home", "you", "details", "devices", "password", "code", "code/{id}", "code/{id}/app", "ai/new", "ai/new/{in}", "ai/connections", "ai/connections/{app}", "ai/memory", "ai/archived", "ai/a/{token}", "ai/c/{token}", "manage", "manage/{id}", "friends", "people/{username}", "vpn", "vpn/people", "vpn/connect", "app/{id}", "notes", "notes/{notebook}", "note/{id}", "books", "books/shelf", "books/search", "books/downloads") && !route.startsWith("music")) goTab("home")
     }
-    val chrome = tab || musicBar
+    /*
+     * A wide window (an iPad, or a big Split View half) stands the rooms up the left edge
+     * instead of across the bottom; the song's bar stays at the bottom either way.
+     */
+    val wide = LocalWindowWidth.current != WidthClass.Compact
+    val rail = wide && roomApp != null
+    val chrome = (tab && !wide) || musicBar
+    val launcherOfRoom = model.drive.launcher.collectAsState().value?.firstOrNull { it.id == roomApp?.id }
+    fun roomGo(to: String) { if (to == "notes") notes.go(app.kimono.screens.NotePlace.All); goTab(to) }
+    fun roomTask() { when (roomApp?.id) { app.kimono.data.Notes.APP_ID -> notes.askSearch(); app.kimono.data.Code.APP_ID -> { AiDrawerAsk.open.value = true; if (route == "ai/connections" || route == "ai/memory") goTab("code") } } }
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         bottomBar = {
             Column {
-            if (musicBar) AppAccentTheme(app.kimono.data.Music.GOLD) { app.kimono.screens.MusicBar(player, hem = roomApp == null) }
-            if (roomApp != null) RoomBar(
-                roomApp, route, launcherApp = model.drive.launcher.collectAsState().value?.firstOrNull { it.id == roomApp.id }, me = me,
-                /* Notes' Home is all its notes. */
-                go = { to -> if (to == "notes") notes.go(app.kimono.screens.NotePlace.All); goTab(to) },
-                startTask = { when (roomApp.id) { app.kimono.data.Notes.APP_ID -> notes.askSearch(); app.kimono.data.Code.APP_ID -> { AiDrawerAsk.open.value = true; if (route == "ai/connections" || route == "ai/memory") goTab("code") } } }, openApps = { appsOpen = true },
-            )
+            if (musicBar) AppAccentTheme(app.kimono.data.Music.GOLD) { app.kimono.screens.MusicBar(player, hem = roomApp == null || wide) }
+            /* Notes' Home is all its notes. */
+            if (roomApp != null && !wide) RoomBar(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true })
             }
         },
     ) { padding ->
@@ -270,10 +288,12 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         val arrive = fadeIn(tween(250, delayMillis = 100, easing = LinearOutSlowInEasing))
         val leave = fadeOut(tween(100, easing = FastOutLinearInEasing))
         val throughIn = arrive + scaleIn(tween(300, delayMillis = 100, easing = settle), initialScale = .94f)
+        Row(Modifier.fillMaxSize()) {
+        if (rail && roomApp != null) RoomRail(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true })
         NavHost(
             nav, startDestination = "home",
             /* The bar takes the bottom inset, so a composer under it doesn't stand a whole hem higher. */
-            modifier = Modifier.padding(bottom = if (chrome) padding.calculateBottomPadding() else 0.dp).then(if (chrome) Modifier.consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())) else Modifier),
+            modifier = Modifier.weight(1f).padding(bottom = if (chrome) padding.calculateBottomPadding() else 0.dp).then(if (chrome) Modifier.consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())) else Modifier),
             enterTransition = { if (between(initialState.destination.route, targetState.destination.route)) throughIn else slideInHorizontally(axis) { it / 8 } + arrive },
             exitTransition = { if (between(initialState.destination.route, targetState.destination.route)) leave else slideOutHorizontally(axis) { -it / 8 } + leave },
             popEnterTransition = { if (between(initialState.destination.route, targetState.destination.route)) throughIn else slideInHorizontally(axis) { -it / 8 } + arrive },
@@ -396,7 +416,9 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             fun notesAccent() = model.drive.launcher.value?.firstOrNull { it.id == app.kimono.data.Notes.APP_ID }?.accent ?: "#b56d78"
             composable("notes") {
                 AppAccentTheme(notesAccent()) {
-                    app.kimono.screens.NotesScreen(notes, platform, notesAccent(), admin, me?.username, back = { goTab("home") }, open = { nav.navigate("note/$it") }) { nav.navigate(it) }
+                    NotesWithNote(notes, platform, me?.username, openFull = { nav.navigate("note/$it") }) { open ->
+                        app.kimono.screens.NotesScreen(notes, platform, notesAccent(), admin, me?.username, back = { goTab("home") }, open = open) { nav.navigate(it) }
+                    }
                 }
             }
             /* A notebook opened from Drive. */
@@ -404,7 +426,9 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
                 val notebook = backStack.arguments?.read { getStringOrNull("notebook") } ?: ""
                 LaunchedEffect(notebook) { notes.go(app.kimono.screens.NotePlace.InNotebook(notebook)) }
                 AppAccentTheme(notesAccent()) {
-                    app.kimono.screens.NotesScreen(notes, platform, notesAccent(), admin, me?.username, back = { nav.popBackStack() }, open = { nav.navigate("note/$it") }) { nav.navigate(it) }
+                    NotesWithNote(notes, platform, me?.username, openFull = { nav.navigate("note/$it") }) { open ->
+                        app.kimono.screens.NotesScreen(notes, platform, notesAccent(), admin, me?.username, back = { nav.popBackStack() }, open = open) { nav.navigate(it) }
+                    }
                 }
             }
             composable("note/{id}") { backStack ->
@@ -448,6 +472,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
                 app.kimono.screens.AppScreen(appAdmin, id) { nav.popBackStack() }
             }
         }
+        }
     }
     AppAccentTheme(app.kimono.data.Music.GOLD) {
         app.kimono.screens.NowPlaying(player) { to -> nav.navigate(to) }
@@ -457,6 +482,37 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         if (askedSharing) app.kimono.screens.SharingAsk(friends, "music")
         if (inMusic && !player.nowPlayingOpen) player.toast?.let { app.kimono.screens.Toast(it, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (chrome) 150.dp else 24.dp)) }
     }
+    }
+}
+
+/**
+ * Notes with room to spare: the list down the left and the note it opened beside it, as
+ * Notes on an iPad has it. Narrower than that (a phone, an iPad upright beside its rail, a
+ * Split View half) the list is the whole screen and a note opens over it, as before. Turning
+ * the iPad upright with a note open carries that note over to its own screen.
+ */
+@Composable
+private fun NotesWithNote(notes: app.kimono.screens.NotesModel, platform: Platform, me: String?, openFull: (String) -> Unit, list: @Composable (open: (String) -> Unit) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val twoPane = maxWidth >= 840.dp
+        var selected by rememberSaveable { mutableStateOf<String?>(null) }
+        LaunchedEffect(twoPane) { if (!twoPane) selected?.let { selected = null; openFull(it) } }
+        val listWidth = (maxWidth * .36f).coerceIn(320.dp, 420.dp)
+        Row(Modifier.fillMaxSize()) {
+            /* The list keeps its place in the tree either way, so its scroll and drawer survive a turn. */
+            Box(if (twoPane) Modifier.width(listWidth).fillMaxHeight() else Modifier.weight(1f).fillMaxHeight()) {
+                val pick: (String) -> Unit = { id -> selected = id }
+                list(if (twoPane) pick else openFull)
+            }
+            if (twoPane) {
+                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    val id = selected
+                    if (id == null) Text("Choose a note, or start a new one.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else key(id) { app.kimono.screens.NoteEditorScreen(notes, platform, id, me, back = { selected = null }) { other -> selected = other } }
+                }
+            }
+        }
     }
 }
 

@@ -6,6 +6,9 @@ import app.kimono.ui.bottomChrome
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.ShortNavigationBarItemDefaults
 import androidx.compose.material3.Text
@@ -13,6 +16,7 @@ import app.kimono.ui.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -111,6 +115,46 @@ fun RoomBar(app: RoomApp, route: String?, launcherApp: LauncherApp?, me: Account
                     /* You is Kimono's: inside an app the bar is that app's alone. */
                     if (app === kimono) ShortNavigationBarItem(selected = route == "you", onClick = { go("you") }, icon = { Portrait(me?.picture, me?.name, me?.username, 24.dp) }, label = { Text("You") }, colors = colors, modifier = Modifier.weight(1f))
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The same rooms as [RoomBar], stood up the left edge for a wide window (an iPad, either
+ * way up): the bloom at the top leads to every app, then this app's rooms, then You.
+ * A bar across the bottom of a tablet puts every room a long reach from where the
+ * thumbs rest; a rail keeps them beside the content and gives the screen its height back.
+ */
+@Composable
+fun RoomRail(app: RoomApp, route: String?, launcherApp: LauncherApp?, me: AccountProfile?, go: (String) -> Unit, startTask: () -> Unit, openApps: () -> Unit) {
+    val accent = if (app === music) app.accent else launcherApp?.accent ?: app.accent
+    AppAccentTheme(accent) {
+        val colors = NavigationRailItemDefaults.colors(
+            indicatorColor = MaterialTheme.colorScheme.secondaryContainer, selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        NavigationRail(
+            containerColor = MaterialTheme.colorScheme.surface,
+            header = {
+                Column(
+                    Modifier.padding(top = 8.dp, bottom = 12.dp).width(80.dp).clip(RoundedCornerShape(24.dp)).clickable(onClickLabel = "Every app", onClick = openApps).padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (accent == null) KimonoBranch(36.dp) else InkBloom(launcherApp?.id ?: app.id, accent, launcherApp?.glyph ?: app.glyph, 42.dp)
+                    Text(if (app.id == "kimono-code") app.name else launcherApp?.name ?: app.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+                }
+            },
+        ) {
+            app.rooms.forEach { room ->
+                NavigationRailItem(
+                    selected = route == room.route, onClick = { if (room.action) startTask() else go(room.route) },
+                    icon = { Icon(kimonoIcon(room.icon), null) }, label = { Text(room.label, maxLines = 1, softWrap = false) }, colors = colors,
+                )
+            }
+            if (app === kimono) {
+                Spacer(Modifier.weight(1f))
+                NavigationRailItem(selected = route == "you", onClick = { go("you") }, icon = { Portrait(me?.picture, me?.name, me?.username, 24.dp) }, label = { Text("You") }, colors = colors, modifier = Modifier.padding(bottom = 12.dp))
             }
         }
     }
