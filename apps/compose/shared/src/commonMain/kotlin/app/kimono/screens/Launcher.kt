@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -107,7 +106,8 @@ fun LauncherScreen(
 
     KimonoRefresh(refreshing, { scope.launch { refreshing = true; load(); refreshing = false } }, Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            GridCells.Fixed(2),
+            /* Two tiles across on a phone; on an iPad as many tile-sized columns as fit. */
+            app.kimono.ui.AdaptiveAtLeast(168.dp),
             state = grid,
             modifier = Modifier.fillMaxSize().pointerInput(shown != null) {
                 if (shown == null) return@pointerInput
@@ -164,13 +164,13 @@ fun LauncherScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(span = { GridItemSpan(2) }, key = "header") { header() }
+            item(span = { GridItemSpan(maxLineSpan) }, key = "header") { header() }
             when {
-                shown == null && problem == null -> item(span = { GridItemSpan(2) }) { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { InkLoader() } }
-                shown == null -> item(span = { GridItemSpan(2) }) { Problem(problem) }
+                shown == null && problem == null -> item(span = { GridItemSpan(maxLineSpan) }) { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { InkLoader() } }
+                shown == null -> item(span = { GridItemSpan(maxLineSpan) }) { Problem(problem) }
                 else -> {
                 if (home != null) item(key = "home") { HomeTile(onClick = home) }
-                if (shown.isEmpty()) item(span = { GridItemSpan(2) }) {
+                if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                     Text("Pin apps on Home to keep them here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
                 }
                 items(shown, key = { "app:" + it.id }) { app ->
