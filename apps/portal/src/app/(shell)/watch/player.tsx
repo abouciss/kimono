@@ -27,7 +27,7 @@ export type PlayerHandle = {
   party: () => string | null;
 };
 type Post = "next" | "ask" | "end" | null;
-type Sheet = "cc" | "speed" | "quality" | "eps" | "party" | "react" | null;
+type Sheet = "cc" | "speed" | "quality" | "version" | "eps" | "party" | "react" | null;
 type Skip = { label: string; to: number; left: number; gone: boolean } | null;
 /** Seconds Skip intro / Skip recap stays up by itself; after that only with the controls. */
 const SKIP_SHOWN = 10;
@@ -935,6 +935,7 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
         <div className="kw-name">{t ? <><b>{t.name}</b>{!movie && ep && episode ? <>&nbsp; {epLabel} “{episode.name}”</> : null}</> : null}</div>
         <button className="kw-pbtn kw-lab" aria-label="Playback speed" onClick={() => openSheet("speed")}><Icon name="speed" /><span>Speed</span></button>
         {play?.quality && play.quality.options.length > 1 ? <button className="kw-pbtn kw-lab" aria-label="Quality" onClick={() => openSheet("quality")}><Icon name="hd" /><span>Quality</span></button> : null}
+        {play && play.versions.length > 1 ? <button className="kw-pbtn kw-lab" aria-label="Version" onClick={() => openSheet("version")}><Icon name="list" /><span>Version</span></button> : null}
         {!movie ? <button className="kw-pbtn kw-lab" aria-label="Episodes" onClick={() => openSheet("eps")}><Icon name="eps" /><span>Episodes</span></button> : null}
         <button className="kw-pbtn kw-lab" aria-label="Audio and subtitles" onClick={() => openSheet("cc")}><Icon name="cc" /><span>Audio &amp; subtitles</span></button>
         {party ? <>
@@ -982,6 +983,11 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
         }}><Icon name="check" />{q.label}</button>)}</div>
         <button className="kw-opt kw-more" onClick={() => { exit(); watch.openSettings(); }}>Your defaults<Icon name="right" /></button>
       </> : null}
+      {sheet === "version" && play ? <div className="kw-quality"><h4>Version</h4>{play.versions.map((v) => <button key={v.key} className={cx("kw-opt", play.version.key === v.key && "kw-sel")} onClick={() => {
+          if (play.version.key === v.key || !titleId || !video.current) return;
+          live.current.tries = 0;
+          void loadEpisode(titleId, live.current.ep, { version: v.index, startAt: video.current.currentTime });
+        }}><Icon name="check" />{v.label}{v.source && v.source !== "unknown" ? ` · ${v.source[0].toUpperCase()}${v.source.slice(1)}` : ""}</button>)}</div> : null}
       {sheet === "eps" && ep ? <EpisodeList friends={view?.friends ?? []} episodes={episodes} ep={ep} bySeason={!view?.layout || view.layout === "seasons"} season={view?.season ?? ep.season} continuous={view?.layout === "continuous"} progress={time / d} onPick={(to) => { setSheet(null); pickEpisode(to); }} /> : null}
       {sheet === "react" && party ? <div className="kw-reacts">{reactionSet.map((e) => <button key={e} aria-label={`React ${e}`} onClick={() => void live.current.link?.react(e)}>{e}</button>)}</div> : null}
       {sheet === "party" && party ? <PartySheet party={party} me={me} client={myClient} people={people} personOf={personOf}
