@@ -183,6 +183,14 @@
 
 .km-shelf header, .km-chart header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--k-space-3); margin-bottom: var(--k-space-3); }
 .km-shelf-all { font: 700 14px/20px var(--k-sans); color: var(--k-on-surface-variant) !important; }
+.km-shelf-end { display: flex; align-items: center; gap: var(--k-space-3); }
+/* Back and More over a sideways row: only for a pointer; a finger swipes. */
+.km-turn { display: flex; gap: 4px; }
+.km-turn .km-iconbtn:disabled { opacity: .35; cursor: default; background: none; }
+.km-turn-more .km-icon { transform: scaleX(-1); }
+@media (hover: none) { .km-turn { display: none; } }
+.km-friends-head { display: flex; align-items: center; justify-content: space-between; gap: var(--k-space-3); margin-bottom: var(--k-space-3); }
+.km-friends-head .k-heading { margin: 0; }
 .km-shelf-row {
   display: grid; grid-auto-flow: column; grid-auto-columns: 176px; gap: var(--k-space-4);
   overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;

@@ -11,7 +11,7 @@ import { ImportSheet } from "./import-ui";
 import { askName, askSure } from "./ask";
 import { Icon } from "./icons";
 import { Portrait } from "@/components/portrait";
-import { AddToPlaylist, AlbumCard, ArtistCard, Bars, Cover, Head, Loading, MoreButton, Mosaic, PlayActions, playlistItems, Problem, RateMarks, SetCard, Shelf, Songs } from "./parts";
+import { AddToPlaylist, AlbumCard, ArtistCard, Bars, Cover, Head, Loading, MoreButton, Mosaic, PlayActions, playlistItems, Problem, RateMarks, SetCard, Shelf, Songs, useRowTurn } from "./parts";
 import { RecommendSheet } from "../account/friends/friends-ui";
 import { Faces, useFriendParties, useParty } from "./party-ui";
 import { usePlayer } from "./player";
@@ -214,9 +214,10 @@ function FriendsListening({ friends }: { friends: FriendListening[] }) {
   const party = useParty();
   /* The party a friend is in (or hosts), if you can join it. */
   const partyOf = (u: string) => parties.find((x) => x.host.username === u || x.members.some((m) => m.username === u));
+  const row = useRowTurn<HTMLDivElement>();
   return <section className="km-friends">
-    <h2 className="k-heading">Friends</h2>
-    <div className="km-friends-row">
+    <header className="km-friends-head"><h2 className="k-heading">Friends</h2>{row.buttons}</header>
+    <div className="km-friends-row" ref={row.ref}>
       {friends.map((f) => <div key={f.username} className={cx("km-friend", f.live && "km-live")}>
         <Crossing kind="kakejiku" href={`/account/people/${encodeURIComponent(f.username)}`} className="km-friend-who">
           <InkPortraitFrame seed={f.username} weight={3}><Portrait name={f.name} username={f.username} picture={f.picture} size={44} /></InkPortraitFrame>
