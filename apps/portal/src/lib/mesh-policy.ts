@@ -17,9 +17,11 @@ export function renderMeshPolicy(members: Record<string, MeshMember>): string {
 
   /* The people who run this Kimono reach its server and its nodes. Tagging the
      server takes it out of whoever enrolled it, so without this rule the person
-     who administers it would lose their own way in over the mesh. */
+     who administers it would lose their own way in over the mesh. They alone
+     may also go out to the internet through an exit node; anyone else picking
+     one gets no traffic through it. */
   for (const name of names) {
-    if (members[name].admin) acls.push({ comment: `${name} administers Kimono: the server and its nodes.`, src: `${name}@`, dst: ["tag:kimono-admin:*", "tag:kimono-node:*"] });
+    if (members[name].admin) acls.push({ comment: `${name} administers Kimono: the server, its nodes and its exit nodes.`, src: `${name}@`, dst: ["tag:kimono-admin:*", "tag:kimono-node:*", "autogroup:internet:*"] });
   }
 
   for (const name of names) {
