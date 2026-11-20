@@ -4,11 +4,11 @@ import { choose, linkOwner, mine, prayer, search } from "@/lib/prayer";
 export const dynamic = "force-dynamic";
 
 /*
- * The menu bar app's door: the link someone copied from Kimono Prayer stands
+ * The menu bar app's door: the link someone copied from Kimono Times stands
  * in for signing in, and reaches only their prayer place.
  */
 type Context = { params: Promise<{ token: string }> };
-const gone = () => apiError(401, "This link no longer works. Connect again from Kimono Prayer.");
+const gone = () => apiError(401, "This link no longer works. Connect again from Kimono Times.");
 const number = (value: string | null) => value === null || value === "" ? undefined : Number(value);
 
 /** Your place and its timetable; with `?q=` (or `?lat=&lon=&tz=`), a search instead, answering `{ places }`. */

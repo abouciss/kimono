@@ -90,7 +90,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /*
- * 礼 Kimono Prayer: the time to the next prayer, written large over the
+ * 礼 Kimono Times: the time to the next prayer, written large over the
  * day's sky (the sun's arc from sunrise to Maghrib, the night's below), then
  * today's prayers and the night's milestones, worked out on the phone from
  * the kept timetable so it all goes on without a connection.
@@ -149,7 +149,7 @@ fun PrayerScreen(prayers: Prayers, platform: Platform) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = pad.calculateTopPadding() + 8.dp, bottom = 40.dp)) {
             item {
                 Column(Modifier.padding(horizontal = 20.dp)) {
-                    Text("Prayer", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 10.dp))
+                    Text("Times", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 10.dp))
                     PlaceLine(mine?.place, onClick = { choosing = true })
                 }
             }

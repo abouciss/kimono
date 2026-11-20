@@ -22,5 +22,5 @@ export type PrayerConfig = ReturnType<typeof prayerConfig>;
 export async function prayerIdentity(settings: PlatformSettings): Promise<AppIdentity> {
   const definition = await getAppDefinition(prayerAppId);
   const colors = settings.apps[prayerAppId]?.colors || definition?.metadata.colors;
-  return { id: prayerAppId, name: "Prayer", accent: colors ? accentOf(colors) : "#2f5d62", glyph: "crescent" };
+  return { id: prayerAppId, name: "Times", accent: colors ? accentOf(colors) : "#2f5d62", glyph: "crescent" };
 }

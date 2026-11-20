@@ -399,7 +399,7 @@ private fun Empty(scene: WidgetScene) {
     Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
         Mark(c, 18)
         Spacer(GlanceModifier.width(8.dp))
-        Text(if (scene.mine?.place == null) "Choose your place in Prayer" else "Open Prayer for new times", maxLines = 2,
+        Text(if (scene.mine?.place == null) "Choose your place in Times" else "Open Times to refresh", maxLines = 2,
             style = TextStyle(color = c.muted, fontSize = (13 * scene.options.scale).sp))
     }
 }

@@ -69,7 +69,7 @@ private val books = RoomApp(app.kimono.data.Books.APP_ID, "Books", "#5b6b3f", "b
 private val music = RoomApp(app.kimono.data.Music.APP_ID, "Music", app.kimono.data.Music.GOLD, "music", listOf(Room("music", "Home", "home"), Room("music/you", "You", "person")), listOf(Room("music/search", "Search", "search")))
 
 /* Prayer: Today left of the bloom, the coming Days right. */
-private val prayer = RoomApp(app.kimono.prayer.Prayers.APP_ID, "Prayer", app.kimono.prayer.Prayers.ACCENT, "crescent", listOf(Room("prayer", "Today", "moon")), listOf(Room("prayer/days", "Days", "lk-calendar")))
+private val prayer = RoomApp(app.kimono.prayer.Prayers.APP_ID, "Times", app.kimono.prayer.Prayers.ACCENT, "crescent", listOf(Room("prayer", "Today", "moon")), listOf(Room("prayer/days", "Days", "lk-calendar")))
 
 /** Which app's bar a screen shows, or null for a screen opened from a room (it has its own back). */
 fun appOfRoom(route: String?): RoomApp? = when (route) {

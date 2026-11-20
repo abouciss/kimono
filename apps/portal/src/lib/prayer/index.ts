@@ -17,7 +17,7 @@ import {
 export * from "./model";
 
 /*
- * 礼 Kimono Prayer, server side. Everyone picks a place (a Mawaqit mosque, a
+ * 礼 Kimono Times, server side. Everyone picks a place (a Mawaqit mosque, a
  * MasjidBox masjid, or times calculated for where they are), kept here so the
  * website, the phone, its widgets and the menu bar app all show the same one.
  * A place's timetable is fetched when someone needs it and kept: half a day
@@ -186,7 +186,7 @@ export function linkOwner(token: string): string | null {
 export async function prayer(work: (config: PrayerConfig) => Promise<Response> | Response): Promise<Response> {
   try {
     const config = prayerConfig(await getPlatformSettings());
-    if (!config.enabled) return apiError(404, "Prayer isn't switched on.");
+    if (!config.enabled) return apiError(404, "Times isn't switched on.");
     return await work(config);
   } catch (error) {
     if (error instanceof PrayerProblem) return apiError(error.status, error.message);

@@ -11,9 +11,9 @@ import "./prayer.css";
 
 const inTime = <T,>(work: Promise<T>, ms: number) => Promise.race([work.catch(() => null), new Promise<null>((done) => setTimeout(() => done(null), ms))]);
 
-export const metadata: Metadata = { title: { absolute: "Kimono Prayer" } };
+export const metadata: Metadata = { title: { absolute: "Kimono Times" } };
 
-/** Kimono Prayer on the web: today's prayers at your mosque. */
+/** Kimono Times on the web: today's prayers at your mosque. */
 export default async function PrayerPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");

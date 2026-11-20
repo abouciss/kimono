@@ -118,7 +118,7 @@ private fun Settings(o: WidgetOptions, today: Boolean, change: (WidgetOptions) -
         Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        InkTitle("Prayer widget", "moon")
+        InkTitle("Times widget", "moon")
         Choice("Counts", listOf("next" to "Next prayer", "left" to "Time left"), if (o.mode == TitleMode.TimeLeft) "left" else "next") {
             change(o.copy(mode = if (it == "left") TitleMode.TimeLeft else TitleMode.NextPrayer))
         }

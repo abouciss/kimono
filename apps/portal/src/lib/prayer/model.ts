@@ -1,5 +1,5 @@
 /*
- * 礼 Kimono Prayer's shapes, shared by the website, the phone, its widgets and
+ * 礼 Kimono Times's shapes, shared by the website, the phone, its widgets and
  * the menu bar app. Times are HH:MM on the wall clock of the place's own time
  * zone; each client works out instants from `timezone`.
  */

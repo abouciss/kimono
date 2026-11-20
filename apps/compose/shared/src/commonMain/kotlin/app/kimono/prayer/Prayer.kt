@@ -36,7 +36,7 @@ data class PrayerMine(val place: PrayerPlace? = null, val timetable: Timetable? 
 private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
 /**
- * 礼 Kimono Prayer on the phone: your place and its timetable, kept on the
+ * 礼 Kimono Times on the phone: your place and its timetable, kept on the
  * phone (encrypted, as every kept value is) so the screen and the widgets
  * work offline. [changed] tells the widgets to look again.
  */

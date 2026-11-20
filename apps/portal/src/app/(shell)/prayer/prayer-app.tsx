@@ -6,7 +6,7 @@ import { useTabTitle } from "@/components/tab-title";
 import { build, clock, detail, nextSummary, remaining, rows, stateOf, title, type Mine, type Place, type Prayer, type TitleMode, type View } from "./schedule";
 
 /*
- * 礼 Kimono Prayer on the web: the sky of the day painted in ink and wash,
+ * 礼 Kimono Times on the web: the sky of the day painted in ink and wash,
  * with the sun (or tonight's moon) where it is over the mosque, today's
  * prayers lit the way the menu bar app lights them, and the night's midnight,
  * last third and sunrise. Your place is the same on every device: changing it
@@ -24,7 +24,7 @@ const kindLabel = { mawaqit: "Mawaqit", masjidbox: "MasjidBox", calculated: "Cal
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/v1/prayer${path}`, { ...init, headers: { "content-type": "application/json", ...init?.headers }, cache: "no-store" });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((body as { error?: string }).error ?? "Prayer couldn't answer.");
+  if (!res.ok) throw new Error((body as { error?: string }).error ?? "Times couldn't answer.");
   return body as T;
 }
 
@@ -63,7 +63,7 @@ export function PrayerApp({ app, mine: arrived, canSearch }: { app: AppIdentity;
 
   const view = mine?.timetable ? build(mine.timetable, now) : null;
   const line = view ? title(view, prefs.mode) : "";
-  useTabTitle(line, "Prayer");
+  useTabTitle(line, "Times");
 
   const chosen = (m: Mine) => { setMine(m); setProblem(m.problem ?? null); setOpen(null); };
   const close = useCallback(() => setOpen(null), []);

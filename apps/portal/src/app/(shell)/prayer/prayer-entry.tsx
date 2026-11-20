@@ -14,5 +14,5 @@ export function PrayerEntry(props: { app: AppIdentity; mine: Mine | null; canSea
 }
 
 export function PrayerOff() {
-  return <div className="kp"><div className="kp-empty"><p>Prayer isn&apos;t switched on.</p></div></div>;
+  return <div className="kp"><div className="kp-empty"><p>Times isn&apos;t switched on.</p></div></div>;
 }
