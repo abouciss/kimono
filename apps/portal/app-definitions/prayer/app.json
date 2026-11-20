@@ -18,7 +18,7 @@
   },
   "spec": {
     "integration": "native",
-    "portalPath": "/prayer",
+    "portalPath": "/times",
     "services": [],
     "volumes": [],
     "configuration": [
