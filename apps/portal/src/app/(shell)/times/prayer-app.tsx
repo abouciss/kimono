@@ -75,7 +75,7 @@ export function PrayerApp({ app, mine: arrived, canSearch }: { app: AppIdentity;
       <button type="button" className="kp-round" aria-label="Settings" onClick={() => setOpen("settings")}><Line d={glyphs.settings} /></button>
     </header>
 
-    {!mine ? <div className="kp-empty"><MorphLoader tone="plain" label="Loading" /></div>
+    {!mine ? <div className="kp-empty"><MorphLoader tone="plain" label="Loading" className="kp-spin kp-spin-page" /></div>
       : !mine.place ? <Welcome accent={app.accent} onPick={() => setOpen("place")} />
       : !view ? <div className="kp-empty"><p>{problem ?? "Today's times aren't in yet."}</p><div className="kp-link"><Seal onClick={() => void load()}>Try again</Seal><Seal tone="quiet" onClick={() => setOpen("place")}>Change mosque</Seal></div></div>
       : <main className="kp-main">
@@ -442,7 +442,7 @@ function Picker({ mine, canSearch, accent, onClose, onChosen }: { mine: Mine; ca
       <form className="kp-search" onSubmit={submit}>
         <Line d={glyphs.search} />
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={canSearch ? "Mosque, city or link" : "Mawaqit or MasjidBox link"} aria-label="Search" enterKeyHint="search" />
-        {busy === "search" ? <MorphLoader tone="plain" label="Searching" /> : null}
+        {busy === "search" ? <MorphLoader tone="plain" label="Searching" className="kp-spin" /> : null}
       </form>
       <Seal tone="quiet" busy={busy === "here"} disabled={busy !== null && busy !== "here"} onClick={here}>Near me</Seal>
     </div>
@@ -454,7 +454,7 @@ function Picker({ mine, canSearch, accent, onClose, onChosen }: { mine: Mine; ca
         <button type="button" className={cx("kp-result", on && "kp-on")} onClick={() => pick(p)} disabled={busy !== null}>
           <InkBlot seed={p.id} tint={p.kind === "calculated" ? "#d9a441" : accent} className="kp-blot"><Line d={p.kind === "calculated" ? glyphs.pin : glyphs.dome} /></InkBlot>
           <span className="kp-result-text"><b>{p.name}</b><small>{[p.detail, kindLabel[p.kind]].filter(Boolean).join(" · ")}</small></span>
-          {busy === p.id ? <MorphLoader tone="plain" label="Choosing" /> : on ? <Line d={glyphs.check} /> : null}
+          {busy === p.id ? <MorphLoader tone="plain" label="Choosing" className="kp-spin" /> : on ? <Line d={glyphs.check} /> : null}
         </button>
       </li>; })}</ul>
     </> : null}
