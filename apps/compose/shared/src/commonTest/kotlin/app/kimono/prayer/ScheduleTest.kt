@@ -131,6 +131,15 @@ class ScheduleTest {
         assertEquals(false, v.milestones.active)
     }
 
+    @Test fun iqamaCountsDownWhileThePrayerWaits() {
+        val v = view(winter, "2026-11-19T12:05")
+        val dhuhr = assertNotNull(v.current)
+        assertEquals("Iqama in 10min", Presentation.currentDetail(dhuhr, v))
+        assertEquals("Ends at 14:19", Presentation.currentDetail(dhuhr, v, iqama = false))
+        val after = view(winter, "2026-11-19T12:20")
+        assertEquals("Ends at 14:19", Presentation.currentDetail(assertNotNull(after.current), after))
+    }
+
     @Test fun jumuaOnFridays() {
         val v = view(winter, "2026-11-20T10:00")
         assertEquals(listOf("12:30", "13:30"), v.jumua)

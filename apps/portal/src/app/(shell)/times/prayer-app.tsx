@@ -317,7 +317,8 @@ const tints: Record<string, string> = { Fajr: "#7d74b3", Dhuhr: "#d9a441", Asr: 
 
 function Row({ p, view, accent, iqama, hour12 }: { p: Prayer; view: View; accent: string; iqama: boolean; hour12: boolean }) {
   const state = stateOf(p, view);
-  const words = hour12 ? twelve(detail(p, view)) : detail(p, view);
+  const said = detail(p, view, iqama);
+  const words = hour12 ? twelve(said) : said;
   const inside = <>
     <InkBlot seed={p.name} tint={tints[p.name] ?? accent} className="kp-blot"><Line d={glyphs[p.name as keyof typeof glyphs]} /></InkBlot>
     <div className="kp-row-text">

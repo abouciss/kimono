@@ -325,7 +325,7 @@ class TodayPrayerWidget : PrayerWidget() {
             if (current && c.dot) Text("● ", maxLines = 1, style = TextStyle(color = c.accent, fontSize = size))
             Text(prayer.name, maxLines = 1, style = TextStyle(color = if (current && !c.dot) c.accent else ink, fontSize = size, fontWeight = if (current || next) FontWeight.Bold else FontWeight.Normal))
             if (current && wide && !tight) {
-                Text("  ${Presentation.currentDetail(prayer, view, scene.h24).removePrefix("Ends at ").let { "until $it" }}", maxLines = 1, style = TextStyle(color = c.muted, fontSize = (11 * s).sp))
+                Text("  ${Presentation.currentDetail(prayer, view, scene.h24, scene.options.iqama).let { if (it.startsWith("Ends at ")) "until ${it.removePrefix("Ends at ")}" else it }}", maxLines = 1, style = TextStyle(color = c.muted, fontSize = (11 * s).sp))
             }
             Spacer(GlanceModifier.defaultWeight())
             if (next) {

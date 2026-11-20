@@ -24,6 +24,8 @@ export type Prayer = {
   end: number | null;
   sunrise: boolean;
   iqama: string | null;
+  /** When the iqama is, as an instant (a day later if it's past midnight). */
+  iqamaAt: number | null;
   /** -1 for yesterday's, 0 for today's. */
   day: number;
   id: string;
@@ -68,7 +70,10 @@ export function clock(at: number, timezone: string, hour12 = false): string {
 function prayersOf(day: DayTimes, offset: number, timezone: string): Prayer[] {
   return names.map((name, i) => {
     const iq = day.iqama && i !== 1 ? day.iqama[i === 0 ? 0 : i - 1] : null;
-    return { name, time: day.times[i], start: instant(day.date, day.times[i], timezone), end: null, sunrise: i === 1, iqama: iq, day: offset, id: `${name}:${day.date}` };
+    const start = instant(day.date, day.times[i], timezone);
+    let iqamaAt = iq ? instant(day.date, iq, timezone) : null;
+    if (iqamaAt !== null && iqamaAt < start) iqamaAt += 86_400_000;
+    return { name, time: day.times[i], start, end: null, sunrise: i === 1, iqama: iq, iqamaAt, day: offset, id: `${name}:${day.date}` };
   });
 }
 
@@ -143,11 +148,12 @@ export function stateOf(p: Prayer, view: View): RowState {
   return "later";
 }
 
-/** What the row says beside its time. */
-export function detail(p: Prayer, view: View): string {
+/** What the row says beside its time; while a prayer has begun and its iqama hasn't, how long until the iqama. */
+export function detail(p: Prayer, view: View, iqama = true): string {
   if (p.id === view.next?.id) return `in ${remaining(p.start, view.now)}`;
   if (p.end === null) return "";
   const time = clock(p.end, view.timezone);
+  if (p.id === view.current?.id && iqama && p.iqamaAt !== null && p.iqamaAt > view.now) return `Iqama in ${remaining(p.iqamaAt, view.now)}`;
   if (p.id === view.current?.id) return `Ends at ${time}${p.name === "Isha" ? " · Islamic midnight" : ""}`;
   return p.end <= view.now ? `Ended ${time}` : `Ends ${time}`;
 }

@@ -12,6 +12,7 @@ import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.math.ceil
+import kotlin.time.Duration.Companion.days
 import kotlin.math.max
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -37,6 +38,8 @@ data class Prayer(
     val dayOffset: Int = 0,
     /** The congregation's time, when the mosque gives one. */
     val iqama: String? = null,
+    /** When the congregation is, as an instant (a day later if it's past midnight). */
+    val iqamaAt: Instant? = null,
 ) {
     val id: String get() = "$name:${start.epochSeconds}"
 }
@@ -136,7 +139,12 @@ object ScheduleBuilder {
             val start = LocalDateTime(date, LocalTime(hour, minute)).toInstant(zone)
             /* The iqama list runs Fajr, Dhuhr, Asr, Maghrib, Isha: no sunrise. */
             val iqama = if (index == 1) null else day.iqama?.getOrNull(if (index == 0) 0 else index - 1)
-            Prayer(name, text.padStart(5, '0'), start, isSunrise = index == 1, iqama = iqama)
+            val iqamaAt = iqama?.split(":")?.takeIf { it.size == 2 }?.let { (h, m) ->
+                val hh = h.toIntOrNull(); val mm = m.toIntOrNull()
+                if (hh == null || mm == null || hh !in 0..23 || mm !in 0..59) null
+                else LocalDateTime(date, LocalTime(hh, mm)).toInstant(zone).let { if (it < start) it + 1.days else it }
+            }
+            Prayer(name, text.padStart(5, '0'), start, isSunrise = index == 1, iqama = iqama, iqamaAt = iqamaAt)
         }
     }
 
@@ -162,8 +170,12 @@ object Presentation {
         return if (end <= view.now) "Ended $time" else "Ends $time"
     }
 
-    /** "Ends at 22:41 · Islamic midnight", for the prayer that's open. */
-    fun currentDetail(prayer: Prayer, view: ScheduleView, h24: Boolean = true): String {
+    /** Whether the open prayer is still waiting for its congregation. */
+    fun beforeIqama(prayer: Prayer, view: ScheduleView): Boolean = prayer.id == view.current?.id && prayer.iqamaAt?.let { it > view.now } == true
+
+    /** "Ends at 22:41 · Islamic midnight", for the prayer that's open; "Iqama in 8min" while the congregation is still ahead. */
+    fun currentDetail(prayer: Prayer, view: ScheduleView, h24: Boolean = true, iqama: Boolean = true): String {
+        if (iqama && beforeIqama(prayer, view)) return "Iqama in ${remaining(prayer.iqamaAt!!, view.now)}"
         val end = prayer.end ?: return ""
         return "Ends at ${clock(ScheduleBuilder.time(end, view.timezone), h24)}${if (prayer.name == "Isha") " · Islamic midnight" else ""}"
     }
