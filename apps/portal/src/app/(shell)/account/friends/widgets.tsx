@@ -270,9 +270,10 @@ function Favourite({ w, d }: { w: Widget; d: BoardData }) {
       {album ? <span className="wg-fav-disc" aria-hidden="true" /> : null}
       {/* eslint-disable-next-line @next/next/no-img-element -- the cover from Music */}
       {c.cover ? <img src={c.cover} alt="" /> : <LineIcon name="music" />}
+      {!album ? <span className="wg-notes" aria-hidden="true"><i>♪</i><i>♫</i><i>♪</i><i>♬</i></span> : null}
     </span>
-    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{album ? "Favourite album" : "Favourite song"}</small><b>{c.title}</b><em>{c.subtitle}</em>
-      {times ? <span className="wg-times"><b>{times}</b> {times === 1 ? "play" : "plays"}</span> : null}</span> : null}
+    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{album ? "Favourite album" : "Favourite song"}</small><b>{c.title}</b><em>{c.subtitle}</em></span> : null}
+    {times && w.size !== "s" ? <span className="wg-stamp" title={`Played ${times} ${times === 1 ? "time" : "times"}`}><b>{times}</b><small>{times === 1 ? "play" : "plays"}</small></span> : null}
   </Crossing>;
 }
 
@@ -301,15 +302,17 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
 function Watching({ w, d }: { w: Widget; d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
   if (!t) return <div className="wg-card wg-fs is-empty"><Empty icon="film" text="Nothing on right now" /></div>;
+  const pct = t.progress ? Math.round(t.progress * 100) : 0;
   return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-fs" title={t.title}>
+    {t.cover ? <span className="wg-fs-wash" style={{ backgroundImage: `url(${t.cover})` }} aria-hidden="true" /> : null}
     {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
     <span className="wg-fs-strip" aria-hidden="true"><span className="wg-fs-frame">{t.cover ? <img src={t.cover} alt="" /> : <LineIcon name="film" />}</span></span>
-    {w.size !== "s" ? <span className="wg-fs-words">
-      <small className="wg-kicker"><LineIcon name="film" />Watching</small>
+    <span className="wg-fs-words">
+      <small className="wg-fs-kicker"><span className="wg-fs-rec" aria-hidden="true" />Watching</small>
       <b>{t.title}</b>
       {t.subtitle ? <span className="wg-fs-ep">{t.subtitle}</span> : null}
-    </span> : null}
-    {t.progress ? <span className="wg-fs-line" aria-label={`${Math.round(t.progress * 100)}% watched`}><i style={{ width: `${t.progress * 100}%` }} /></span> : null}
+      {pct ? <span className="wg-fs-line" aria-label={`${pct}% watched`}><span className="wg-fs-track"><i style={{ width: `${pct}%` }} /></span><small>{pct}%</small></span> : null}
+    </span>
   </Crossing>;
 }
 

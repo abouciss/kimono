@@ -485,8 +485,8 @@ a.wg-reading:hover .wg-book-glow { opacity: 1; scale: 1.25; }
 /* ── Favourites, redrawn (2026-11-20): the cover sized to its card, on a soft wash of its own colours; every line centred when stacked; side by side when the card is wider than tall ── */
 .wg-cell { container-type: size; }
 .wg-fav { isolation: isolate; }
-.wg-fav-wash { position: absolute; inset: -30%; z-index: -1; background: center / cover no-repeat; filter: blur(42px) saturate(1.5); opacity: .32; pointer-events: none; transition: opacity .6s; }
-a.wg-fav:hover .wg-fav-wash { opacity: .46; }
+.wg-fav-wash { position: absolute; inset: -30%; z-index: -1; background: center / cover no-repeat; filter: blur(42px) saturate(1.5); opacity: .24; pointer-events: none; transition: opacity .6s; animation: wg-drift 16s ease-in-out infinite alternate; }
+a.wg-fav:hover .wg-fav-wash { opacity: .36; }
 .wg-fav .wg-fav-art { transition: transform .5s var(--k-spring); }
 a.wg-fav:hover .wg-fav-art { transform: rotate(-2deg) translateY(-2px); }
 .wg-m .wg-fav-art { width: auto; height: calc(100cqh - 32px); max-width: 45cqw; }
@@ -508,6 +508,62 @@ a.wg-fav:hover .wg-fav-art { transform: rotate(-2deg) translateY(-2px); }
   .wg-l .wg-sleeve .wg-fav-art { margin-right: 14%; }
 }
 
-/* A small Watching card: the strip stands clear of how far, which sits under it as a short inked line. */
-.wg-s .wg-fs { padding: 6px 0 22px; }
-.wg-s .wg-fs-line { left: 24%; right: 24%; bottom: 10px; border-radius: 2px; overflow: hidden; }
+/* ── Readable, and the fun of it (2026-11-20) ─────────────────────────── */
+
+/* Every quiet line on the board reads on the dark: muted is the theme's own variant, not a fixed grey. */
+.wg { --k-ink-muted: var(--k-on-surface-variant); }
+.wg-kicker { color: color-mix(in srgb, var(--fr-color, var(--k-suo)) 55%, var(--k-on-surface)); }
+.wg-words em { color: color-mix(in srgb, var(--k-on-surface) 80%, transparent); }
+@keyframes wg-drift { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.18) translate(4%, -3%); } }
+
+/* How often they've played it: a hanko pressed in the corner, landing with a thunk. */
+.wg-stamp { position: absolute; right: 16px; bottom: 16px; z-index: 2; display: grid; justify-items: center; align-content: center; min-width: 58px; height: 58px; padding: 0 8px;
+  border: 2.5px solid currentColor; border-radius: 12px 5px 12px 5px; color: color-mix(in srgb, var(--fr-color, var(--k-suo)) 70%, #fff);
+  background: color-mix(in srgb, var(--fr-color, var(--k-suo)) 16%, transparent); transform: rotate(-9deg);
+  animation: wg-thunk .55s var(--k-spring) both; animation-delay: calc(500ms + var(--n, 0) * 70ms); }
+.wg-stamp b { font: 700 26px/1 var(--k-display); font-variant-numeric: tabular-nums; }
+.wg-stamp small { font: 800 9.5px/12px var(--k-sans); letter-spacing: .14em; text-transform: uppercase; }
+@keyframes wg-thunk { from { opacity: 0; transform: rotate(-24deg) scale(1.9); } 70% { opacity: 1; } }
+a.wg-fav:hover .wg-stamp { transform: rotate(-4deg) scale(1.06); transition: transform .4s var(--k-spring); }
+.wg-l .wg-stamp { right: 20px; bottom: 20px; min-width: 70px; height: 70px; }
+.wg-l .wg-stamp b { font-size: 32px; }
+.wg-cell:has(.wg-kept) .wg-stamp { bottom: 24px; }
+
+/* A song sings: notes drift up off the cover, more of them when you're on it. */
+.wg-notes { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.wg-notes i { position: absolute; bottom: 30%; left: calc(18% + var(--x, 0%)); font: 700 18px/1 var(--k-display); font-style: normal; color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, .55); opacity: 0;
+  animation: wg-note 4.8s ease-out infinite; animation-delay: var(--d, 0s); }
+.wg-notes i:nth-child(1) { --x: 0%; --d: 0s; --dx: -18px; }
+.wg-notes i:nth-child(2) { --x: 40%; --d: 1.2s; --dx: 14px; font-size: 22px; }
+.wg-notes i:nth-child(3) { --x: 62%; --d: 2.4s; --dx: -10px; }
+.wg-notes i:nth-child(4) { --x: 24%; --d: 3.6s; --dx: 20px; font-size: 15px; }
+@keyframes wg-note { 0% { opacity: 0; transform: translate(0, 0) rotate(-10deg) scale(.7); } 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -150%) rotate(14deg) scale(1.1); } }
+.wg-l .wg-notes i { font-size: 28px; }
+a.wg-fav:hover .wg-notes i { animation-duration: 2.2s; }
+@media (prefers-reduced-motion: reduce) { .wg-notes, .wg-fav-wash { animation: none; } .wg-notes { display: none; } .wg-stamp { animation: none; } }
+
+/* ── Watching: a seat in a dark cinema. The poster on its strip of film (always running), lit by its own colours; what it is, which episode and how far, in cream. ── */
+.wg-fs { isolation: isolate; background: #15100e; color: #f3e7da; }
+.wg-fs.is-empty { background: var(--k-container-low); color: var(--k-on-surface-variant); }
+.wg-fs-wash { position: absolute; inset: -30%; z-index: -1; background: center / cover no-repeat; filter: blur(40px) saturate(1.4) brightness(.55); opacity: .7; animation: wg-drift 18s ease-in-out infinite alternate; pointer-events: none; }
+.wg-fs-strip::before, .wg-fs-strip::after { animation: wg-reel 2.4s linear infinite; }
+@keyframes wg-reel { to { background-position: 16px 0; } }
+.wg-fs-words { padding: 12px 0; }
+.wg-fs-words b { color: #fff5ea; }
+.wg-fs-kicker { display: inline-flex; align-items: center; gap: 7px; font: 700 12px/16px var(--k-sans); letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 240, 226, .78); }
+.wg-fs-rec { width: 8px; height: 8px; border-radius: 50%; background: #ff5a5f; box-shadow: 0 0 0 3px rgba(255, 90, 95, .25); animation: wg-rec 1.6s ease-in-out infinite; }
+@keyframes wg-rec { 50% { opacity: .35; } }
+.wg-fs-ep { color: #ffc9a8; }
+.wg-fs-line { position: static; display: flex; align-items: center; gap: 8px; width: 100%; max-width: 220px; height: auto; margin-top: 8px; background: none; }
+.wg-fs-track { flex: 1; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 240, 226, .18); }
+.wg-fs-track i { display: block; height: 100%; border-radius: 2px; background: #ffc9a8; }
+.wg-fs-line small { font: 700 11.5px/1 var(--k-sans); color: rgba(255, 240, 226, .7); font-variant-numeric: tabular-nums; }
+/* Small: the strip above, the title and the episode under it. */
+.wg-s .wg-fs { flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 0; padding: 0; text-align: left; }
+.wg-s .wg-fs-strip { height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; transform: rotate(-1.5deg) scale(1.05); }
+.wg-s .wg-fs-words { gap: 3px; padding: 8px 12px 10px; }
+.wg-s .wg-fs-kicker, .wg-s .wg-fs-line small { display: none; }
+.wg-s .wg-fs-words b { font-size: 14px; line-height: 1.2; -webkit-line-clamp: 1; }
+.wg-s .wg-fs-ep { margin-top: 0; padding: 0 5px; font-size: 10.5px; line-height: 14px; }
+.wg-s .wg-fs-line { margin-top: 3px; }
+@media (prefers-reduced-motion: reduce) { .wg-fs-wash, .wg-fs-strip::before, .wg-fs-strip::after, .wg-fs-rec { animation: none; } }
