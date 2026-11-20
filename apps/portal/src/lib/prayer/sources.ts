@@ -4,6 +4,7 @@ import {
   calculatePrayerTimes, calculationMethodName, defaultCalculationSettings, prayerDay,
   type PrayerTimesLike,
 } from "@mawaqit/sdk/prayer-times";
+import tzlookup from "@photostructure/tz-lookup";
 import { pad, PrayerProblem, validTime, type Place, type PrayerDayTimes } from "./model";
 
 /*
@@ -21,7 +22,7 @@ const agent = "Mozilla/5.0 (compatible; KimonoPrayer/1.0)";
 const masjidboxKey = "JejYcMS7hsOsZTPDk2ZhKOAlW9IyQ6Px";
 
 /** What a source keeps about a place, beyond what everyone sees. */
-export type PlaceRecord = Place & { uuid?: string | null; slug?: string | null; latitude?: number; longitude?: number; timezone?: string };
+export type PlaceRecord = Place & { uuid?: string | null; slug?: string | null; latitude?: number; longitude?: number; timezone?: string; /** ISO country, for its usual calculation method. */ country?: string | null };
 export type Fetched = { timezone: string; days: PrayerDayTimes[]; name?: string; detail?: string | null };
 
 /* ---------- days, from a year's calendar ---------- */
@@ -94,8 +95,8 @@ export async function mawaqitTimes(place: PlaceRecord): Promise<Fetched> {
 
 /** A Mawaqit mosque from its link or slug, read from its page. */
 export async function mawaqitFromLink(slug: string): Promise<PlaceRecord> {
-  const data = await mawaqitPage(slug) as PrayerTimesLike & { name?: string; label?: string; localisation?: string };
-  return { id: `mawaqit:${slug}`, kind: "mawaqit", name: (data.name || slug).trim(), detail: data.localisation?.trim() || null, url: `https://mawaqit.net/en/${slug}`, slug, uuid: null };
+  const data = await mawaqitPage(slug) as PrayerTimesLike & { name?: string; label?: string; localisation?: string; latitude?: number; longitude?: number };
+  return { id: `mawaqit:${slug}`, kind: "mawaqit", name: (data.name || slug).trim(), detail: data.localisation?.trim() || null, url: `https://mawaqit.net/en/${slug}`, slug, uuid: null, latitude: data.latitude, longitude: data.longitude };
 }
 
 /* ---------- MasjidBox ---------- */
@@ -145,12 +146,12 @@ export async function masjidboxTimes(place: PlaceRecord): Promise<Fetched> {
 
 /* ---------- calculated ---------- */
 
-export function calculatedPlace(latitude: number, longitude: number, timezone: string, name?: string): PlaceRecord {
+export function calculatedPlace(latitude: number, longitude: number, timezone: string, name?: string, country: string | null = null): PlaceRecord {
   const lat = Math.round(latitude * 1e4) / 1e4, lon = Math.round(longitude * 1e4) / 1e4;
-  const settings = defaultCalculationSettings(null);
+  const settings = defaultCalculationSettings(country);
   return {
     id: `calc:${lat},${lon}@${timezone}`, kind: "calculated", name: name?.trim() || `${lat.toFixed(2)}, ${lon.toFixed(2)}`,
-    detail: calculationMethodName(settings.method, "en"), url: null, latitude: lat, longitude: lon, timezone,
+    detail: calculationMethodName(settings.method, "en"), url: null, latitude: lat, longitude: lon, timezone, country,
   };
 }
 
@@ -168,9 +169,9 @@ export function validZone(zone: string) {
 
 export function calculatedTimes(place: PlaceRecord): Fetched {
   const timezone = place.timezone!;
-  const data = calculatePrayerTimes({ latitude: place.latitude!, longitude: place.longitude!, timeZone: timezone }, defaultCalculationSettings(null));
+  const data = calculatePrayerTimes({ latitude: place.latitude!, longitude: place.longitude!, timeZone: timezone }, defaultCalculationSettings(place.country ?? null));
   /* A calculated year is the year it's made for: on New Year's Eve, the next one carries on. */
-  const next = calculatePrayerTimes({ latitude: place.latitude!, longitude: place.longitude!, timeZone: timezone }, defaultCalculationSettings(null), { year: Number(isoDay(timezone).slice(0, 4)) + 1 });
+  const next = calculatePrayerTimes({ latitude: place.latitude!, longitude: place.longitude!, timeZone: timezone }, defaultCalculationSettings(place.country ?? null), { year: Number(isoDay(timezone).slice(0, 4)) + 1 });
   const days = daysFrom(data, 60);
   const seen = new Set(days.map((d) => d.date));
   const later = daysFrom(next, 60).filter((d) => !seen.has(d.date));
@@ -187,4 +188,73 @@ export function linkOf(text: string): { kind: "mawaqit" | "masjidbox"; slug: str
   const mawaqit = /^(?:https?:\/\/)?(?:www\.)?mawaqit\.net\/(?:[a-z]{2}\/)?(?:m\/|w\/)?([a-z0-9_-]+)\/?(?:[?#].*)?$/i.exec(value);
   if (mawaqit) return { kind: "mawaqit", slug: mawaqit[1] };
   return null;
+}
+
+/* ---------- finding mosques by name ---------- */
+
+/*
+ * Mawaqit and MasjidBox keep their search to their own apps, so mosques are
+ * found by name in OpenStreetMap, through Photon (komoot's free search, fair
+ * use). A mosque found there is matched to its public Mawaqit page when its
+ * address can be told from its name and the page puts it in the same place;
+ * otherwise it's offered with times calculated where it stands.
+ */
+
+type Found = { name: string; own: string; city: string; country: string; code: string | null; lat: number; lon: number };
+
+const slugOf = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** Kilometres between two points. */
+export function distance(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+
+export async function findMosques(text: string, near?: { lat: number; lon: number }): Promise<Found[]> {
+  type Feature = { properties?: Record<string, string | number>; geometry?: { coordinates?: [number, number] } };
+  const ask = async (lang: string | null) => {
+    const params = new URLSearchParams({ q: text, limit: "8", osm_tag: "amenity:place_of_worship" });
+    if (lang) params.set("lang", lang);
+    if (near) { params.set("lat", String(near.lat)); params.set("lon", String(near.lon)); }
+    const response = await fetch(`https://photon.komoot.io/api/?${params}`, { headers: { "User-Agent": agent }, signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) throw new PrayerProblem(502, "Search didn't answer. Try again in a moment.");
+    return ((await response.json()) as { features?: Feature[] }).features ?? [];
+  };
+  /* English names to show; the mosque's own name too, which is what its Mawaqit address is made from. */
+  const [english, own] = await Promise.all([ask("en"), ask(null).catch(() => [] as Feature[])]);
+  const key = (f: Feature) => `${f.properties?.osm_type}${f.properties?.osm_id}`;
+  const ownName = new Map(own.map((f) => [key(f), String(f.properties?.name ?? "")]));
+  return english.flatMap((f) => {
+    const p = f.properties ?? {}, [lon, lat] = f.geometry?.coordinates ?? [];
+    const text = (k: string) => typeof p[k] === "string" ? (p[k] as string).trim() : "";
+    if (!text("name") || typeof lat !== "number" || typeof lon !== "number") return [];
+    return [{ name: text("name"), own: ownName.get(key(f))?.trim() || text("name"), city: text("city") || text("town") || text("village") || text("county"), country: text("country"), code: text("countrycode").toUpperCase() || null, lat, lon }];
+  });
+}
+
+/** The mosque's Mawaqit page, when one of the addresses its name suggests is a mosque within 3 km of it. */
+export async function mawaqitMatch(found: Found, seen: (slug: string) => boolean | undefined, note: (slug: string, exists: boolean) => void): Promise<PlaceRecord | null> {
+  const guesses = [...new Set([found.own, found.name].flatMap((name) => [slugOf(name), slugOf(`${name} ${found.city}`)]))].filter((g) => g.length >= 4).slice(0, 4);
+  for (const guess of guesses) {
+    if (seen(guess) === false) continue;
+    try {
+      const data = await mawaqitPage(guess) as PrayerTimesLike & { name?: string; localisation?: string; latitude?: number; longitude?: number };
+      note(guess, true);
+      if (typeof data.latitude !== "number" || typeof data.longitude !== "number" || distance(found, { lat: data.latitude, lon: data.longitude }) > 3) continue;
+      return { id: `mawaqit:${guess}`, kind: "mawaqit", name: (data.name || found.name).trim(), detail: data.localisation?.trim() || [found.city, found.country].filter(Boolean).join(", ") || null, url: `https://mawaqit.net/en/${guess}`, slug: guess, uuid: null, latitude: data.latitude, longitude: data.longitude };
+    } catch (error) {
+      if (error instanceof PrayerProblem && error.status === 404) note(guess, false);
+    }
+  }
+  return null;
+}
+
+/** Times calculated where a found mosque stands, in its own time zone. */
+export function calculatedAt(found: Found): PlaceRecord | null {
+  let zone: string;
+  try { zone = tzlookup(found.lat, found.lon); } catch { return null; }
+  if (!validZone(zone)) return null;
+  const place = calculatedPlace(found.lat, found.lon, zone, found.name, found.code);
+  return { ...place, detail: [[found.city, found.country].filter(Boolean).join(", "), place.detail].filter(Boolean).join(" · ") };
 }

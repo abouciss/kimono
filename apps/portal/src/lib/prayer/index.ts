@@ -10,8 +10,8 @@ import { stateDir } from "../state";
 import { prayerConfig, type PrayerConfig } from "./config";
 import { PrayerProblem, type Place, type Timetable } from "./model";
 import {
-  calculatedPlace, calculatedTimes, isoDay, linkOf, masjidboxFromLink, masjidboxTimes, mawaqitFromLink,
-  mawaqitTimes, parseCalculatedId, validZone, type Fetched, type PlaceRecord,
+  calculatedAt, calculatedPlace, calculatedTimes, distance, findMosques, isoDay, linkOf, masjidboxFromLink, masjidboxTimes, mawaqitFromLink,
+  mawaqitMatch, mawaqitTimes, parseCalculatedId, validZone, type Fetched, type PlaceRecord,
 } from "./sources";
 
 export * from "./model";
@@ -29,19 +29,26 @@ const root = join(stateDir, "prayer");
 const g = globalThis as unknown as { kimonoPrayer?: DatabaseSync };
 const HOUR = 60 * 60 * 1000;
 
+/* The schema, brought up to date whenever new code meets an open database (a hot reload keeps the connection). */
+let migrated: DatabaseSync | null = null;
 function db() {
-  if (g.kimonoPrayer) return g.kimonoPrayer;
-  mkdirSync(root, { recursive: true });
-  const database = new DatabaseSync(join(root, "prayer.db"));
+  if (!g.kimonoPrayer) {
+    mkdirSync(root, { recursive: true });
+    g.kimonoPrayer = new DatabaseSync(join(root, "prayer.db"));
+  }
+  const database = g.kimonoPrayer;
+  if (migrated === database) return database;
   database.exec(`
 PRAGMA journal_mode = WAL;
 CREATE TABLE IF NOT EXISTS places (id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS timetables (id TEXT PRIMARY KEY, data TEXT NOT NULL, fetched_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS choices (username TEXT NOT NULL, place TEXT NOT NULL, chosen_at INTEGER NOT NULL, PRIMARY KEY (username, place));
 CREATE INDEX IF NOT EXISTS choices_recent ON choices (username, chosen_at DESC);
+CREATE TABLE IF NOT EXISTS guesses (slug TEXT PRIMARY KEY, found INTEGER NOT NULL, checked_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS links (token TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL);
 `);
-  return (g.kimonoPrayer = database);
+  migrated = database;
+  return database;
 }
 
 const publicPlace = ({ id, kind, name, detail, url }: PlaceRecord): Place => ({ id, kind, name, detail, url });
@@ -58,16 +65,26 @@ function knownPlace(id: string): PlaceRecord | null {
 
 /* ---------- search ---------- */
 
-export type SearchQuery = { q?: string; lat?: number; lon?: number; tz?: string };
+export type SearchQuery = { q?: string; lat?: number; lon?: number; tz?: string; near?: { lat: number; lon: number } };
 
 /* Names compared without case or accents: "Mosquée" finds "MOSQUEE". */
 const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
+/* Whether a guessed Mawaqit address was a mosque, remembered for a month. */
+const guessed = (slug: string) => {
+  const row = db().prepare("SELECT found, checked_at FROM guesses WHERE slug = ?").get(slug) as { found: number; checked_at: number } | undefined;
+  return row && Date.now() - row.checked_at < 30 * 24 * HOUR ? row.found === 1 : undefined;
+};
+const noteGuess = (slug: string, found: boolean) => {
+  db().prepare("INSERT INTO guesses (slug, found, checked_at) VALUES (?, ?, ?) ON CONFLICT (slug) DO UPDATE SET found = excluded.found, checked_at = excluded.checked_at").run(slug, found ? 1 : 0, Date.now());
+};
+
 /**
  * Mawaqit and MasjidBox keep their own search to their apps, so Times finds
- * mosques from what's public: a mosque's link (its public page), the mosques
- * anyone in this Kimono has added before, by name, and times calculated for
- * where you are.
+ * mosques from what's open: a mosque's link (its public page); the mosques
+ * already added here, by name; any mosque by name from OpenStreetMap, with its
+ * Mawaqit times when its page can be found, else times calculated where it
+ * stands; and times calculated for where you are.
  */
 export async function search(_config: PrayerConfig, query: SearchQuery): Promise<Place[]> {
   const text = query.q?.trim() ?? "";
@@ -79,19 +96,31 @@ export async function search(_config: PrayerConfig, query: SearchQuery): Promise
   const coords = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(text);
   const lat = coords ? Number(coords[1]) : query.lat, lon = coords ? Number(coords[2]) : query.lon;
   const at = typeof lat === "number" && typeof lon === "number" && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
-  const results: PlaceRecord[] = [];
   if (!at && text.length >= 2) {
     const words = fold(text).split(" ").filter(Boolean);
-    const rows = db().prepare("SELECT data FROM places").all() as { data: string }[];
-    for (const row of rows) {
+    const known: PlaceRecord[] = [];
+    for (const row of db().prepare("SELECT data FROM places").all() as { data: string }[]) {
       const place = JSON.parse(row.data) as PlaceRecord;
       if (place.kind === "calculated") continue;
-      const hay = fold(`${place.name} ${place.detail ?? ""}`);
-      if (words.every((w) => hay.includes(w))) results.push(place);
+      if (words.every((w) => fold(`${place.name} ${place.detail ?? ""}`).includes(w))) known.push(place);
     }
-    results.sort((x, y) => x.name.localeCompare(y.name));
-    return results.slice(0, 20).map(publicPlace);
+    known.sort((x, y) => x.name.localeCompare(y.name));
+    let found: Awaited<ReturnType<typeof findMosques>> = [];
+    try { found = await findMosques(text, query.near); } catch (error) { if (!known.length) throw error; }
+    /* A mosque already added here, found again in OpenStreetMap, is shown once: as added. */
+    const placed = known.filter((k) => typeof k.latitude === "number" && typeof k.longitude === "number");
+    found = found.filter((f) => !placed.some((k) => distance(f, { lat: k.latitude!, lon: k.longitude! }) < 0.4));
+    /* Each found mosque looks for its Mawaqit page at once, but the whole search waits at most a few seconds. */
+    const matched = await Promise.all(found.map((f) => Promise.race([
+      mawaqitMatch(f, guessed, noteGuess).catch(() => null),
+      new Promise<null>((done) => setTimeout(() => done(null), 6000)),
+    ])));
+    const results = [...known];
+    found.forEach((f, i) => { const place = matched[i] ?? calculatedAt(f); if (place) results.push(place); });
+    const seen = new Set<string>();
+    return results.filter((p) => !seen.has(p.id) && seen.add(p.id)).slice(0, 20).map((place) => publicPlace(rememberPlace(place)));
   }
+  const results: PlaceRecord[] = [];
   if (at && query.tz && validZone(query.tz)) results.push(calculatedPlace(lat!, lon!, query.tz, coords ? undefined : "Where you are"));
   return results.map((place) => publicPlace(rememberPlace(place)));
 }

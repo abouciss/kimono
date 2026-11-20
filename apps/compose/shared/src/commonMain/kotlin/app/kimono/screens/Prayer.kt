@@ -496,6 +496,7 @@ private fun PlaceSheet(prayers: Prayers, platform: Platform, mine: PrayerMine?, 
             if (list != null) {
                 if (list.isEmpty() && !looking) Text("Not added here yet. Paste its Mawaqit or MasjidBox link.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 PlaceList(list, mine?.place?.id, picking, ::pick)
+                if (list.isNotEmpty()) Text("Mosques from © OpenStreetMap", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else if (mine?.recent.orEmpty().isNotEmpty()) {
                 Text("Recent", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
                 PlaceList(mine!!.recent, mine.place?.id, picking, ::pick, forget = { place -> scope.launch { try { prayers.forget(place.id) } catch (p: KimonoProblem) { problem = p.message } } })

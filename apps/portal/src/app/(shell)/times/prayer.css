@@ -206,3 +206,4 @@
 /* Loaders keep to the size of what they stand in for. */
 .kp .kp-spin{flex:none;width:22px;height:22px}
 .kp .kp-spin-page{width:44px;height:44px}
+.kp .kp-credit{font-size:12px;color:var(--fg-2);opacity:.8;padding:4px 8px 0}

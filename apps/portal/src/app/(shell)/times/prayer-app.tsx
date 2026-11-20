@@ -459,6 +459,7 @@ function Picker({ mine, accent, onClose, onChosen }: { mine: Mine; accent: strin
           {busy === p.id ? <MorphLoader tone="plain" label="Choosing" className="kp-spin" /> : on ? <Line d={glyphs.check} /> : null}
         </button>
       </li>; })}</ul>
+      {found?.length ? <p className="kp-credit">Mosques from © OpenStreetMap</p> : null}
     </> : null}
   </Sheet>;
 }

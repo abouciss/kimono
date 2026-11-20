@@ -58,6 +58,9 @@ importers:
       '@mawaqit/sdk':
         specifier: 1.7.0
         version: 1.7.0
+      '@photostructure/tz-lookup':
+        specifier: 11.8.0
+        version: 11.8.0
       bgutils-js:
         specifier: 4.0.3
         version: 4.0.3
@@ -683,6 +686,9 @@ packages:
 
   '@panva/hkdf@1.2.1':
     resolution: {integrity: sha512-6oclG6Y3PiDFcoyk8srjLfVKyMfVCKJ27JwNPViuXziFpmdz+MZnZN/aKY0JGXgYuO/VghU0jcOAZgWXZ1Dmrw==}
+
+  '@photostructure/tz-lookup@11.8.0':
+    resolution: {integrity: sha512-RvTkAjjWAfgvoaHVXugwi9XOw4rwyrL8wuqox4PwRLW9FZwpmPhNUY31MgY7k5avK6sbD9S7i1/rUtM4A310/g==}
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
@@ -3402,6 +3408,8 @@ snapshots:
   '@opentelemetry/api@1.10.0': {}
 
   '@panva/hkdf@1.2.1': {}
+
+  '@photostructure/tz-lookup@11.8.0': {}
 
   '@rtsao/scc@1.1.0': {}
 
