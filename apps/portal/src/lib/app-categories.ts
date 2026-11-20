@@ -10,10 +10,10 @@ export const myAppsDefault = ["kimono-code", "kimono-drive", "immich"];
  * Apps just added: Home lists the ones not pinned right under Your apps, and
  * every tile of one says New. Take an app off once it has settled.
  */
-export const newApps = ["kimono-music"];
+export const newApps = ["kimono-music", "kimono-prayer"];
 
 /** Apps still in beta: their tiles say so. */
-export const betaApps = ["kimono-books", "kimono-music"];
+export const betaApps = ["kimono-books", "kimono-music", "kimono-prayer"];
 
 export type AppCategory = { id: string; label: string; apps: string[] };
 

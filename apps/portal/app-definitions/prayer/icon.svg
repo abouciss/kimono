@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Prayer</title>
+  <g fill="none" stroke="#fffaf2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M58 35a16 16 0 1 0 6 26 13 13 0 1 1-6-26Z"/>
+    <path d="M62 41l1.6 3.4 3.4 1.6-3.4 1.6L62 51l-1.6-3.4L57 46l3.4-1.6Z"/>
+  </g>
+</svg>

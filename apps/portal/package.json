@@ -49,6 +49,7 @@
     "@kimono/app-sdk": "workspace:*",
     "@kimono/artifacts": "workspace:*",
     "@kimono/ui": "workspace:*",
+    "@mawaqit/sdk": "1.7.0",
     "bgutils-js": "4.0.3",
     "epubjs": "0.3.93",
     "hls.js": "1.6.19",
