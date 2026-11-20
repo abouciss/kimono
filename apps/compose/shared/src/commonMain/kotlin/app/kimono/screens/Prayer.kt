@@ -458,7 +458,7 @@ private fun PlaceSheet(prayers: Prayers, platform: Platform, mine: PrayerMine?, 
                     BasicTextField(query, { query = it }, singleLine = true, cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp),
                         modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-                        decorationBox = { inner -> Box { if (query.isEmpty()) Text("Mosque, city or link", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 17.sp); inner() } })
+                        decorationBox = { inner -> Box { if (query.isEmpty()) Text("Mosque name or link", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 17.sp); inner() } })
                     if (looking) InkLoader(size = 26.dp)
                 }
             }
@@ -477,7 +477,7 @@ private fun PlaceSheet(prayers: Prayers, platform: Platform, mine: PrayerMine?, 
             Problem(problem)
             val list = found
             if (list != null) {
-                if (list.isEmpty() && !looking) Text("Nothing found.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (list.isEmpty() && !looking) Text("Not added here yet. Paste its Mawaqit or MasjidBox link.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 PlaceList(list, mine?.place?.id, picking, ::pick)
             } else if (mine?.recent.orEmpty().isNotEmpty()) {
                 Text("Recent", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))

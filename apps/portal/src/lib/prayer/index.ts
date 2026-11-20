@@ -11,7 +11,7 @@ import { prayerConfig, type PrayerConfig } from "./config";
 import { PrayerProblem, type Place, type Timetable } from "./model";
 import {
   calculatedPlace, calculatedTimes, isoDay, linkOf, masjidboxFromLink, masjidboxTimes, mawaqitFromLink,
-  mawaqitTimes, parseCalculatedId, searchMawaqit, validZone, type Fetched, type PlaceRecord,
+  mawaqitTimes, parseCalculatedId, validZone, type Fetched, type PlaceRecord,
 } from "./sources";
 
 export * from "./model";
@@ -60,11 +60,16 @@ function knownPlace(id: string): PlaceRecord | null {
 
 export type SearchQuery = { q?: string; lat?: number; lon?: number; tz?: string };
 
+/* Names compared without case or accents: "Mosquée" finds "MOSQUEE". */
+const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
 /**
- * Words find Mawaqit mosques; a Mawaqit or MasjidBox link finds that one; a
- * position finds the mosques around it and offers times calculated for it.
+ * Mawaqit and MasjidBox keep their own search to their apps, so Times finds
+ * mosques from what's public: a mosque's link (its public page), the mosques
+ * anyone in this Kimono has added before, by name, and times calculated for
+ * where you are.
  */
-export async function search(config: PrayerConfig, query: SearchQuery): Promise<Place[]> {
+export async function search(_config: PrayerConfig, query: SearchQuery): Promise<Place[]> {
   const text = query.q?.trim() ?? "";
   const link = linkOf(text);
   if (link) {
@@ -75,11 +80,17 @@ export async function search(config: PrayerConfig, query: SearchQuery): Promise<
   const lat = coords ? Number(coords[1]) : query.lat, lon = coords ? Number(coords[2]) : query.lon;
   const at = typeof lat === "number" && typeof lon === "number" && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
   const results: PlaceRecord[] = [];
-  if (config.mawaqit && (at || text.length >= 2)) {
-    try { results.push(...await searchMawaqit(config.mawaqit, at ? { lat: lat!, lon: lon! } : { word: text })); }
-    catch (error) { if (error instanceof PrayerProblem && !at) throw error; console.warn("prayer: search:", (error as Error).message); }
-  } else if (!at && text.length >= 2 && !config.mawaqit) {
-    throw new PrayerProblem(409, "Paste a mosque's Mawaqit or MasjidBox link, or use where you are.");
+  if (!at && text.length >= 2) {
+    const words = fold(text).split(" ").filter(Boolean);
+    const rows = db().prepare("SELECT data FROM places").all() as { data: string }[];
+    for (const row of rows) {
+      const place = JSON.parse(row.data) as PlaceRecord;
+      if (place.kind === "calculated") continue;
+      const hay = fold(`${place.name} ${place.detail ?? ""}`);
+      if (words.every((w) => hay.includes(w))) results.push(place);
+    }
+    results.sort((x, y) => x.name.localeCompare(y.name));
+    return results.slice(0, 20).map(publicPlace);
   }
   if (at && query.tz && validZone(query.tz)) results.push(calculatedPlace(lat!, lon!, query.tz, coords ? undefined : "Where you are"));
   return results.map((place) => publicPlace(rememberPlace(place)));
@@ -93,7 +104,7 @@ const inFlight = new Map<string, Promise<Timetable>>();
 async function fetchTimes(config: PrayerConfig, place: PlaceRecord): Promise<Fetched> {
   if (place.kind === "calculated") return calculatedTimes(place);
   if (place.kind === "masjidbox") return masjidboxTimes(place);
-  return mawaqitTimes(config.mawaqit, place);
+  return mawaqitTimes(place);
 }
 
 /** A place's timetable, from yesterday onwards: kept, refreshed when old, and the old one when the source is down. */

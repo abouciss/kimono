@@ -5,15 +5,11 @@ import type { PlatformSettings } from "../settings";
 
 export const prayerAppId = "kimono-prayer";
 
-/** Prayer as the Applications admin sets it up: the Mawaqit account it signs in with. */
+/** Times as the Applications admin sets it up. */
 export function prayerConfig(settings: PlatformSettings) {
   const instance = settings.apps[prayerAppId];
-  const value = (key: string) => instance?.environment[key]?.value?.trim() || "";
-  const email = value("mawaqit_email");
-  const password = instance?.environment.mawaqit_password?.value || "";
   return {
     enabled: Boolean(instance?.enabled),
-    mawaqit: email && password ? { email, password } : null,
     colors: instance?.colors,
   };
 }

@@ -42,7 +42,7 @@ function useMinute() {
   return now;
 }
 
-export function PrayerApp({ app, mine: arrived, canSearch }: { app: AppIdentity; mine: Mine | null; canSearch: boolean }) {
+export function PrayerApp({ app, mine: arrived }: { app: AppIdentity; mine: Mine | null }) {
   const [mine, setMine] = useState<Mine | null>(arrived);
   const [problem, setProblem] = useState<string | null>(arrived?.problem ?? null);
   const [open, setOpen] = useState<"place" | "settings" | null>(null);
@@ -95,7 +95,7 @@ export function PrayerApp({ app, mine: arrived, canSearch }: { app: AppIdentity;
         </div>
       </main>}
 
-    {open === "place" && mine ? <Picker mine={mine} canSearch={canSearch} accent={app.accent} onClose={close} onChosen={chosen} /> : null}
+    {open === "place" && mine ? <Picker mine={mine} accent={app.accent} onClose={close} onChosen={chosen} /> : null}
     {open === "settings" ? <Settings prefs={prefs} change={change} accent={app.accent} onClose={close} /> : null}
   </div>;
 }
@@ -410,7 +410,7 @@ function Settings({ prefs, change, accent, onClose }: { prefs: Prefs; change: (p
 
 /* ───── choosing a place ───── */
 
-function Picker({ mine, canSearch, accent, onClose, onChosen }: { mine: Mine; canSearch: boolean; accent: string; onClose: () => void; onChosen: (m: Mine) => void }) {
+function Picker({ mine, accent, onClose, onChosen }: { mine: Mine; accent: string; onClose: () => void; onChosen: (m: Mine) => void }) {
   const [q, setQ] = useState("");
   const [found, setFound] = useState<Place[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -441,13 +441,13 @@ function Picker({ mine, canSearch, accent, onClose, onChosen }: { mine: Mine; ca
     <div className="kp-find">
       <form className="kp-search" onSubmit={submit}>
         <Line d={glyphs.search} />
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={canSearch ? "Mosque, city or link" : "Mawaqit or MasjidBox link"} aria-label="Search" enterKeyHint="search" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mosque name or link" aria-label="Search" enterKeyHint="search" />
         {busy === "search" ? <MorphLoader tone="plain" label="Searching" className="kp-spin" /> : null}
       </form>
       <Seal tone="quiet" busy={busy === "here"} disabled={busy !== null && busy !== "here"} onClick={here}>Near me</Seal>
     </div>
     {problem ? <p className="kp-note">{problem}</p> : null}
-    {found && !found.length ? <p className="kp-note">Nothing found.</p> : null}
+    {found && !found.length ? <p className="kp-note">Not added here yet. Paste its Mawaqit or MasjidBox link.</p> : null}
     {list.length ? <>
       {!found ? <h3 className="kp-h">Recent</h3> : null}
       <ul className="kp-results">{list.map((p) => { const on = mine.place?.id === p.id; return <li key={p.id}>

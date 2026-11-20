@@ -21,24 +21,7 @@
     "portalPath": "/times",
     "services": [],
     "volumes": [],
-    "configuration": [
-      {
-        "key": "mawaqit_email",
-        "label": "Mawaqit account email",
-        "kind": "text",
-        "group": "sources",
-        "target": "settings",
-        "description": "A mawaqit.net account. Needed to search Mawaqit mosques; a pasted mosque link works without it."
-      },
-      {
-        "key": "mawaqit_password",
-        "label": "Mawaqit account password",
-        "kind": "secret",
-        "group": "sources",
-        "target": "settings",
-        "description": "Kept on the server and only sent to mawaqit.net."
-      }
-    ],
+    "configuration": [],
     "managedEnvironment": [],
     "defaultNetworkPolicy": {
       "internetAccess": true,

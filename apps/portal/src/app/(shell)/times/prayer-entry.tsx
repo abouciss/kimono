@@ -7,7 +7,7 @@ import type { Mine } from "./schedule";
 
 /* The day is read in the browser's clock, so Prayer draws in the browser only. */
 const never = () => () => {};
-export function PrayerEntry(props: { app: AppIdentity; mine: Mine | null; canSearch: boolean }) {
+export function PrayerEntry(props: { app: AppIdentity; mine: Mine | null }) {
   const here = useSyncExternalStore(never, () => true, () => false);
   if (!here) return <div className="kp" aria-busy="true" />;
   return <PrayerApp {...props} />;

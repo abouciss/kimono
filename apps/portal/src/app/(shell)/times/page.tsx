@@ -23,6 +23,6 @@ export default async function PrayerPage() {
   if (!config.enabled && admin) redirect("/admin/apps/kimono-prayer");
   const [app, arrived] = await Promise.all([prayerIdentity(settings), config.enabled ? inTime(mine(config, session.user.username), 2500) : null]);
   return <AppShell user={session.user} brandColors={settings.brand.colors} app={app}>
-    {config.enabled ? <PrayerEntry app={app} mine={arrived as Mine | null} canSearch={Boolean(config.mawaqit)} /> : <PrayerOff />}
+    {config.enabled ? <PrayerEntry app={app} mine={arrived as Mine | null} /> : <PrayerOff />}
   </AppShell>;
 }

@@ -1,6 +1,5 @@
 import "server-only";
 
-import { Mawaqit, type Mosque } from "@mawaqit/sdk";
 import {
   calculatePrayerTimes, calculationMethodName, defaultCalculationSettings, prayerDay,
   type PrayerTimesLike,
@@ -10,10 +9,8 @@ import { pad, PrayerProblem, validTime, type Place, type PrayerDayTimes } from "
 /*
  * Where prayer times come from:
  *
- * - Mawaqit, through the API its own apps use, signed in with the Mawaqit
- *   account the admin gave (search needs it). A mosque pasted as a link also
- *   works without it, from the mosque's public page, which carries the same
- *   calendar.
+ * - Mawaqit, from a mosque's public page, which carries its whole year:
+ *   the API behind Mawaqit's own apps is theirs alone.
  * - MasjidBox, through the API behind its own widget (a week at a time).
  * - Calculated from a position, on this server, with Mawaqit's methods.
  */
@@ -57,46 +54,6 @@ export function daysFrom(data: PrayerTimesLike, ahead: number): PrayerDayTimes[]
 
 /* ---------- Mawaqit ---------- */
 
-const tokenCache = globalThis as unknown as { kimonoMawaqitToken?: { key: string; token: string; at: number } };
-
-async function mawaqitToken(account: { email: string; password: string }, fresh = false): Promise<string> {
-  const key = `${account.email}\n${account.password}`;
-  const kept = tokenCache.kimonoMawaqitToken;
-  if (!fresh && kept?.key === key && Date.now() - kept.at < 7 * DAY) return kept.token;
-  try {
-    const me = await new Mawaqit({ timeout: 20_000 }).auth.login({ email: account.email, password: account.password });
-    tokenCache.kimonoMawaqitToken = { key, token: me.apiAccessToken, at: Date.now() };
-    return me.apiAccessToken;
-  } catch (error) {
-    console.error("prayer: mawaqit sign-in:", error);
-    throw new PrayerProblem(502, "Kimono couldn't sign in to Mawaqit. An admin can check the account in Applications.");
-  }
-}
-
-/* A call with the account's token; signs in again once if Mawaqit has forgotten it. */
-async function withMawaqit<T>(account: { email: string; password: string }, work: (client: Mawaqit) => Promise<T>): Promise<T> {
-  const token = await mawaqitToken(account);
-  try {
-    return await work(new Mawaqit({ token, timeout: 20_000 }));
-  } catch (error) {
-    if ((error as { status?: number }).status !== 401) throw error;
-    return work(new Mawaqit({ token: await mawaqitToken(account, true), timeout: 20_000 }));
-  }
-}
-
-function mosquePlace(mosque: Pick<Mosque, "uuid" | "slug" | "name" | "localisation">): PlaceRecord {
-  const handle = mosque.slug || mosque.uuid;
-  return {
-    id: `mawaqit:${handle}`, kind: "mawaqit", name: mosque.name.trim(), detail: mosque.localisation?.trim() || null,
-    url: mosque.slug ? `https://mawaqit.net/en/${mosque.slug}` : null, uuid: mosque.uuid, slug: mosque.slug,
-  };
-}
-
-export async function searchMawaqit(account: { email: string; password: string }, query: { word: string } | { lat: number; lon: number }): Promise<PlaceRecord[]> {
-  const found = await withMawaqit(account, (client) => client.mosques.search(query));
-  return found.filter((m) => !m.closed).slice(0, 20).map(mosquePlace);
-}
-
 /** A mosque's calendar from its public page (`confData`), for a pasted link or when there's no account. */
 async function mawaqitPage(slug: string) {
   const response = await fetch(`https://mawaqit.net/en/m/${encodeURIComponent(slug)}`, { headers: { "User-Agent": agent }, signal: AbortSignal.timeout(20_000) });
@@ -120,14 +77,9 @@ async function mawaqitPage(slug: string) {
   throw new PrayerProblem(502, "That mosque's prayer calendar couldn't be read.");
 }
 
-export async function mawaqitTimes(account: { email: string; password: string } | null, place: PlaceRecord): Promise<Fetched> {
-  let data: (PrayerTimesLike & { name?: string; localisation?: string }) | null = null;
-  if (account && place.uuid) {
-    try { data = await withMawaqit(account, (client) => client.mosques.prayerTimes(place.uuid!)); }
-    catch (error) { if (!place.slug) throw error; console.warn("prayer: mawaqit api, using the page:", (error as Error).message); }
-  }
-  if (!data && place.slug) data = await mawaqitPage(place.slug);
-  if (!data) throw new PrayerProblem(502, "Mawaqit's search needs the Mawaqit account an admin sets in Applications.");
+export async function mawaqitTimes(place: PlaceRecord): Promise<Fetched> {
+  if (!place.slug) throw new PrayerProblem(404, "Paste this mosque's Mawaqit link again.");
+  const data = await mawaqitPage(place.slug);
   return { timezone: data.timezone, days: daysFrom(data, 60), name: data.name, detail: data.localisation };
 }
 
