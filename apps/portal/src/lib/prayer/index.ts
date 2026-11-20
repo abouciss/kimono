@@ -115,14 +115,15 @@ export async function timetable(config: PrayerConfig, id: string): Promise<Timet
   const kept = row ? JSON.parse(row.data) as Timetable : null;
   const today = kept ? isoDay(kept.timezone) : "";
   /* Fresh enough, and it still reaches past tomorrow. */
-  if (kept && Date.now() - row!.fetched_at < keepFor(place) && kept.days.filter((d) => d.date > today).length >= 2) return trim(kept);
+  /* Kept in this shape since iqama minutes came along (v 2); older ones are fetched again. */
+  if (kept && kept.v === 2 && Date.now() - row!.fetched_at < keepFor(place) && kept.days.filter((d) => d.date > today).length >= 2) return trim(kept);
   let pending = inFlight.get(id);
   if (!pending) {
     pending = (async () => {
       const fetched = await fetchTimes(config, place);
       const named: PlaceRecord = { ...place, name: place.kind === "calculated" ? place.name : fetched.name?.trim() || place.name, detail: place.kind === "calculated" ? place.detail : fetched.detail?.trim() || place.detail };
       if (named.name !== place.name || named.detail !== place.detail) rememberPlace(named);
-      const table: Timetable = { place: publicPlace(named), timezone: fetched.timezone, days: fetched.days, fetchedAt: Date.now() };
+      const table: Timetable = { place: publicPlace(named), timezone: fetched.timezone, days: fetched.days, fetchedAt: Date.now(), v: 2 };
       db().prepare("INSERT INTO timetables (id, data, fetched_at) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at").run(id, JSON.stringify(table), table.fetchedAt);
       return table;
     })().finally(() => inFlight.delete(id));

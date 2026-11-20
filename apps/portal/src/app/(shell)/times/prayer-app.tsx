@@ -327,7 +327,9 @@ function Row({ p, view, accent, iqama, hour12 }: { p: Prayer; view: View; accent
     </div>
     <div className="kp-row-times">
       <span className="kp-time">{fmt(p.time, hour12)}</span>
-      {iqama && p.iqama ? <span className="kp-iqama">Iqama {fmt(p.iqama, hour12)}</span> : null}
+      {iqama && p.iqama ? p.iqamaAfter !== null
+        ? <span className="kp-iqama" title={`Iqama at ${fmt(p.iqama, hour12)}`} aria-label={`Iqama at ${fmt(p.iqama, hour12)}, ${p.iqamaAfter} minutes after the adhan`}>Iqama +{p.iqamaAfter}</span>
+        : <span className="kp-iqama">Iqama {fmt(p.iqama, hour12)}</span> : null}
     </div>
   </>;
   return <li aria-current={state === "current" ? "time" : undefined}>

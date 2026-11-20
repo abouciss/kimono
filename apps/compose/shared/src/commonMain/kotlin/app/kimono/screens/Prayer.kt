@@ -31,6 +31,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -391,7 +398,17 @@ private fun PrayerRow(prayer: Prayer, view: ScheduleView, h24: Boolean) {
         Spacer(Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End) {
             Text(Presentation.clock(prayer.time, h24), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), color = ink)
-            prayer.iqama?.let { Text(Presentation.clock(it, h24), style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = dim) }
+            prayer.iqama?.let { at ->
+                val style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum")
+                val after = prayer.iqamaAfter
+                if (after == null) Text(Presentation.clock(at, h24), style = style, color = dim)
+                /* Set as minutes after the adhan: "+10", and the time itself on a long press. */
+                else TooltipBox(
+                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                    tooltip = { PlainTooltip { Text("Iqama at ${Presentation.clock(at, h24)}") } },
+                    state = rememberTooltipState(),
+                ) { Text("+$after", style = style, color = dim, modifier = Modifier.semantics { contentDescription = "Iqama at ${Presentation.clock(at, h24)}" }) }
+            }
         }
     }
 }

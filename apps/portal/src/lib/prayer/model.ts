@@ -24,6 +24,8 @@ export type PrayerDayTimes = {
   times: [string, string, string, string, string, string];
   /** The congregation (iqama) of Fajr, Dhuhr, Asr, Maghrib and Isha, when the mosque gives them. */
   iqama: [string | null, string | null, string | null, string | null, string | null] | null;
+  /** When the mosque sets an iqama as minutes after the adhan ("+10"), those minutes; `iqama` still has the time. */
+  iqamaAfter?: [number | null, number | null, number | null, number | null, number | null] | null;
   /** Jumu'a prayers on Fridays. */
   jumua: string[];
 };
@@ -34,6 +36,8 @@ export type Timetable = {
   /** From yesterday onwards, as far as the source goes (a week for MasjidBox, weeks for the rest). */
   days: PrayerDayTimes[];
   fetchedAt: number;
+  /** The shape it was kept in. */
+  v?: number;
 };
 
 export const prayerNames = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;

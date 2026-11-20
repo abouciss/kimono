@@ -23,7 +23,7 @@ data class PrayerPlace(val id: String, val kind: String, val name: String, val d
 
 /** One day: `times` is Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha; `iqama` the congregations of the five. */
 @Serializable
-data class PrayerDay(val date: String, val times: List<String>, val iqama: List<String?>? = null, val jumua: List<String> = emptyList())
+data class PrayerDay(val date: String, val times: List<String>, val iqama: List<String?>? = null, val jumua: List<String> = emptyList(), val iqamaAfter: List<Int?>? = null)
 
 @Serializable
 data class Timetable(val place: PrayerPlace, val timezone: String, val days: List<PrayerDay>, val fetchedAt: Long = 0)

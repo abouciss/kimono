@@ -43,9 +43,18 @@ export function daysFrom(data: PrayerTimesLike, ahead: number): PrayerDayTimes[]
     if (list.some((p) => !p || !validTime(p.time))) continue;
     const times = list.map((p) => pad(p!.time)) as PrayerDayTimes["times"];
     const congregations = [day.fajr, day.dhuhr, day.asr, day.maghrib, day.isha].map((p) => p?.iqama?.time && validTime(p.iqama.time) ? pad(p.iqama.time) : null);
+    /* A mosque may set its iqama as minutes after the adhan ("+10"): kept, so it can be shown that way. */
+    const [, month, dayOfMonth] = date.split("-").map(Number);
+    const raw = (data.iqamaCalendar as unknown as Record<string, unknown>[] | null | undefined)?.[month - 1]?.[String(dayOfMonth)];
+    const after = congregations.map((time, i) => {
+      const value = Array.isArray(raw) ? raw[i] : null;
+      const minutes = typeof value === "string" ? /^\+\s*(\d{1,3})$/.exec(value.trim()) : null;
+      return time && minutes ? Number(minutes[1]) : null;
+    });
     days.push({
       date, times,
       iqama: congregations.some(Boolean) ? congregations as PrayerDayTimes["iqama"] : null,
+      ...(after.some((m) => m !== null) ? { iqamaAfter: after as PrayerDayTimes["iqamaAfter"] } : {}),
       jumua: day.jumua.map((p) => p.time).filter(validTime).map(pad),
     });
   }

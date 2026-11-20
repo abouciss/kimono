@@ -335,7 +335,7 @@ class TodayPrayerWidget : PrayerWidget() {
                 Spacer(GlanceModifier.width(8.dp))
             }
             Text(Presentation.clock(prayer.time, scene.h24), maxLines = 1, style = TextStyle(color = if (current && !c.dot) c.accent else ink, fontSize = size, fontWeight = if (current || next) FontWeight.Bold else FontWeight.Medium, fontFamily = c.face))
-            if (iqama) Text(prayer.iqama?.let { Presentation.clock(it, scene.h24) } ?: "", maxLines = 1,
+            if (iqama) Text(prayer.iqamaAfter?.let { "+$it" } ?: prayer.iqama?.let { Presentation.clock(it, scene.h24) } ?: "", maxLines = 1,
                 style = TextStyle(color = c.faint, fontSize = ((if (tight) 10 else 12) * s).sp, textAlign = TextAlign.End),
                 modifier = GlanceModifier.width((if (scene.h24) 44 else 62).dp))
         }

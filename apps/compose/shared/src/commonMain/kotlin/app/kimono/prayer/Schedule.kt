@@ -40,6 +40,8 @@ data class Prayer(
     val iqama: String? = null,
     /** When the congregation is, as an instant (a day later if it's past midnight). */
     val iqamaAt: Instant? = null,
+    /** The iqama as the mosque set it, minutes after the adhan ("+10"), when it's set that way. */
+    val iqamaAfter: Int? = null,
 ) {
     val id: String get() = "$name:${start.epochSeconds}"
 }
@@ -139,12 +141,13 @@ object ScheduleBuilder {
             val start = LocalDateTime(date, LocalTime(hour, minute)).toInstant(zone)
             /* The iqama list runs Fajr, Dhuhr, Asr, Maghrib, Isha: no sunrise. */
             val iqama = if (index == 1) null else day.iqama?.getOrNull(if (index == 0) 0 else index - 1)
+            val iqamaAfter = if (iqama == null) null else day.iqamaAfter?.getOrNull(if (index == 0) 0 else index - 1)
             val iqamaAt = iqama?.split(":")?.takeIf { it.size == 2 }?.let { (h, m) ->
                 val hh = h.toIntOrNull(); val mm = m.toIntOrNull()
                 if (hh == null || mm == null || hh !in 0..23 || mm !in 0..59) null
                 else LocalDateTime(date, LocalTime(hh, mm)).toInstant(zone).let { if (it < start) it + 1.days else it }
             }
-            Prayer(name, text.padStart(5, '0'), start, isSunrise = index == 1, iqama = iqama, iqamaAt = iqamaAt)
+            Prayer(name, text.padStart(5, '0'), start, isSunrise = index == 1, iqama = iqama, iqamaAt = iqamaAt, iqamaAfter = iqamaAfter)
         }
     }
 

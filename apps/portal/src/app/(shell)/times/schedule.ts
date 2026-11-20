@@ -9,6 +9,8 @@ export type DayTimes = {
   date: string;
   times: [string, string, string, string, string, string];
   iqama: [string | null, string | null, string | null, string | null, string | null] | null;
+  /** Minutes after the adhan, when the mosque sets its iqama that way ("+10"). */
+  iqamaAfter?: [number | null, number | null, number | null, number | null, number | null] | null;
   jumua: string[];
 };
 export type Place = { id: string; kind: "mawaqit" | "masjidbox" | "calculated"; name: string; detail: string | null; url: string | null };
@@ -26,6 +28,8 @@ export type Prayer = {
   iqama: string | null;
   /** When the iqama is, as an instant (a day later if it's past midnight). */
   iqamaAt: number | null;
+  /** The iqama as the mosque set it, minutes after the adhan, when it's set that way. */
+  iqamaAfter: number | null;
   /** -1 for yesterday's, 0 for today's. */
   day: number;
   id: string;
@@ -69,11 +73,13 @@ export function clock(at: number, timezone: string, hour12 = false): string {
 
 function prayersOf(day: DayTimes, offset: number, timezone: string): Prayer[] {
   return names.map((name, i) => {
-    const iq = day.iqama && i !== 1 ? day.iqama[i === 0 ? 0 : i - 1] : null;
+    const slot = i === 0 ? 0 : i - 1;
+    const iq = day.iqama && i !== 1 ? day.iqama[slot] : null;
+    const iqamaAfter = iq && day.iqamaAfter ? day.iqamaAfter[slot] ?? null : null;
     const start = instant(day.date, day.times[i], timezone);
     let iqamaAt = iq ? instant(day.date, iq, timezone) : null;
     if (iqamaAt !== null && iqamaAt < start) iqamaAt += 86_400_000;
-    return { name, time: day.times[i], start, end: null, sunrise: i === 1, iqama: iq, iqamaAt, day: offset, id: `${name}:${day.date}` };
+    return { name, time: day.times[i], start, end: null, sunrise: i === 1, iqama: iq, iqamaAt, iqamaAfter, day: offset, id: `${name}:${day.date}` };
   });
 }
 
