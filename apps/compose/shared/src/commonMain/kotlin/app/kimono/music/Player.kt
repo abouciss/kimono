@@ -448,6 +448,18 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         scope.launch { music.saveQueue(keys, index - from, pos, shuffle, repeat, source, on, at) }
     }
 
+    /** Puts the player away: the music stops and the queue is emptied, here and on every device, so nothing waits at the foot of the screen. */
+    fun close() {
+        report()
+        party?.leave(keepPlaying = false)
+        audio?.stop()
+        ticker?.cancel(); ticker = null
+        loadedKey = null
+        playing = false; waiting = false; arriving = null; nowPlayingOpen = false
+        tracks = emptyList(); index = 0; position = 0.0; length = 0.0; source = null; unshuffled = null
+        if (restored) scope.launch { music.saveQueue(emptyList(), 0, 0.0, shuffle, repeat, null, false, kotlin.time.Clock.System.now().toEpochMilliseconds()) }
+    }
+
     /** Signing out or leaving: stops and lets the system's controls go. */
     fun stop() {
         report(); save()

@@ -63,14 +63,18 @@ private fun arrivingText(s: SongStatus) = when (s.stage) {
 
 /**
  * What stays at the foot of Music while you browse: the record turning, the
- * song, play and next. Tap opens the song in full; swipe it sideways to skip.
+ * song, play and next. Tap opens the song in full; swipe it sideways to skip,
+ * up to open it, and down to put the player away.
  */
 @Composable
 fun MusicBar(player: MusicPlayer, hem: Boolean) {
     val t = player.current ?: return
     var drag by remember { mutableFloatStateOf(0f) }
     val shift by animateFloatAsState(drag, spring(dampingRatio = .6f), label = "shift")
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+    /* Pulled down, the bar follows the finger; far enough and it's put away, music and all. */
+    var drop by remember { mutableFloatStateOf(0f) }
+    val sink by animateFloatAsState(drop, spring(dampingRatio = .7f), label = "sink")
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().graphicsLayer { translationY = sink; alpha = 1f - (sink / 320f).coerceIn(0f, .8f) }) {
         Column(if (hem) Modifier.bottomChrome() else Modifier) {
             val fraction = if (player.length > 0) (player.position / player.length).toFloat().coerceIn(0f, 1f) else 0f
             LinearWavyProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().height(6.dp).padding(horizontal = 12.dp), amplitude = { if (player.playing) 1f else 0f }, wavelength = 28.dp)
@@ -79,7 +83,11 @@ fun MusicBar(player: MusicPlayer, hem: Boolean) {
                     .pointerInput(Unit) {
                         detectHorizontalDragGestures(onDragEnd = { if (drag < -90) player.next() else if (drag > 90) player.prev(); drag = 0f }, onDragCancel = { drag = 0f }) { _, d -> drag = (drag + d).coerceIn(-160f, 160f) }
                     }
-                    .pointerInput(Unit) { detectVerticalDragGestures { _, d -> if (d < -12) player.nowPlayingOpen = true } }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(onDragEnd = { if (drop > 96f) player.close(); drop = 0f }, onDragCancel = { drop = 0f }) { _, d ->
+                            if (d < -12 && drop <= 0f) player.nowPlayingOpen = true else drop = (drop + d).coerceIn(0f, 240f)
+                        }
+                    }
                     .padding(start = 12.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
