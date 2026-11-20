@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp"
+    android:background="@drawable/prayer_preview_ground">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="6dp"
+        android:text="Asr  in 1h05min" android:textSize="18sp" android:textStyle="bold" android:fontFamily="serif" android:textColor="#221A17" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="8dp" android:paddingVertical="3dp">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Fajr" android:textSize="14sp" android:textColor="#8C7B76" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="05:52" android:textSize="14sp" android:textColor="#8C7B76" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="8dp" android:paddingVertical="3dp" android:background="@drawable/prayer_preview_tint">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Dhuhr" android:textSize="14sp" android:textColor="#2F5D62" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="12:01" android:textSize="14sp" android:textColor="#2F5D62" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="8dp" android:paddingVertical="3dp">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Asr" android:textSize="14sp" android:textColor="#221A17" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="8dp" android:text="in 1h05min" android:textSize="11sp" android:textStyle="bold" android:textColor="#1C3D40" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="14:19" android:textSize="14sp" android:textColor="#221A17" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="8dp" android:paddingVertical="3dp">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Maghrib" android:textSize="14sp" android:textColor="#221A17" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="16:28" android:textSize="14sp" android:textColor="#221A17" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingHorizontal="8dp" android:paddingVertical="3dp">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Isha" android:textSize="14sp" android:textColor="#221A17" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="17:58" android:textSize="14sp" android:textColor="#221A17" />
+    </LinearLayout>
+</LinearLayout>

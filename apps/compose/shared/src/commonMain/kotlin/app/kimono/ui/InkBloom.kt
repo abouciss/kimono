@@ -56,6 +56,8 @@ private val glyphs: Map<String, List<String>> = mapOf(
     /* A note, its head tilted and its flag curling: Music (packages/ui glyphs). */
     "music" to listOf("M37.34 62.16a7 5.5-18 1 0 13.32-4.32a7 5.5-18 1 0-13.32 4.32z", "M50.5 58V35C54 40 61 41 63 49"),
     "book" to listOf("M50 41 C44 37 38 36 33 37 V62 C38 61 44 62 50 66 C56 62 62 61 67 62 V37 C62 36 56 37 50 41 Z", "M50 41 V66"),
+    /* A crescent with a small star in its arms: Prayer. */
+    "crescent" to listOf("M57 35 A16 16 0 1 0 64 60 A13 13 0 1 1 57 35 Z", "M62 44 V50", "M59 47 H65"),
 )
 
 /**

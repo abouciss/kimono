@@ -23,6 +23,7 @@ import platform.Foundation.NSDate
 import platform.Foundation.NSTimeZone
 import platform.Foundation.dateWithTimeIntervalSince1970
 import platform.Foundation.localTimeZone
+import platform.Foundation.currentLocale
 import platform.Foundation.create
 import platform.UIKit.UIViewController
 import platform.posix.memcpy
@@ -83,6 +84,8 @@ interface IosHost {
     fun recordingLevel(): Float
     /** Stops; [done] gets the recording's path (AAC in MP4) when [keep], else null. */
     fun stopRecording(keep: Boolean, done: (String?) -> Unit)
+    /** Roughly where the phone is, as "lat,lon", asking the first time (when in use, reduced accuracy is fine); null if it won't say. */
+    fun whereAmI(done: (String?) -> Unit)
 }
 
 /** A video's poster, as the Swift side makes it: where the JPEG is, and the length in seconds (0 when unknown). */
@@ -192,6 +195,11 @@ private class IosPlatform(private val host: IosHost) : Platform {
         IosWebFrame(url, modifier, control, keepLinks, ::openUrl, onMessage, onLoaded)
     @androidx.compose.runtime.Composable
     override fun LoopingVideo(url: String, modifier: androidx.compose.ui.Modifier) = IosLoopingVideo(url, modifier)
+    override suspend fun whereAmI(): app.kimono.data.Position? = suspendCancellableCoroutine<String?> { waiting -> host.whereAmI { waiting.resume(it) } }
+        ?.split(',')?.mapNotNull { it.trim().toDoubleOrNull() }?.takeIf { it.size == 2 }?.let { app.kimono.data.Position(it[0], it[1]) }
+    /* A 12-hour phone writes "a" (AM/PM) in its hour pattern. */
+    override val clock24: Boolean get() =
+        platform.Foundation.NSDateFormatter.dateFormatFromTemplate("j", 0u, platform.Foundation.NSLocale.currentLocale)?.contains('a') != true
     override suspend fun thumbnail(node: DriveNode, pixels: Int): String? = suspendCancellableCoroutine { waiting ->
         host.thumbnail(node.id, node.contentVersion.toLong(), node.name, node.mime, node.size, pixels.toLong()) { waiting.resume(it) }
     }

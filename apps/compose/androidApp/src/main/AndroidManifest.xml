@@ -19,6 +19,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- New versions published on the Portal install over this one. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Prayer: roughly where you are, asked only when you look for places near you. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Prayer's widgets turn over on the minute while the screen is on (never waking the phone); without it, near the minute. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".KimonoApplication"
@@ -61,6 +65,7 @@
                 <data android:pathPrefix="/ai/a/" />
                 <data android:path="/account" />
                 <data android:pathPrefix="/account/" />
+                <data android:path="/prayer" />
                 <data android:path="/vpn" />
                 <data android:pathPrefix="/vpn/" />
             </intent-filter>
@@ -92,6 +97,42 @@
         <receiver android:name=".UpdatedReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <!-- Prayer on the home screen: the next prayer, today's prayers, and a one-line strip. -->
+        <receiver android:name=".NextPrayerReceiver" android:exported="true" android:label="@string/prayer_next_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/prayer_next_info" />
+        </receiver>
+        <receiver android:name=".TodayPrayerReceiver" android:exported="true" android:label="@string/prayer_today_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/prayer_today_info" />
+        </receiver>
+        <receiver android:name=".StripPrayerReceiver" android:exported="true" android:label="@string/prayer_strip_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/prayer_strip_info" />
+        </receiver>
+        <activity
+            android:name=".PrayerWidgetConfig"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Kimono">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <!-- The widgets' minute, and the clock or time zone changing under them. -->
+        <receiver android:name=".PrayerTicker" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
         <!-- Kimono Drive in the Files app and every app's open and save pickers. -->

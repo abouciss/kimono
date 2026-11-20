@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Prayer's crescent with a small star in its arms (packages/ui glyphs.tsx), filled for small sizes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+    <group android:translateX="-29" android:translateY="-27.5">
+        <path android:fillColor="#2F5D62" android:pathData="M57 35 A16 16 0 1 0 64 60 A13 13 0 1 1 57 35 Z" />
+        <path android:strokeColor="#2F5D62" android:strokeWidth="3" android:strokeLineCap="round" android:pathData="M62 43.5 V50.5 M58.5 47 H65.5" />
+    </group>
+</vector>

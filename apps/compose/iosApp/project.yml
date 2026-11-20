@@ -54,6 +54,7 @@ targets:
         KimonoKeychainGroup: "$(AppIdentifierPrefix)app.kimono.shared"
         NSPhotoLibraryUsageDescription: Pick photos to attach, or one for your portrait.
         NSMicrophoneUsageDescription: Speak a message to Kimono AI instead of typing it.
+        NSLocationWhenInUseUsageDescription: Find mosques and prayer times near you.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         # Kimono's own iPhone apps, to tell whether they're installed and open them straight away.

@@ -25,6 +25,9 @@ class KimonoApplication : Application() {
         super.onCreate()
         /* Twice a day, a look for updates to Kimono and the apps it hands out. */
         AppUpdates.schedule(this)
+        /* Prayer's widgets: their minute's turn, if any are placed, and how they look in Android 15's picker. */
+        PrayerWidgets.ensure(this)
+        PrayerWidgets.publishPreviews(this)
         /* Kimono shows in the Files app only while signed in. */
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
             session.state.distinctUntilChangedBy { it is SessionState.SignedIn }.collect { KimonoDocuments.rootsChanged(this@KimonoApplication) }

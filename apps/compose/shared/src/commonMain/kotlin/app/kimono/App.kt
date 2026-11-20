@@ -170,6 +170,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         app.kimono.screens.phoneAppHere(target, platform, target.phoneApp?.let { phone -> flights?.let { it.appFor(phone, target.fullName)?.latest } })
     val notes = remember(session) { app.kimono.screens.NotesModel(app.kimono.data.Notes(session, platform), model.drive, platform) }
     val books = remember(session) { app.kimono.data.Books(session) }
+    val prayers = remember(session) { app.kimono.prayer.Prayers(session, platform) }
     /* Books downloaded to read offline: kept as long as you're signed in, carrying on in the background of the app. */
     val booksScope = rememberCoroutineScope()
     remember(books) { app.kimono.data.BookKeep(books, platform, booksScope) }
@@ -225,6 +226,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             target.id == app.kimono.data.Notes.APP_ID -> goTab("notes")
             target.id == app.kimono.data.Books.APP_ID -> goTab("books")
             target.id == app.kimono.data.Music.APP_ID -> goTab("music")
+            target.id == app.kimono.prayer.Prayers.APP_ID -> goTab("prayer")
             /* An app with a phone app of its own: open it when it's here, and when it isn't, its page here to get it. Never its website. */
             /* With a newer version waiting (its tile says Update), its page, which has the update. */
             target.phoneApp != null -> {
@@ -239,7 +241,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     LaunchedEffect(driveOn) {
         val on = driveOn ?: return@LaunchedEffect
         platform.driveAvailable(on)
-        if (!on && route != null && route !in setOf("home", "you", "details", "devices", "password", "code", "code/{id}", "code/{id}/app", "ai/new", "ai/new/{in}", "ai/connections", "ai/connections/{app}", "ai/memory", "ai/archived", "ai/a/{token}", "ai/c/{token}", "manage", "manage/{id}", "friends", "people/{username}", "vpn", "vpn/people", "vpn/connect", "app/{id}", "notes", "notes/{notebook}", "note/{id}", "books", "books/shelf", "books/search", "books/downloads") && !route.startsWith("music")) goTab("home")
+        if (!on && route != null && route !in setOf("home", "you", "details", "devices", "password", "code", "code/{id}", "code/{id}/app", "ai/new", "ai/new/{in}", "ai/connections", "ai/connections/{app}", "ai/memory", "ai/archived", "ai/a/{token}", "ai/c/{token}", "manage", "manage/{id}", "friends", "people/{username}", "vpn", "vpn/people", "vpn/connect", "app/{id}", "notes", "notes/{notebook}", "note/{id}", "books", "books/shelf", "books/search", "books/downloads", "prayer", "prayer/days") && !route.startsWith("music")) goTab("home")
     }
     val chrome = tab || musicBar
     Box(Modifier.fillMaxSize()) {
@@ -395,6 +397,10 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             composable("music/genre/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicGenreScreen(player, b.arguments?.read { getStringOrNull("id") }?.toIntOrNull() ?: 0, ::musicGo) { nav.popBackStack() } } }
             composable("music/mix/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicMixScreen(player, (b.arguments?.read { getStringOrNull("id") } ?: "").decodeURLPart(), ::musicGo) { nav.popBackStack() } } }
             composable("music/party/{id}") { b -> AppAccentTheme(gold) { app.kimono.screens.MusicPartyScreen(player, b.arguments?.read { getStringOrNull("id") } ?: "", ::musicGo) { nav.popBackStack() } } }
+            /* Prayer: Today (the countdown, today's prayers and the night) and the coming Days. */
+            fun prayerAccent() = model.drive.launcher.value?.firstOrNull { it.id == app.kimono.prayer.Prayers.APP_ID }?.accent ?: app.kimono.prayer.Prayers.ACCENT
+            composable("prayer") { app.kimono.screens.PrayerTheme(platform, prayerAccent()) { app.kimono.screens.PrayerScreen(prayers, platform) } }
+            composable("prayer/days") { app.kimono.screens.PrayerTheme(platform, prayerAccent()) { app.kimono.screens.PrayerDaysScreen(prayers, platform) } }
             /* Notes: the list with its drawer of notebooks, and a note full screen over it. */
             fun notesAccent() = model.drive.launcher.value?.firstOrNull { it.id == app.kimono.data.Notes.APP_ID }?.accent ?: "#b56d78"
             composable("notes") {

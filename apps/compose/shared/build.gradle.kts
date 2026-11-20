@@ -12,6 +12,8 @@ kotlin {
         compileSdk = 37
         minSdk = 26
         androidResources { enable = true }
+        /* Plain JVM tests of the shared code (Prayer's schedule): ./gradlew :shared:testAndroidHostTest */
+        withHostTestBuilder {}
     }
     /* The iPhone app links this as a framework; iosApp/ builds it from Xcode. */
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -41,6 +43,10 @@ kotlin {
             implementation(libs.latex.renderer)
             implementation(libs.latex.fonts.katex)
             implementation(libs.kotlinx.io)
+            implementation(libs.kotlinx.datetime)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
         }
         androidMain.dependencies {
             implementation(libs.ktor.okhttp)

@@ -298,6 +298,61 @@ class AndroidPlatform(private val context: Context) : Platform {
         )
     }
 
+    /* ── where you are, for Prayer's nearby places: coarse only, asked the first time it's wanted ── */
+    var askLocation: (() -> Unit)? = null
+    private var locationAsk: CompletableDeferred<Boolean>? = null
+
+    fun locationAnswered(allowed: Boolean) { locationAsk?.complete(allowed); locationAsk = null }
+
+    override suspend fun whereAmI(): app.kimono.data.Position? {
+        val coarse = android.Manifest.permission.ACCESS_COARSE_LOCATION
+        if (context.checkSelfPermission(coarse) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            val waiting = CompletableDeferred<Boolean>()
+            locationAsk = waiting
+            askLocation?.invoke() ?: return null
+            if (!waiting.await()) return null
+        }
+        val manager = context.getSystemService(android.location.LocationManager::class.java) ?: return null
+        val providers = buildList {
+            if (Build.VERSION.SDK_INT >= 31) add(android.location.LocationManager.FUSED_PROVIDER)
+            add(android.location.LocationManager.NETWORK_PROVIDER)
+            add(android.location.LocationManager.GPS_PROVIDER)
+        }.filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
+        @Suppress("MissingPermission")
+        fun known() = (providers + android.location.LocationManager.PASSIVE_PROVIDER).mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
+        val recent = known()?.takeIf { System.currentTimeMillis() - it.time < 30 * 60_000 }
+        val found = recent ?: providers.firstOrNull()?.let { provider ->
+            kotlinx.coroutines.withTimeoutOrNull(15_000) {
+                kotlinx.coroutines.suspendCancellableCoroutine<android.location.Location?> { waiting ->
+                    @Suppress("MissingPermission")
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        val cancel = android.os.CancellationSignal()
+                        waiting.invokeOnCancellation { cancel.cancel() }
+                        manager.getCurrentLocation(provider, cancel, context.mainExecutor) { waiting.resumeWith(Result.success(it)) }
+                    } else {
+                        val listener = object : android.location.LocationListener {
+                            override fun onLocationChanged(location: android.location.Location) { if (waiting.isActive) waiting.resumeWith(Result.success(location)) }
+                            @Deprecated("Deprecated in Java") override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+                            override fun onProviderEnabled(provider: String) {}
+                            override fun onProviderDisabled(provider: String) {}
+                        }
+                        waiting.invokeOnCancellation { manager.removeUpdates(listener) }
+                        @Suppress("DEPRECATION")
+                        manager.requestSingleUpdate(provider, listener, android.os.Looper.getMainLooper())
+                    }
+                }
+            }
+        } ?: known()
+        return found?.let { app.kimono.data.Position(it.latitude, it.longitude) }
+    }
+
+    override val clock24: Boolean get() = android.text.format.DateFormat.is24HourFormat(context)
+
+    override fun prayerChanged() = PrayerWidgets.changed(context)
+
+    override fun dynamicColors(night: Boolean): androidx.compose.material3.ColorScheme? = if (Build.VERSION.SDK_INT < 31) null
+        else if (night) androidx.compose.material3.dynamicDarkColorScheme(context) else androidx.compose.material3.dynamicLightColorScheme(context)
+
     override val reduceMotion: Boolean get() =
         android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     override fun utcOffsetMillis(at: Long): Long = java.util.TimeZone.getDefault().getOffset(at).toLong()

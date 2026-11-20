@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/prayer_today_description"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="160dp"
+    android:minResizeHeight="100dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen|keyguard"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewLayout="@layout/prayer_preview_today"
+    android:configure="app.kimono.android.PrayerWidgetConfig"
+    android:widgetFeatures="reconfigurable|configuration_optional" />

@@ -55,6 +55,7 @@ fun routeOfLink(link: String): String? {
                 else -> "music"
             }
         }
+        path == "/prayer" -> "prayer"
         path == "/account" -> "you"
         path == "/account/details" -> "details"
         path == "/account/devices" -> "devices"

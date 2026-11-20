@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="prayer_next_name">Next prayer</string>
+    <string name="prayer_next_description">The time to the next prayer</string>
+    <string name="prayer_today_name">Today\'s prayers</string>
+    <string name="prayer_today_description">Today\'s five prayers and the night</string>
+    <string name="prayer_strip_name">Prayer strip</string>
+    <string name="prayer_strip_description">One line, for narrow spaces</string>
+</resources>

@@ -32,6 +32,8 @@ class MainActivity : ComponentActivity() {
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     /* The microphone, asked for the first time someone speaks a message. */
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed -> platform.microphoneAnswered(allowed) }
+    /* Roughly where you are, asked the first time Prayer looks for places near you. */
+    private val location = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed -> platform.locationAnswered(allowed) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -39,6 +41,7 @@ class MainActivity : ComponentActivity() {
         platform = (application as KimonoApplication).platform
         platform.activity = this
         platform.askMicrophone = { microphone.launch(android.Manifest.permission.RECORD_AUDIO) }
+        platform.askLocation = { location.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION) }
         platform.launchPicker = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
         platform.launchCamera = { uri -> camera.launch(uri) }
         platform.launchFilePicker = {

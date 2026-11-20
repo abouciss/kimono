@@ -47,6 +47,8 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.browser)
     implementation(libs.work)
+    implementation(libs.glance.appwidget)
+    implementation(libs.kotlinx.datetime)
     implementation(libs.ktor.okhttp)
     implementation(libs.compose.ui)
     implementation(libs.material3)

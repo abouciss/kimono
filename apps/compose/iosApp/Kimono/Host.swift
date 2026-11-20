@@ -1,5 +1,6 @@
 import AuthenticationServices
 import AVFoundation
+import CoreLocation
 import CryptoKit
 import FileProvider
 import PhotosUI
@@ -291,6 +292,14 @@ final class Host: NSObject, IosHost, @unchecked Sendable {
         }
     }
 
+    // MARK: Where you are (Prayer's nearby places)
+
+    private let locator = Locator()
+
+    func whereAmI(done: @escaping (String?) -> Void) {
+        DispatchQueue.main.async { self.locator.locate(done) }
+    }
+
     // MARK: Photos
 
     private var picked: ((Data?) -> Void)?
@@ -385,4 +394,48 @@ extension Host: PHPickerViewControllerDelegate {
 extension Host: QLPreviewControllerDataSource {
     func numberOfPreviewItems(in controller: QLPreviewController) -> Int { previewing == nil ? 0 : 1 }
     func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem { previewing! as NSURL }
+}
+
+/// One rough fix for Prayer's nearby places: asked only when in use, and a kilometre is plenty.
+final class Locator: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var waiting: [(String?) -> Void] = []
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyKilometer
+    }
+
+    func locate(_ done: @escaping (String?) -> Void) {
+        waiting.append(done)
+        guard waiting.count == 1 else { return }
+        ask()
+    }
+
+    private func ask() {
+        switch manager.authorizationStatus {
+        case .notDetermined: manager.requestWhenInUseAuthorization()
+        case .denied, .restricted: finish(nil)
+        default: manager.requestLocation()
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard !waiting.isEmpty, manager.authorizationStatus != .notDetermined else { return }
+        ask()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let at = locations.last else { return finish(nil) }
+        finish("\(at.coordinate.latitude),\(at.coordinate.longitude)")
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { finish(nil) }
+
+    private func finish(_ value: String?) {
+        let all = waiting
+        waiting = []
+        all.forEach { $0(value) }
+    }
 }

@@ -89,6 +89,14 @@ interface Platform {
     fun recordingLevel(): Float = 0f
     /** Stops recording: what was heard as AAC in MP4 (audio/mp4) when [keep], else null and it's thrown away. */
     suspend fun stopRecording(keep: Boolean): ByteArray? = null
+    /** Roughly where the phone is (coarse location, asked for the first time it's wanted); null if it won't say. */
+    suspend fun whereAmI(): Position? = null
+    /** Whether the phone shows times on a 24-hour clock. */
+    val clock24: Boolean get() = true
+    /** The phone's own colours (Android 12's Material You), light or dark; null where there are none. Prayer wears them to match its widgets. */
+    fun dynamicColors(night: Boolean): androidx.compose.material3.ColorScheme? = null
+    /** Prayer's kept timetable changed: its widgets look again. */
+    fun prayerChanged() {}
     /** Kept as "off" when the person turned Kimono's notifications off in Settings. */
     val notificationsKey: String get() = "kimono.notifications"
     /** Whether the person asked the phone for less motion. */
@@ -111,6 +119,9 @@ interface Platform {
     @androidx.compose.runtime.Composable
     fun LoopingVideo(url: String, modifier: androidx.compose.ui.Modifier) {}
 }
+
+/** A position on Earth, in degrees. */
+class Position(val lat: Double, val lon: Double)
 
 /** A video's poster: one frame as an encoded picture, and its length in seconds when known. */
 class VideoFrame(val picture: ByteArray, val seconds: Double?)
