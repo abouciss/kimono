@@ -174,6 +174,7 @@ private fun hasData(w: Widget, d: BoardData): Boolean {
         "bookshelf" -> d.books?.read?.isNotEmpty() == true
         "watching" -> has("watch", "watching")
         "watched" -> has("watch", "watched")
+        "links" -> d.links.any(::inLinks)
         else -> true
     }
 }

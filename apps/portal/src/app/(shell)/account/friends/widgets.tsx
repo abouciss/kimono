@@ -103,6 +103,7 @@ function hasData(w: Widget, d: BoardData): boolean {
     case "bookshelf": return Boolean(d.books?.read.length);
     case "watching": return has("watch", "watching");
     case "watched": return has("watch", "watched");
+    case "links": return d.links.some(inLinks);
     default: return true;
   }
 }
@@ -264,6 +265,7 @@ function Favourite({ w, d }: { w: Widget; d: BoardData }) {
   const album = w.kind === "album";
   const times = !album && c.key ? d.music?.counts?.[c.key] ?? 0 : 0;
   return <Crossing kind="kakejiku" href={album ? albumHref(c.key) : songHref(c.key)} className={`wg-card wg-fav${album ? " wg-sleeve" : ""}`}>
+    {c.cover ? <span className="wg-fav-wash" style={{ backgroundImage: `url(${c.cover})` }} aria-hidden="true" /> : null}
     <span className="wg-fav-art">
       {album ? <span className="wg-fav-disc" aria-hidden="true" /> : null}
       {/* eslint-disable-next-line @next/next/no-img-element -- the cover from Music */}

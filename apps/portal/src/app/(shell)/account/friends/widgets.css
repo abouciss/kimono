@@ -481,3 +481,33 @@ a.wg-reading:hover .wg-book-glow { opacity: 1; scale: 1.25; }
 .wg-kept button { height: 20px; padding: 0 8px; border: 0; border-radius: 7px 3px 7px 3px; background: #3a2a12; color: #f6e2b8; font: 700 11.5px/1 var(--k-sans); cursor: pointer; }
 .wg-kept button:hover { background: #1e150a; }
 .wg-cell:has(.wg-kept) > :first-child { box-shadow: inset 0 0 0 2px color-mix(in srgb, #e8b04a 70%, transparent); }
+
+/* ── Favourites, redrawn (2026-11-20): the cover sized to its card, on a soft wash of its own colours; every line centred when stacked; side by side when the card is wider than tall ── */
+.wg-cell { container-type: size; }
+.wg-fav { isolation: isolate; }
+.wg-fav-wash { position: absolute; inset: -30%; z-index: -1; background: center / cover no-repeat; filter: blur(42px) saturate(1.5); opacity: .32; pointer-events: none; transition: opacity .6s; }
+a.wg-fav:hover .wg-fav-wash { opacity: .46; }
+.wg-fav .wg-fav-art { transition: transform .5s var(--k-spring); }
+a.wg-fav:hover .wg-fav-art { transform: rotate(-2deg) translateY(-2px); }
+.wg-m .wg-fav-art { width: auto; height: calc(100cqh - 32px); max-width: 45cqw; }
+.wg-s .wg-fav-art { width: min(100px, 100cqh - 36px); }
+.wg-s .wg-words, .wg-l .wg-words { justify-items: center; }
+.wg-l .wg-fav { gap: 14px; padding: 20px; }
+.wg-l .wg-fav-art { width: min(64cqw, 100cqh - 150px); }
+.wg-l .wg-fav .wg-times { margin-top: 6px; }
+.wg-l .wg-fav .wg-times b { font-size: 30px; }
+.wg-l .wg-fav .wg-words em { font-size: 15px; }
+/* Wider than tall: the cover the card's full height on the left, the words beside it. */
+@container (min-aspect-ratio: 6 / 5) {
+  .wg-l .wg-fav { flex-direction: row; justify-content: flex-start; text-align: left; gap: 26px; padding: 22px 28px 22px 22px; }
+  .wg-l .wg-fav-art { width: auto; height: calc(100cqh - 44px); max-width: 56cqw; }
+  .wg-l .wg-fav .wg-words { justify-items: start; gap: 4px; }
+  .wg-l .wg-fav .wg-words b { font-size: 30px; -webkit-line-clamp: 3; }
+  .wg-l .wg-fav .wg-times { margin-top: 14px; }
+  .wg-l .wg-fav .wg-times b { font-size: 40px; }
+  .wg-l .wg-sleeve .wg-fav-art { margin-right: 14%; }
+}
+
+/* A small Watching card: the strip stands clear of how far, which sits under it as a short inked line. */
+.wg-s .wg-fs { padding: 6px 0 22px; }
+.wg-s .wg-fs-line { left: 24%; right: 24%; bottom: 10px; border-radius: 2px; overflow: hidden; }
