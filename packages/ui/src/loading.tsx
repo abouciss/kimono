@@ -101,26 +101,49 @@ function wavePoints(from: number, to: number, mid: number, amp: number, length: 
 /* Each is pinned to the paper (`origin`: how far along the bar it starts), so as a line grows or runs along, its weight and its lifts stay where they are instead of jumping. */
 const waveBrush = (points: InkPoint[], origin: number, weight: number) => inkBrushD(points, inkRandom(11), weight, { lift: null, swell: .32, wander: .12, step: 1.5, origin });
 const bleedBrush = (points: InkPoint[], origin: number, weight: number) => inkBrushD(points, inkRandom(12), weight * 1.9, { lift: null, swell: .45, wander: .3, step: 1.5, origin });
-const trackBrush = (points: InkPoint[], origin: number, extent: number, weight: number) => inkBrushD(points, inkRandom(7), weight * .8, { lift: [60, 140], gap: [4, 7], swell: .25, wander: .1, step: 1.5, origin, extent });
-const flatTrack = (from: number, to: number, mid: number, weight: number, start: number, end: number) => to - from < weight ? "" : trackBrush([[from, mid], [to, mid]], from - start, end - start, weight);
+const trackBrush = (points: InkPoint[], origin: number, extent: number, weight: number, whole = false) => inkBrushD(points, inkRandom(7), weight * .8, { lift: whole ? null : [60, 140], gap: [4, 7], swell: .25, wander: .1, step: 1.5, origin, extent });
+const flatTrack = (from: number, to: number, mid: number, weight: number, start: number, end: number, whole = false) => to - from < weight ? "" : trackBrush([[from, mid], [to, mid]], from - start, end - start, weight, whole);
 
 /** One frame of the bar in a w×h box: the waves, the track, the dot. */
-function frame(w: number, h: number, t: number, value: number | undefined, calm = 1) {
+function frame(w: number, h: number, t: number, value: number | undefined, calm = 1, pace = 1, parts?: readonly (readonly [number, number])[]) {
   const bar = Math.min(h, Math.max(8, w / 3));
   const weight = Math.max(1.5, bar * .3), pad = weight / 2 + 1, mid = h / 2;
   const amp = Math.max(0, (bar - weight) / 2 * .85);
   /* Material: long crests on a known bar, tighter while unknown; tighter still when it's short. */
   const length = Math.min(value === undefined ? bar * 2.4 : bar * 4, Math.max(w / 2.5, bar * 1.6));
   const gap = weight * 1.3, start = pad, end = w - pad, span = end - start;
-  const phase = -(t / 1000 * length) % length;
-  let wave = "", bleed = "", track = "";
+  const phase = -(t / 1000 * pace * length) % length;
+  let wave = "", bleed = "", track = "", waveParts = "", trackParts = "";
+  /* With parts marked on it (a film's intro, its credits), the line breaks only at their edges: each run between is one piece, and those inside a part are told apart. */
+  const edges = (parts ?? []).map(([a, b]) => [start + span * Math.min(1, Math.max(0, a)), start + span * Math.min(1, Math.max(0, b))]);
+  const pieces = (from: number, to: number) => {
+    const cuts = [...new Set(edges.flat())].filter((x) => x > from + gap && x < to - gap).sort((a, b) => a - b);
+    return [from, ...cuts].map((a, i, all): [number, number, boolean] => {
+      const b = i + 1 < all.length ? all[i + 1] : to, at = (a + b) / 2;
+      return [i ? a + gap / 2 : a, b < to ? b - gap / 2 : b, edges.some(([x, y]) => at >= x && at <= y)];
+    });
+  };
   let dot: number | null = null;
   if (value !== undefined) {
     const reach = start + span * value;
     /* Flat where it starts and where it lands, wavy between. */
     const swing = calm * amp * Math.min(1, value / .1) * Math.max(0, Math.min(1, (1 - value) / .05));
-    if (value > 0) { const points = wavePoints(start, reach, mid, swing, length, phase); bleed = bleedBrush(points, 0, weight); wave = waveBrush(points, 0, weight); }
-    track = flatTrack(value > 0 ? reach + gap : start, end - weight * 1.2, mid, weight, start, end);
+    const rest = value > 0 ? reach + gap : start, last = end - weight * 1.2;
+    if (!parts) {
+      if (value > 0) { const points = wavePoints(start, reach, mid, swing, length, phase); bleed = bleedBrush(points, 0, weight); wave = waveBrush(points, 0, weight); }
+      track = flatTrack(rest, last, mid, weight, start, end);
+    } else {
+      if (value > 0) for (const [a, b, marked] of pieces(start, reach)) {
+        if (b - a < weight * .6) continue;
+        const points = wavePoints(a, b, mid, swing, length, phase), d = waveBrush(points, a - start, weight);
+        bleed += bleedBrush(points, a - start, weight);
+        if (marked) waveParts += d; else wave += d;
+      }
+      if (last > rest) for (const [a, b, marked] of pieces(rest, last)) {
+        const d = flatTrack(a, b, mid, weight, start, end, true);
+        if (marked) trackParts += d; else track += d;
+      }
+    }
     dot = end - weight * .3;
   } else {
     const c = t % CYCLE;
@@ -135,11 +158,11 @@ function frame(w: number, h: number, t: number, value: number | undefined, calm 
     }
     track += flatTrack(at, end, mid, weight, start, end);
   }
-  return { weight, mid, wave, bleed, track, dot };
+  return { weight, mid, wave, bleed, track, dot, waveParts, trackParts };
 }
 
 /** The bar, drawn every frame into whatever box CSS gives it. */
-function Wave({ value, colour, label, className, still = false, glide = true, frozen = false }: { value?: number; colour?: string; label: string; className: string; still?: boolean; glide?: boolean; frozen?: boolean }) {
+function Wave({ value, colour, label, className, still = false, glide = true, frozen = false, pace = 1, depth = 1, parts }: { value?: number; colour?: string; label: string; className: string; still?: boolean; glide?: boolean; frozen?: boolean; pace?: number; depth?: number; parts?: readonly (readonly [number, number])[] }) {
   const box = useRef<HTMLSpanElement>(null);
   const [size, setSize] = useState<[number, number]>([0, 0]);
   const now = useClock(!frozen);
@@ -155,13 +178,15 @@ function Wave({ value, colour, label, className, still = false, glide = true, fr
   const known = glide && !frozen ? glided : target;
   const calm = useCalm(still, now);
   const [w, h] = size;
-  const f = w && h ? frame(w, h, now, known, calm) : null;
+  const f = w && h ? frame(w, h, now, known, calm * depth, pace, parts) : null;
   return <span ref={box} className={className} style={colour ? { color: colour } : undefined} role="progressbar" aria-label={label || undefined}
     aria-valuemin={known !== undefined ? 0 : undefined} aria-valuemax={known !== undefined ? 100 : undefined} aria-valuenow={known !== undefined ? Math.round(known * 100) : undefined}>
     {f ? <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
       {f.track ? <path d={f.track} fill="currentColor" opacity=".24"/> : null}
       {f.bleed ? <path d={f.bleed} fill="currentColor" opacity=".18"/> : null}
       {f.wave ? <path d={f.wave} fill="currentColor" opacity=".9"/> : null}
+      {f.trackParts ? <path className="k-wave-part" d={f.trackParts} fill="currentColor" opacity=".55"/> : null}
+      {f.waveParts ? <path className="k-wave-part" d={f.waveParts} fill="currentColor" opacity=".9"/> : null}
       {f.dot !== null ? <circle cx={f.dot.toFixed(1)} cy={f.mid} r={(f.weight * .45).toFixed(2)} fill="currentColor" opacity=".7"/> : null}
     </svg> : null}
   </span>;
@@ -228,14 +253,20 @@ export function BusyFace({ busy, label = "Working", children }: { busy: boolean;
 }
 
 /** The wavy bar for a real progress. `value` 0–1 fills it; leave it out while how long is unknown. */
-export function InkWave({ value, label = "Loading", className, still, glide }: {
+export function InkWave({ value, label = "Loading", className, still, glide, pace, depth, parts }: {
   value?: number; label?: string; className?: string;
   /** Flat while true: a paused song or film (the wave settles, and swells back on play). */
   still?: boolean;
   /** false: follow the value at once (a bar being dragged), instead of easing after it. */
   glide?: boolean;
+  /** How fast the crests run, 1 being a wavelength a second: lower for a bar that's watched for hours (a film's). */
+  pace?: number;
+  /** How tall the wave stands, 0 to 1. */
+  depth?: number;
+  /** Parts marked on the bar, each from and to as 0–1 (a film's intro, its credits): the line then breaks only at their edges, and they're drawn as `.k-wave-part`. */
+  parts?: readonly (readonly [number, number])[];
 }) {
-  return <Wave value={value} label={label} className={cx("k-wave", className)} still={still} glide={glide}/>;
+  return <Wave value={value} label={label} className={cx("k-wave", className)} still={still} glide={glide} pace={pace} depth={depth} parts={parts}/>;
 }
 
 /**

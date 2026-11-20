@@ -822,6 +822,7 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
     if (markers.intro) segs.push(markers.intro);
     if (markers.credits) segs.push([markers.credits, duration]);
   }
+  const parts = segs.map(([a, b]): [number, number] => [a / d, b / d]);
 
   /* ───── Audio and subtitles ───── */
   const audioNow = choice?.audio ?? play?.tracks.audio.language ?? "";
@@ -912,9 +913,8 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
         onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); const f = atX(event.clientX); setDrag(f); peek(f); showCtl(true); }}
         onPointerUp={(event) => { if (drag === null) return; const v = video.current; const f = atX(event.clientX); setDrag(null); setPeekAt(null); if (v && v.duration) { seekTo(f * v.duration); setTime(v.currentTime); } showCtl(); }}>
         <div className="kw-track" ref={track}>
-          {/* Material's wavy media bar in ink, as on the phone: flat while paused. */}
-          <span className="kw-wave" aria-hidden="true"><InkWave value={d ? shownT / d : 0} still={paused} glide={drag === null ? undefined : false} label="" /></span>
-          {segs.map(([a, b]) => <div key={a} className="kw-seg" style={{ left: `${(a / d) * 100}%`, width: `${((b - a) / d) * 100}%` }} />)}
+          {/* Material's wavy media bar in ink, as on the phone: flat while paused, and a slow, shallow swell while a film plays. */}
+          <span className="kw-wave" aria-hidden="true"><InkWave value={d ? shownT / d : 0} still={paused} glide={drag === null ? undefined : false} pace={.22} depth={.55} parts={parts} label="" /></span>
           <div className="kw-knob" style={{ left: `${(shownT / d) * 100}%` }} />
           <div className="kw-thumb" style={{ left: thumbLeft }}>
             <em>{chapter}</em>
