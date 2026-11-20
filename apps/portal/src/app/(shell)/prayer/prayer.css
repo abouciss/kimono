@@ -1,151 +1,204 @@
 /*
  * 礼 Kimono Prayer on the web. Material 3 Expressive foundations in the
- * household's theme, light and dark; Prayer's teal is the accent, for marks
- * only. Every class is kp- and sits under .kp.
+ * household's theme, light and dark, with Kata's hand: the sky is painted in
+ * ink and wash, marks sit in puddles, buttons are seals and switches are
+ * joints. Prayer's teal marks what's open now and what's next. Every class is
+ * kp- and sits under .kp.
  */
 .kp{
   --bg:var(--k-container-low); --surface:var(--k-container); --surface-2:var(--k-container-high); --surface-3:var(--k-container-highest);
-  --line:var(--k-outline-variant); --fg:var(--k-on-surface); --fg-2:var(--k-on-surface-variant); --fg-3:color-mix(in srgb,var(--k-on-surface-variant) 70%,transparent);
-  --primary:var(--k-app-accent,#2f5d62); --on-primary:var(--k-on-accent,#fff);
-  --tint:color-mix(in srgb,var(--primary) 14%,var(--surface));
-  --sand:#e8d9b0;
+  --line:var(--k-outline-variant); --fg:var(--k-on-surface); --fg-2:var(--k-on-surface-variant);
+  --primary:var(--k-app-accent,#2f5d62); --on-primary:#fffdf8;
+  /* The accent as ink: deep enough to read on paper by day, pale enough by night. */
+  --mark:color-mix(in srgb,var(--primary) 78%,var(--fg)); --bleed:var(--primary);
+  --tint:color-mix(in srgb,var(--primary) 16%,var(--surface));
   --display:var(--k-display,"Shippori Mincho",Georgia,serif);
   --ui:var(--k-sans,"Zen Maru Gothic",system-ui,sans-serif);
   --gutter:clamp(16px,3vw,40px);
-  --ease:var(--k-ease-settle,cubic-bezier(.2,0,0,1)); --spring:var(--k-spring,cubic-bezier(.34,1.45,.5,1));
+  --ease:var(--k-ease-settle,cubic-bezier(.2,.9,.25,1)); --spring:var(--k-spring,cubic-bezier(.38,1.21,.22,1));
   position:relative; height:calc(100dvh - 16px); margin:8px 8px 8px 0; border-radius:16px; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
   background:var(--bg); color:var(--fg); font-family:var(--ui); font-size:16px; line-height:1.45; -webkit-font-smoothing:antialiased;
 }
+:root[data-theme="dark"] .kp{--mark:color-mix(in srgb,var(--primary) 45%,var(--fg));--bleed:var(--mark)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .kp{--mark:color-mix(in srgb,var(--primary) 45%,var(--fg));--bleed:var(--mark)} }
 @media (max-width:759px){ .kp{ height:auto; min-height:100dvh; margin:0; border-radius:0; overflow:visible } }
 .kp *,.kp *::before,.kp *::after{box-sizing:border-box}
-.kp h1,.kp h2,.kp p{margin:0;letter-spacing:normal;color:inherit}
-.kp ol,.kp ul{list-style:none;margin:0;padding:0}
-.kp button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent;min-height:0;box-shadow:none}
-.kp button:disabled{cursor:default;opacity:.6}
-.kp :focus-visible{outline:3px solid var(--primary);outline-offset:3px;border-radius:12px}
+.kp :where(h1,h2,h3,p){margin:0;letter-spacing:normal;color:inherit;font-size:inherit;font-weight:inherit}
+.kp :where(ol,ul){list-style:none;margin:0;padding:0}
+.kp :where(button:not(.k-seal,.k-joint)){font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent;min-height:0;box-shadow:none}
+.kp :where(button:not(.k-seal,.k-joint)):disabled{cursor:default;opacity:.6}
+.kp :where(button:not(.k-seal,.k-joint)):focus-visible{outline:3px solid var(--mark);outline-offset:3px}
 .kp svg{display:block}
+.kp .kp-line{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* ───── top ───── */
 .kp .kp-top{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;
   padding:calc(env(safe-area-inset-top,0px) + 12px) var(--gutter) 12px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-.kp .kp-place{display:flex;align-items:center;gap:10px;min-width:0;max-width:60%;padding:8px 10px 8px 16px;border-radius:16px;background:var(--surface-2);transition:background .2s var(--ease)}
-.kp .kp-place:hover{background:var(--surface-3)}
-.kp .kp-place-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kp .kp-place-kind{flex:none;font-size:12px;color:var(--fg-2);border-left:1px solid var(--line);padding-left:10px}
-.kp .kp-chev{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kp .kp-round{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:16px;color:var(--fg-2);transition:background .2s var(--ease),color .2s,border-radius .3s var(--spring)}
+.kp .kp-round:hover{background:var(--surface-3);color:var(--fg);border-radius:24px}
 
-.kp .kp-main{width:min(760px,100%);margin:0 auto;padding:4px var(--gutter) 48px;display:grid;gap:16px}
+.kp .kp-main{width:min(1240px,100%);margin:0 auto;padding:4px var(--gutter) 48px;display:grid;gap:20px;align-items:start}
+.kp .kp-side{display:grid;gap:20px;min-width:0}
+@media (min-width:1080px){
+  .kp .kp-main{grid-template-columns:minmax(0,1.2fr) minmax(390px,.8fr)}
+  .kp .kp-main > .kp-sky{position:sticky;top:76px;min-height:min(700px,calc(100dvh - 116px))}
+}
+@media (max-width:1079px){ .kp .kp-main{width:min(760px,100%)} }
 
-/* ───── sky ───── */
-.kp .kp-sky{position:relative;border-radius:28px;overflow:hidden;padding:28px 28px 8px;background:var(--surface);isolation:isolate}
-.kp .kp-sky.kp-night{background:color-mix(in srgb,#0f1d22 86%,var(--primary));color:#f3ead2}
-.kp .kp-hero{position:relative;z-index:1}
-.kp .kp-date{font-size:14px;color:var(--fg-2)}
-.kp .kp-night .kp-date,.kp .kp-night .kp-now{color:color-mix(in srgb,#f3ead2 70%,transparent)}
-.kp .kp-title{font-family:var(--display);font-size:clamp(32px,6vw,52px);line-height:1.08;font-weight:600;margin-top:6px;font-variant-numeric:tabular-nums}
-.kp .kp-now{margin-top:6px;color:var(--fg-2);font-size:15px}
-.kp .kp-arc{width:100%;height:auto;margin-top:4px;overflow:visible}
-.kp .kp-arc path{fill:none;stroke-linecap:round}
-.kp .kp-path-day{stroke:color-mix(in srgb,currentColor 18%,transparent);stroke-width:2;stroke-dasharray:2 7}
-.kp .kp-path-lit{stroke:var(--primary);stroke-width:3;transition:stroke-dashoffset 1s var(--ease)}
-.kp .kp-horizon{stroke:color-mix(in srgb,currentColor 22%,transparent);stroke-width:1.5}
-.kp .kp-mark circle{fill:var(--surface);stroke:color-mix(in srgb,currentColor 45%,transparent);stroke-width:2}
-.kp .kp-mark text,.kp .kp-edge{font-size:13px;fill:var(--fg-2);font-family:var(--ui)}
-.kp .kp-night .kp-mark text,.kp .kp-night .kp-edge{fill:color-mix(in srgb,#f3ead2 60%,transparent)}
-.kp .kp-night .kp-mark circle{fill:transparent}
-.kp .kp-mark-on circle{fill:var(--primary);stroke:var(--primary)}
-.kp .kp-mark-on text{fill:var(--fg);font-weight:600}
-.kp .kp-sun circle{fill:#e9a93a}
-.kp .kp-sun .kp-glow{fill:color-mix(in srgb,#e9a93a 22%,transparent);animation:kp-breathe 5s ease-in-out infinite}
-.kp .kp-moon path{fill:var(--sand)}
-.kp .kp-moon .kp-glow{fill:color-mix(in srgb,var(--sand) 12%,transparent)}
-.kp .kp-night .kp-path-lit{stroke:var(--sand)}
-.kp .kp-night .kp-mark-on circle{fill:var(--sand);stroke:var(--sand)}
-.kp .kp-night .kp-mark-on text{fill:#f3ead2}
-.kp .kp-sun,.kp .kp-moon{transition:transform 1s var(--ease)}
-@keyframes kp-breathe{50%{transform:scale(1.25)}}
-@media (prefers-reduced-motion:reduce){.kp .kp-sun .kp-glow{animation:none}}
-
-.kp .kp-summary{color:var(--fg-2);font-size:14px;padding:0 8px}
+/* ───── sky ─────
+   The sky is the sky whatever the theme: pale by day, warm towards Maghrib,
+   plum at dusk and dawn, deep at night. Its land is the same colour, shaded. */
+.kp .kp-sky{
+  --sky:light-dark(#d5e6e3,#2a4d55); --sky-ink:light-dark(#1d2b2c,#f3ecdc); --shade:light-dark(#2c4747,#0a181c); --cloud:light-dark(#ffffff,#9fc0c2);
+  --sand:#f1e3b9; --on-land:#f6efdf;
+  position:relative;display:flex;flex-direction:column;border-radius:28px;overflow:hidden;isolation:isolate;
+  background:var(--sky);color:var(--sky-ink);transition:background 1.6s var(--ease),color 1.6s var(--ease)}
+.kp .kp-gold{--sky:light-dark(#f2dfb8,#5c4630); --sky-ink:light-dark(#2f2414,#f6ecd8); --shade:light-dark(#4d3a22,#150e08); --cloud:light-dark(#fff6e2,#c9a877)}
+.kp .kp-dusk{--sky:#412d47; --sky-ink:#f6e9d6; --shade:#0d070f}
+.kp .kp-dawn{--sky:#3c3554; --sky-ink:#f6e9d6; --shade:#0b0914}
+.kp .kp-night{--sky:#0f1f28; --sky-ink:#f3ead2; --shade:#03080b}
+.kp .kp-hero{position:relative;z-index:1;padding:clamp(22px,3vw,34px) clamp(20px,3vw,36px) 0}
+/* The place names the sky, and opens the switcher. */
+.kp .kp-place{display:inline-flex;align-items:center;gap:6px;max-width:100%;height:40px;margin:0 0 14px -6px;padding:0 8px 0 14px;border-radius:12px;font-weight:700;
+  background:color-mix(in srgb,var(--sky-ink) 10%,transparent);transition:background .2s var(--ease)}
+.kp .kp-place:hover{background:color-mix(in srgb,var(--sky-ink) 18%,transparent)}
+.kp .kp-place span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kp .kp-sky .kp-place:focus-visible{outline-color:var(--sky-ink)}
+.kp .kp-date{display:flex;flex-wrap:wrap;gap:2px 0;font-size:15px;font-weight:600;color:color-mix(in srgb,var(--sky-ink) 72%,transparent)}
+.kp .kp-date span + span::before{content:"·";margin:0 8px}
+.kp .kp-title{font-family:var(--display);font-size:clamp(36px,5.4vw,64px);line-height:1.06;font-weight:600;margin-top:8px;font-variant-numeric:tabular-nums;text-wrap:balance}
+.kp .kp-now{margin-top:10px;font-size:17px;color:color-mix(in srgb,var(--sky-ink) 78%,transparent)}
+.kp .kp-scene{flex:1;min-height:260px;position:relative;touch-action:pan-y}
+@media (min-width:760px){ .kp .kp-scene{min-height:340px} }
+.kp .kp-art{position:absolute;inset:0;cursor:crosshair}
+.kp .kp-art path{stroke-linecap:round;stroke-linejoin:round}
+.kp .kp-stars circle{fill:var(--sky-ink)}
+.kp .kp-dusk .kp-stars,.kp .kp-dawn .kp-stars{opacity:.45}
+.kp .kp-twinkle{animation:kp-twinkle 4.5s ease-in-out infinite}
+.kp .kp-clouds path{fill:var(--cloud);opacity:.5}
+.kp .kp-far{fill:color-mix(in srgb,var(--sky) 80%,var(--shade))}
+.kp .kp-near{fill:color-mix(in srgb,var(--sky) 24%,var(--shade))}
+.kp .kp-ridge{fill:var(--shade);opacity:.55}
+.kp .kp-mosque path{fill:color-mix(in srgb,var(--sky) 8%,var(--shade))}
+.kp .kp-mosque .kp-finial{fill:none;stroke:color-mix(in srgb,var(--sky) 8%,var(--shade));stroke-width:2}
+.kp .kp-mosque .kp-lamp{fill:color-mix(in srgb,var(--sky) 55%,var(--shade))}
+.kp .kp-night .kp-lamp,.kp .kp-dusk .kp-lamp,.kp .kp-dawn .kp-lamp{fill:#f0b95c}
+.kp .kp-path{fill:none;stroke:color-mix(in srgb,var(--sky-ink) 34%,transparent);stroke-width:2;stroke-dasharray:1 8}
+.kp .kp-lit{fill:#e3a13a}
+.kp .kp-mark circle{fill:var(--sky);stroke:color-mix(in srgb,var(--sky-ink) 62%,transparent);stroke-width:2}
+.kp .kp-mark text,.kp .kp-edge,.kp .kp-scrub text{font-size:13px;font-weight:600;font-family:var(--ui);fill:color-mix(in srgb,var(--sky-ink) 74%,transparent)}
+.kp .kp-mark-on circle{fill:var(--sky-ink);stroke:var(--sky-ink)}
+.kp .kp-mark-on text{fill:var(--sky-ink);font-weight:700}
+.kp .kp-edge{fill:color-mix(in srgb,var(--on-land) 78%,transparent)}
+.kp .kp-edge tspan{fill:var(--on-land);font-weight:700;font-variant-numeric:tabular-nums}
+.kp .kp-sun .kp-halo{fill:color-mix(in srgb,#eeb04a 26%,transparent);transform-box:fill-box;transform-origin:center;animation:kp-breathe 6s ease-in-out infinite}
+.kp .kp-enso{fill:none;stroke:#b86a1c;stroke-width:2.4;opacity:.85}
+.kp .kp-moon .kp-halo{fill:color-mix(in srgb,var(--sand) 10%,transparent)}
+.kp .kp-moon-dark{fill:color-mix(in srgb,var(--sand) 16%,var(--sky))}
+.kp .kp-moon-lit{fill:var(--sand)}
+.kp .kp-dusk .kp-lit,.kp .kp-dawn .kp-lit,.kp .kp-night .kp-lit{fill:var(--sand)}
+.kp .kp-scrub{pointer-events:none}
+.kp .kp-scrub path{fill:none;stroke:color-mix(in srgb,var(--sky-ink) 40%,transparent);stroke-width:1.5;stroke-dasharray:2 5}
+.kp .kp-scrub circle{fill:var(--sky-ink)}
+.kp .kp-scrub text{fill:var(--sky-ink);font-weight:700;font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--sky);stroke-width:5px;stroke-linejoin:round}
+@keyframes kp-breathe{50%{transform:scale(1.22)}}
+@keyframes kp-twinkle{50%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){.kp .kp-sun .kp-halo,.kp .kp-twinkle{animation:none}}
 
 /* ───── prayers ───── */
-.kp .kp-card{border-radius:24px;background:var(--surface);padding:8px}
-.kp .kp-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;transition:background .3s var(--ease),opacity .3s}
-.kp .kp-icon{width:22px;height:22px;flex:none;fill:none;stroke:var(--fg-2);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.kp .kp-row-text{display:grid;flex:1;min-width:0}
-.kp .kp-name{font-size:17px}
-.kp .kp-sub{font-size:13px;color:var(--fg-2)}
-.kp .kp-detail{font-size:13px;color:var(--fg-2)}
-.kp .kp-iqama{font-size:13px;color:var(--fg-2);font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
-.kp .kp-time{font-weight:600;font-variant-numeric:tabular-nums;min-width:56px;text-align:right}
-.kp .kp-current{background:var(--tint)}
-.kp .kp-current .kp-icon{stroke:var(--primary)}
-.kp .kp-current .kp-name,.kp .kp-next .kp-name{font-weight:650}
+.kp .kp-card{border-radius:28px;background:var(--surface);padding:10px}
+.kp .kp-rows{display:grid;gap:2px}
+.kp .kp-row{display:flex;align-items:center;gap:16px;min-height:76px;padding:12px 18px 12px 14px;border-radius:20px;transition:background .3s var(--ease),opacity .3s}
+.kp .kp-blot{color:var(--k-on-wash,#4e2b37)}
+.kp .kp-row-text{display:grid;justify-items:start;gap:3px;flex:1;min-width:0}
+.kp .kp-name{font-family:var(--display);font-size:22px;line-height:1.15;font-weight:600}
+.kp .kp-sub{font-size:14px;color:var(--fg-2)}
+.kp .kp-row-times{display:grid;justify-items:end;gap:1px;flex:none}
+.kp .kp-time{font-family:var(--display);font-size:25px;line-height:1.15;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kp .kp-iqama{font-size:13px;color:var(--fg-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 /* The countdown sits on a stamped plate, not a pill. */
-.kp .kp-chip{font-size:13px;font-weight:650;padding:3px 9px;border-radius:8px;background:var(--surface-3);color:var(--fg);font-variant-numeric:tabular-nums}
-.kp .kp-past{opacity:.5}
-.kp .kp-jumua{display:flex;gap:12px;align-items:center;padding:10px 14px 12px 48px;color:var(--fg-2);font-size:14px;border-top:1px solid var(--line);margin-top:4px}
-.kp .kp-jumua b{color:var(--fg);font-variant-numeric:tabular-nums}
+.kp .kp-plate{font-size:13px;font-weight:700;line-height:1.3;padding:3px 9px;border-radius:8px;background:var(--primary);color:var(--on-primary);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kp .kp-current{background:var(--tint);color:var(--fg)}
+.kp .kp-current .kp-sub{color:var(--mark);font-weight:650}
+.kp .k-ink-card-line{color:var(--mark)}
+.kp .kp-past{opacity:.48}
+.kp .kp-jumua{margin-top:8px;border-radius:0 0 20px 20px;border-top:1px solid var(--line);min-height:68px}
+.kp .kp-jumua .kp-name{flex:1}
+.kp .kp-jumua-times{display:flex;gap:16px}
+.kp .kp-jumua .kp-time{font-size:21px}
+.kp .kp-later{padding:10px 18px 10px;color:var(--fg-2);font-size:14px;text-align:center}
 
-.kp .kp-night-card{padding:16px 22px 14px}
-.kp .kp-night-card h2,.kp .kp-sheet-h{font-size:13px;font-weight:600;color:var(--fg-2);margin-bottom:6px}
-.kp .kp-night-card li{display:flex;align-items:center;gap:12px;padding:6px 0;color:var(--fg-2);font-size:15px}
-.kp .kp-night-card li > span:first-child{flex:1}
-.kp .kp-night-card li.kp-on{color:var(--fg);font-weight:600}
-.kp .kp-in{color:var(--primary);font-size:13px}
-.kp .kp-passed{font-size:13px}
-
-/* ───── settings ───── */
-.kp .kp-settings{padding:8px 22px}
-.kp .kp-set{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;flex-wrap:wrap}
-.kp .kp-set + .kp-set{border-top:1px solid var(--line)}
-.kp .kp-seg{display:flex;padding:3px;border-radius:12px;background:var(--surface-2)}
-.kp .kp-seg button{padding:6px 12px;border-radius:9px;font-size:14px;color:var(--fg-2);transition:background .2s,color .2s}
-.kp .kp-seg button.kp-on{background:var(--surface);color:var(--fg);font-weight:600}
-.kp .kp-switch{appearance:none;width:44px;height:26px;border-radius:13px;background:var(--surface-3);position:relative;cursor:pointer;transition:background .2s;margin:0}
-.kp .kp-switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--fg-2);transition:transform .3s var(--spring),background .2s}
-.kp .kp-switch:checked{background:var(--primary)}
-.kp .kp-switch:checked::after{transform:translateX(18px);background:var(--on-primary)}
-.kp .kp-menubar{padding:8px 0}
-.kp .kp-link{display:flex;gap:8px;flex-wrap:wrap}
-
-/* Buttons: a squared seal, not a pill. */
-.kp .kp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:12px;font-size:14px;font-weight:600;text-decoration:none;transition:background .2s,transform .2s var(--spring)}
-.kp .kp-btn:active{transform:scale(.97)}
-.kp .kp-filled{background:var(--primary);color:var(--on-primary)}
-.kp .kp-tonal{background:var(--surface-2);color:var(--fg)}
-.kp .kp-tonal:hover{background:var(--surface-3)}
-.kp .kp-text{color:var(--primary)}
+/* ───── night & sunrise ───── */
+.kp .kp-h{font-size:14px;font-weight:700;color:var(--fg-2);padding:0 8px;margin-bottom:10px}
+.kp .kp-nights ul{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.kp .kp-tile{display:grid;justify-items:start;align-content:start;gap:4px;padding:16px 16px 18px;border-radius:24px;background:var(--surface);color:var(--fg-2);transition:background .3s var(--ease)}
+.kp .kp-tile .kp-line{margin-bottom:6px}
+.kp .kp-tile-name{font-size:14px;font-weight:600;line-height:1.25;min-height:2.5em;display:flex;align-items:flex-end}
+.kp .kp-tile .kp-time{color:var(--fg)}
+.kp .kp-tile .kp-plate{margin-top:4px}
+.kp .kp-tile.kp-on{background:var(--tint);color:var(--mark)}
 .kp .kp-note{color:var(--fg-2);font-size:14px;padding:4px 8px}
 
-.kp .kp-empty{min-height:60vh;display:grid;place-content:center;justify-items:center;gap:14px;color:var(--fg-2)}
-.kp .kp-welcome{min-height:70vh;display:grid;place-content:center;justify-items:center;gap:18px;text-align:center;padding:24px}
-.kp .kp-welcome h1{font-family:var(--display);font-size:clamp(26px,4vw,36px)}
-.kp .kp-welcome-mark{width:96px;height:96px;fill:none;stroke:var(--primary);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.kp .kp-empty{min-height:60vh;display:grid;place-content:center;justify-items:center;gap:16px;color:var(--fg-2)}
+.kp .kp-welcome{min-height:70vh;display:grid;place-content:center;justify-items:center;gap:22px;text-align:center;padding:24px}
+.kp .kp-welcome h1{font-family:var(--display);font-size:clamp(28px,4vw,40px);font-weight:600}
+.kp .kp-welcome-mark{width:112px;height:112px}
+.kp .kp-welcome-mark .kp-line{width:48px;height:48px;stroke-width:1.4}
 
-/* ───── the place sheet ───── */
+/* ───── sheets ─────
+   A sheet of paper, one step up from the page, with a wash of the app's
+   colour bled in from its top corner. */
 .kp .kp-scrim{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:rgb(0 0 0 / .45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:kp-fade .25s var(--ease)}
-.kp .kp-sheet{width:min(560px,100%);max-height:88vh;overflow-y:auto;background:var(--surface);border-radius:28px 28px 0 0;padding:20px 20px calc(env(safe-area-inset-bottom,0px) + 20px);display:grid;gap:12px;align-content:start;animation:kp-up .45s var(--spring)}
-@media (min-width:760px){ .kp .kp-scrim{align-items:center} .kp .kp-sheet{border-radius:28px} }
-.kp .kp-search{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:16px;background:var(--surface-2)}
-.kp .kp-search svg{width:20px;height:20px;fill:none;stroke:var(--fg-2);stroke-width:2;stroke-linecap:round;flex:none}
+.kp .kp-sheet{--sheet:var(--k-container-low);position:relative;isolation:isolate;overflow:hidden;width:min(520px,100%);max-height:88dvh;display:flex;flex-direction:column;outline:0;
+  background:var(--sheet);border-radius:28px 28px 0 0;box-shadow:var(--k-shadow-raised,0 16px 40px -12px rgb(0 0 0 / .4));animation:kp-up .5s var(--spring)}
+@media (min-width:760px){ .kp .kp-scrim{align-items:center;padding:32px} .kp .kp-sheet{border-radius:28px} }
+.kp .kp-bleed{position:absolute;top:0;left:0;width:min(90%,460px);aspect-ratio:1;z-index:-1;pointer-events:none;overflow:visible}
+.kp .kp-bleed-0{stop-color:color-mix(in srgb,var(--bleed) 6%,var(--sheet))}
+.kp .kp-bleed-1{stop-color:color-mix(in srgb,var(--bleed) 13%,var(--sheet))}
+.kp .kp-bleed-2{stop-color:color-mix(in srgb,var(--bleed) 22%,var(--sheet))}
+.kp .kp-bleed-3{stop-color:color-mix(in srgb,var(--bleed) 32%,var(--sheet))}
+.kp .kp-sheet-body{overflow-y:auto;overscroll-behavior:contain;padding:24px 24px calc(env(safe-area-inset-bottom,0px) + 24px);display:grid;gap:14px;align-content:start}
+.kp .kp-sheet-top{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.kp .kp-sheet-top h2{flex:1;font-family:var(--display);font-size:26px;line-height:1.15;font-weight:600;color:var(--k-plum,var(--fg))}
+.kp .kp-sheet-top .kp-round{margin:-4px -8px -4px 0}
+.kp .kp-sheet .kp-h{padding:0;margin:8px 0 -4px}
+
+.kp .kp-set{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;min-height:56px;flex-wrap:wrap}
+.kp .kp-set-name{font-weight:600}
+/* Two plates side by side; the chosen one is inked. */
+.kp .kp-pick{display:flex;gap:6px}
+.kp .kp-pick button{height:40px;padding:0 14px;border-radius:10px;background:var(--surface-3);color:var(--fg-2);font-size:14px;font-weight:650;transition:background .2s var(--ease),color .2s}
+.kp .kp-pick button[aria-checked="true"]{background:var(--primary);color:var(--on-primary)}
+.kp .kp-menubar{border-top:1px solid var(--line);padding-top:14px;margin-top:2px}
+.kp .kp-link{display:flex;gap:10px;flex-wrap:wrap}
+
+.kp .kp-find{display:flex;gap:10px;flex-wrap:wrap}
+.kp .kp-search{flex:1 1 240px;display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:16px;background:var(--surface-3);color:var(--fg-2);transition:box-shadow .2s}
+.kp .kp-search:focus-within{box-shadow:0 0 0 2px var(--mark)}
 .kp .kp-search input{flex:1;min-width:0;border:0;background:none;outline:0;font:inherit;color:var(--fg)}
-.kp .kp-here{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;color:var(--primary);font-weight:600}
-.kp .kp-here:hover{background:var(--surface-2)}
-.kp .kp-here svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
-.kp .kp-results{display:grid;gap:4px}
-.kp .kp-result{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;transition:background .2s}
-.kp .kp-result:hover{background:var(--surface-2)}
+.kp .kp-search input::placeholder{color:var(--fg-2);opacity:.8}
+.kp .kp-find .k-seal{min-height:52px;border-radius:16px}
+.kp .kp-results{display:grid;gap:2px;margin:0 -10px}
+.kp .kp-result{width:100%;display:flex;align-items:center;gap:14px;padding:10px 14px 10px 10px;border-radius:18px;transition:background .2s var(--ease)}
+.kp .kp-result:hover{background:color-mix(in srgb,var(--fg) 6%,transparent)}
 .kp .kp-result.kp-on{background:var(--tint)}
+.kp .kp-result > .kp-line{color:var(--mark);stroke-width:2.4}
 .kp .kp-result-text{flex:1;min-width:0;display:grid}
-.kp .kp-result-text b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kp .kp-result-text b{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kp .kp-result-text small{font-size:13px;color:var(--fg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kp .kp-result-kind{font-size:12px;color:var(--fg-2);flex:none}
 @keyframes kp-fade{from{opacity:0}}
-@keyframes kp-up{from{transform:translateY(40px);opacity:0}}
+@keyframes kp-up{from{transform:translateY(48px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.kp .kp-scrim,.kp .kp-sheet{animation:none}}
 
 @media (max-width:520px){
-  .kp .kp-sky{padding:22px 18px 4px;border-radius:24px}
-  .kp .kp-detail{display:none}
-  .kp .kp-place{max-width:70%}
+  .kp .kp-main{gap:14px}
+  .kp .kp-side{gap:16px}
+  .kp .kp-sky,.kp .kp-card{border-radius:24px}
+  .kp .kp-row{gap:12px;padding:10px 14px 10px 10px;min-height:70px}
+  .kp .kp-name{font-size:20px}
+  .kp .kp-time{font-size:22px}
+  .kp .kp-nights ul{gap:8px}
+  .kp .kp-tile{padding:14px 12px 16px;border-radius:20px}
+  .kp .kp-tile .kp-time{font-size:20px}
+  .kp .kp-sheet-body{padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 20px)}
 }
