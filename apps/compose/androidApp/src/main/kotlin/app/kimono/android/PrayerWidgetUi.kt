@@ -122,7 +122,12 @@ class WidgetColours(
     val face: FontFamily? = null,
     /** The open prayer is marked with an accent dot rather than a tinted row (Nothing). */
     val dot: Boolean = false,
-)
+    /** The accent and the ink as plain colours, by day and by night, for what's painted rather than laid out (the sky). */
+    val paint: (night: Boolean) -> Pair<Color, Color> = { Color(0xFF2F5D62) to Color.Black },
+) {
+    /** The face for the countdown: Times' Mincho isn't on the phone, so the system's serif stands in; Nothing keeps its monospace. */
+    val display: FontFamily get() = face ?: FontFamily.Serif
+}
 
 private typealias Tone = app.kimono.prayer.LookTone
 
@@ -180,7 +185,89 @@ fun widgetColours(context: Context, options: WidgetOptions, appearance: String):
         onChip = pair(accentDay.onChip, accentNight.onChip),
         face = if (nothing) FontFamily.Monospace else null,
         dot = nothing,
+        paint = { dark -> if (dark) accentNight.accent to night.ink else accentDay.accent to day.ink },
     )
+}
+
+/* ── The sky, painted ── */
+
+/** Whether the widget draws by night, as Kimono's own light or dark says. */
+private fun nightFor(context: Context, appearance: String): Boolean = when (appearance) {
+    "dark" -> true
+    "light" -> false
+    else -> (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+}
+
+/**
+ * The day's arc, as the Times screen paints it but small: dotted from sunrise
+ * to Maghrib (or Maghrib to sunrise by night), inked in brush as far as now,
+ * the sun or a crescent where we are, over a soft horizon. A widget can't draw
+ * shapes of its own, so this is a picture, made again each minute.
+ */
+private fun skyBitmap(view: ScheduleView, accent: Color, ink: Color, w: Int, h: Int): android.graphics.Bitmap {
+    val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val sunrise = view.today[1].start
+    val maghrib = view.today[4].start
+    val daytime = view.now >= sunrise && view.now < maghrib
+    val (from, to) = if (daytime) sunrise to maghrib else view.milestones.maghrib to view.milestones.sunrise
+    val f = ((view.now - from) / (to - from)).toFloat().coerceIn(0f, 1f)
+    val pad = h * .14f
+    val base = h * .86f
+    val lift = base - h * .16f
+    fun at(x: Float) = android.graphics.PointF(pad + x * (w - 2 * pad), base - kotlin.math.sin(x * Math.PI).toFloat() * lift)
+    fun argb(c: Color, a: Float = c.alpha) = android.graphics.Color.argb((a * 255).toInt(), (c.red * 255).toInt(), (c.green * 255).toInt(), (c.blue * 255).toInt())
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { strokeCap = android.graphics.Paint.Cap.ROUND; style = android.graphics.Paint.Style.STROKE }
+    /* The horizon. */
+    paint.color = argb(ink, .22f); paint.strokeWidth = h * .018f
+    canvas.drawLine(0f, base, w.toFloat(), base, paint)
+    /* The whole way, dotted. */
+    paint.color = argb(ink, .3f); paint.strokeWidth = h * .022f
+    paint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(1f, h * .07f), 0f)
+    val whole = android.graphics.Path().apply { (0..80).forEach { i -> val p = at(i / 80f); if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) } }
+    canvas.drawPath(whole, paint)
+    paint.pathEffect = null
+    /* As far as the day has come, in brush: a stroke that swells and tapers. */
+    val steps = kotlin.math.max(2, (f * 80).toInt())
+    val warm = if (daytime) Color(0xFFE3A13A) else Color(0xFFF1E3B9)
+    for (i in 1..steps) {
+        val a = at(f * (i - 1) / steps); val b = at(f * i / steps)
+        val t = i / steps.toFloat()
+        paint.color = argb(warm, .95f)
+        paint.strokeWidth = h * (.02f + .028f * kotlin.math.sin(t * Math.PI).toFloat())
+        canvas.drawLine(a.x, a.y, b.x, b.y, paint)
+    }
+    /* The sun, or a crescent by night. */
+    val body = at(f)
+    val r = h * .1f
+    val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    if (daytime) {
+        fill.color = argb(Color(0xFFEEB04A), .28f); canvas.drawCircle(body.x, body.y, r * 2.1f, fill)
+        fill.color = argb(Color(0xFFEEB04A)); canvas.drawCircle(body.x, body.y, r, fill)
+    } else {
+        fill.color = argb(Color(0xFFF1E3B9), .14f); canvas.drawCircle(body.x, body.y, r * 2f, fill)
+        val moon = android.graphics.Path().apply {
+            addCircle(body.x, body.y, r, android.graphics.Path.Direction.CW)
+            op(android.graphics.Path().apply { addCircle(body.x + r * .5f, body.y - r * .3f, r * .85f, android.graphics.Path.Direction.CW) }, android.graphics.Path.Op.DIFFERENCE)
+        }
+        fill.color = argb(Color(0xFFF1E3B9)); canvas.drawPath(moon, fill)
+    }
+    /* The open prayer's start, marked. */
+    fill.color = argb(accent)
+    listOf(view.today[2], view.today[3]).filter { daytime }.forEach { p ->
+        val x = ((p.start - from) / (to - from)).toFloat().coerceIn(0f, 1f)
+        val m = at(x)
+        canvas.drawCircle(m.x, m.y, h * .035f, fill)
+    }
+    return bitmap
+}
+
+@Composable
+private fun Sky(scene: WidgetScene, view: ScheduleView, modifier: GlanceModifier, w: Int = 420, h: Int = 150) {
+    val context = LocalContext.current
+    val appearance by PrayerWidgets.appearance.collectAsState()
+    val (accent, ink) = scene.colours.paint(nightFor(context, appearance))
+    Image(ImageProvider(skyBitmap(view, accent, ink, w, h)), contentDescription = null, modifier = modifier)
 }
 
 /* ── The three widgets ── */
@@ -215,7 +302,24 @@ abstract class PrayerWidget : GlanceAppWidget() {
     @Composable abstract fun Draw(scene: WidgetScene)
 }
 
-/** Small: the countdown, written large, with the open prayer beneath it. */
+
+/** The countdown, as the screen says it: the prayer's name large, how long beneath it in the accent. */
+@Composable
+private fun Countdown(scene: WidgetScene, view: ScheduleView, big: Int, small: Int) {
+    val c = scene.colours
+    val s = scene.options.scale
+    val (what, howLong) = Presentation.titleParts(view, scene.options.mode)
+    Text(what, maxLines = 1, style = TextStyle(color = c.ink, fontSize = (big * s).sp, fontWeight = FontWeight.Bold, fontFamily = c.display))
+    Text(howLong, maxLines = 1, style = TextStyle(color = if (c.dot) c.muted else c.accent, fontSize = (small * s).sp, fontWeight = FontWeight.Medium, fontFamily = c.face))
+}
+
+/** A quiet line: the place, and what else the day holds. */
+@Composable
+private fun Small(text: String, scene: WidgetScene, modifier: GlanceModifier = GlanceModifier) {
+    Text(text, maxLines = 1, style = TextStyle(color = scene.colours.muted, fontSize = (11 * scene.options.scale).sp), modifier = modifier)
+}
+
+/** Small: the countdown over the day's sky, with the open prayer beneath it. */
 class NextPrayerWidget : PrayerWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(DpSize(110.dp, 48.dp), DpSize(110.dp, 110.dp), DpSize(200.dp, 110.dp)))
 
@@ -223,125 +327,80 @@ class NextPrayerWidget : PrayerWidget() {
         val size = LocalSize.current
         Frame(scene) {
             val view = scene.view ?: return@Frame Empty(scene)
-            val c = scene.colours
-            val s = scene.options.scale
-            val (what, howLong) = Presentation.titleParts(view, scene.options.mode)
             if (size.height < 90.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.fillMaxSize()) {
-                    Mark(c, 18)
-                    Spacer(GlanceModifier.width(8.dp))
-                    Column {
-                        Text(what, maxLines = 1, style = TextStyle(color = c.ink, fontSize = (17 * s).sp, fontWeight = FontWeight.Bold, fontFamily = c.face))
-                        Text(howLong, maxLines = 1, style = TextStyle(color = c.accent, fontSize = (13 * s).sp, fontWeight = FontWeight.Medium))
-                    }
-                }
+                Column(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) { Countdown(scene, view, 18, 13) }
                 return@Frame
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Mark(c, 16)
-                Spacer(GlanceModifier.width(6.dp))
-                Text(scene.mine?.place?.name ?: "", maxLines = 1, style = TextStyle(color = c.muted, fontSize = (11 * s).sp))
-            }
+            Small(scene.mine?.place?.name ?: "", scene)
             Spacer(GlanceModifier.defaultWeight())
-            Text(what, maxLines = 1, style = TextStyle(color = c.ink, fontSize = (30 * s).sp, fontWeight = FontWeight.Bold, fontFamily = c.face))
-            Text(howLong, maxLines = 1, style = TextStyle(color = if (c.dot) c.muted else c.accent, fontSize = (16 * s).sp, fontWeight = FontWeight.Medium, fontFamily = c.face))
-            Spacer(GlanceModifier.height(8.dp))
-            val current = view.current
-            val next = view.next
-            if (current != null) {
-                Row(GlanceModifier.fillMaxWidth().background(c.tint).cornerRadius(10.dp).padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (c.dot) Text("● ", maxLines = 1, style = TextStyle(color = c.accent, fontSize = (12 * s).sp))
-                    Text(current.name, maxLines = 1, style = TextStyle(color = if (c.dot) c.ink else c.accent, fontSize = (12 * s).sp, fontWeight = FontWeight.Bold))
-                    Spacer(GlanceModifier.defaultWeight())
-                    Text(current.end?.let { "until ${Presentation.clock(ScheduleBuilder.time(it, view.timezone), scene.h24)}" } ?: "", maxLines = 1, style = TextStyle(color = c.muted, fontSize = (12 * s).sp))
-                }
-            } else if (next != null) {
-                Text("${next.name} at ${Presentation.clock(next.time, scene.h24)}", maxLines = 1, style = TextStyle(color = c.muted, fontSize = (12 * s).sp))
-            }
+            Countdown(scene, view, 28, 15)
+            Spacer(GlanceModifier.height(6.dp))
+            Sky(scene, view, GlanceModifier.fillMaxWidth().height(38.dp), 420, 110)
         }
     }
 }
 
-/** Medium and large: today's five, the open one tinted, the next with its countdown, the past ones faded. */
+/** Medium and large: the countdown and the day's sky, then the five prayers side by side. */
 class TodayPrayerWidget : PrayerWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(DpSize(180.dp, 110.dp), DpSize(250.dp, 180.dp), DpSize(250.dp, 270.dp), DpSize(320.dp, 300.dp)))
+    override val sizeMode = SizeMode.Responsive(setOf(DpSize(180.dp, 110.dp), DpSize(250.dp, 150.dp), DpSize(250.dp, 220.dp), DpSize(320.dp, 260.dp)))
 
     @Composable override fun Draw(scene: WidgetScene) {
         val size = LocalSize.current
-        Frame(scene) {
+        Frame(scene, vertical = 14) {
             val view = scene.view ?: return@Frame Empty(scene)
-            val c = scene.colours
-            val s = scene.options.scale
-            val tight = size.height < 150.dp
-            val wide = size.width >= 230.dp
-            val (what, howLong) = Presentation.titleParts(view, scene.options.mode)
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Mark(c, if (tight) 14 else 18)
-                Spacer(GlanceModifier.width(6.dp))
-                Text(what, maxLines = 1, style = TextStyle(color = c.ink, fontSize = ((if (tight) 14 else 19) * s).sp, fontWeight = FontWeight.Bold, fontFamily = c.face))
-                Spacer(GlanceModifier.width(6.dp))
-                Text(howLong, maxLines = 1, style = TextStyle(color = c.accent, fontSize = ((if (tight) 12 else 14) * s).sp, fontWeight = FontWeight.Medium))
-                Spacer(GlanceModifier.defaultWeight())
-                if (wide && !tight) Text(scene.mine?.place?.name ?: "", maxLines = 1, style = TextStyle(color = c.faint, fontSize = (11 * s).sp, textAlign = TextAlign.End))
+            val tight = size.height < 140.dp
+            val tall = size.height >= 210.dp
+            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                Column(GlanceModifier.defaultWeight()) {
+                    if (!tight) Small(scene.mine?.place?.name ?: "", scene)
+                    Countdown(scene, view, if (tight) 20 else 26, if (tight) 13 else 15)
+                }
+                if (size.width >= 230.dp) Sky(scene, view, GlanceModifier.width(if (tight) 96.dp else 120.dp).height(if (tight) 40.dp else 50.dp), 360, 150)
             }
-            Spacer(GlanceModifier.height(if (tight) 2.dp else 8.dp))
-            val iqama = scene.options.iqama && wide && view.today.any { it.iqama != null }
-            /* Glance holds at most ten in a column: the five go in one of their own. */
-            Column(GlanceModifier.fillMaxWidth()) { Presentation.displayPrayers(view).forEach { prayer -> PrayerLine(prayer, view, scene, tight, wide, iqama) } }
-            if (view.jumua.isNotEmpty() && !tight) {
-                Text("Jumu'a ${view.jumua.joinToString(" · ") { Presentation.clock(it, scene.h24) }}", maxLines = 1,
-                    style = TextStyle(color = c.muted, fontSize = (11 * s).sp), modifier = GlanceModifier.padding(start = 8.dp, top = 2.dp))
-            }
-            if (scene.options.night && size.height >= 250.dp) {
-                Spacer(GlanceModifier.height(8.dp))
+            Spacer(GlanceModifier.height(if (tight) 6.dp else 12.dp))
+            Strip(scene, view, iqama = scene.options.iqama && !tight && view.today.any { it.iqama != null })
+            if (tall) {
+                Spacer(GlanceModifier.height(10.dp))
                 val m = view.milestones
-                Column(GlanceModifier.fillMaxWidth()) { listOf(Triple("Islamic midnight", m.midnight, NightPhase.Midnight), Triple("Last third", m.lastThird, NightPhase.LastThird), Triple("Sunrise", m.sunrise, NightPhase.Sunrise)).forEach { (title, at, phase) ->
-                    val on = m.phase == phase
-                    val note = Presentation.milestoneDetail(phase, at, view)
-                    Row(GlanceModifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(title, maxLines = 1, style = TextStyle(color = if (on) c.ink else c.muted, fontSize = (12 * s).sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal))
-                        Spacer(GlanceModifier.defaultWeight())
-                        if (note != null) Text(note, maxLines = 1, style = TextStyle(color = if (on) c.accent else c.faint, fontSize = (11 * s).sp), modifier = GlanceModifier.padding(end = 8.dp))
-                        Text(Presentation.clock(ScheduleBuilder.time(at, view.timezone), scene.h24), maxLines = 1, style = TextStyle(color = if (on) c.ink else c.muted, fontSize = (12 * s).sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal))
-                    }
-                } }
+                val clock = { at: kotlin.time.Instant -> Presentation.clock(ScheduleBuilder.time(at, view.timezone), scene.h24).removeSuffix(" AM").removeSuffix(" PM") }
+                val bits = buildList {
+                    if (view.jumua.isNotEmpty()) add("Jumu'a ${view.jumua.joinToString(" · ") { Presentation.clock(it, scene.h24).removeSuffix(" AM").removeSuffix(" PM") }}")
+                    if (scene.options.night) { add("Midnight ${clock(m.midnight)}"); add("Last third ${clock(m.lastThird)}") }
+                }
+                if (bits.isNotEmpty()) Small(bits.joinToString("  ·  "), scene, GlanceModifier.fillMaxWidth().padding(horizontal = 4.dp))
+            } else if (view.jumua.isNotEmpty() && !tight) {
+                Spacer(GlanceModifier.height(6.dp))
+                Small("Jumu'a ${view.jumua.joinToString(" · ") { Presentation.clock(it, scene.h24) }}", scene, GlanceModifier.padding(start = 4.dp))
             }
         }
     }
 
-    @Composable private fun PrayerLine(prayer: Prayer, view: ScheduleView, scene: WidgetScene, tight: Boolean, wide: Boolean, iqama: Boolean) {
+    /** The five side by side: name, adhan, iqama. The open one sits on a plate; the next is inked; the past ones fade. */
+    @Composable private fun Strip(scene: WidgetScene, view: ScheduleView, iqama: Boolean) {
         val c = scene.colours
         val s = scene.options.scale
-        val current = prayer.id == view.current?.id
-        val next = prayer.id == view.next?.id
-        val past = prayer.end?.let { it <= view.now } ?: false
-        val ink = if (past) c.faint else c.ink
-        val size = ((if (tight) 12 else 14) * s).sp
-        var row = GlanceModifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = if (tight) 1.dp else 4.dp)
-        if (current) row = GlanceModifier.fillMaxWidth().background(c.tint).cornerRadius(10.dp).padding(horizontal = 8.dp, vertical = if (tight) 1.dp else 4.dp)
-        Row(row, verticalAlignment = Alignment.CenterVertically) {
-            if (current && c.dot) Text("● ", maxLines = 1, style = TextStyle(color = c.accent, fontSize = size))
-            Text(prayer.name, maxLines = 1, style = TextStyle(color = if (current && !c.dot) c.accent else ink, fontSize = size, fontWeight = if (current || next) FontWeight.Bold else FontWeight.Normal))
-            if (current && wide && !tight) {
-                Text("  ${Presentation.currentDetail(prayer, view, scene.h24, scene.options.iqama).let { if (it.startsWith("Ends at ")) "until ${it.removePrefix("Ends at ")}" else it }}", maxLines = 1, style = TextStyle(color = c.muted, fontSize = (11 * s).sp))
-            }
-            Spacer(GlanceModifier.defaultWeight())
-            if (next) {
-                Box(GlanceModifier.background(c.chip).cornerRadius(8.dp).padding(horizontal = 6.dp, vertical = 1.dp)) {
-                    Text(Presentation.prayerDetail(prayer, view, scene.h24), maxLines = 1, style = TextStyle(color = c.onChip, fontSize = ((if (tight) 10 else 11) * s).sp, fontWeight = FontWeight.Bold))
+        Row(GlanceModifier.fillMaxWidth()) {
+            Presentation.displayPrayers(view).forEach { prayer ->
+                val current = prayer.id == view.current?.id
+                val next = prayer.id == view.next?.id
+                val past = prayer.end?.let { it <= view.now } ?: false
+                val ink = when { current || next -> c.ink; past -> c.faint; else -> c.ink }
+                var cell = GlanceModifier.defaultWeight().padding(vertical = 6.dp)
+                if (current && !c.dot) cell = GlanceModifier.defaultWeight().background(c.tint).cornerRadius(12.dp).padding(vertical = 6.dp)
+                Column(cell, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text((if (current && c.dot) "● " else "") + prayer.name, maxLines = 1,
+                        style = TextStyle(color = if (next || current) c.accent else if (past) c.faint else c.muted, fontSize = (11 * s).sp, fontWeight = if (next || current) FontWeight.Bold else FontWeight.Medium, textAlign = TextAlign.Center))
+                    Text(Presentation.clock(prayer.time, scene.h24).removeSuffix(" AM").removeSuffix(" PM"), maxLines = 1,
+                        style = TextStyle(color = ink, fontSize = (17 * s).sp, fontWeight = if (next || current) FontWeight.Bold else FontWeight.Medium, fontFamily = c.face, textAlign = TextAlign.Center))
+                    if (iqama) Text(prayer.iqamaAfter?.let { "+$it" } ?: prayer.iqama?.let { Presentation.clock(it, scene.h24).removeSuffix(" AM").removeSuffix(" PM") } ?: " ", maxLines = 1,
+                        style = TextStyle(color = c.faint, fontSize = (11 * s).sp, textAlign = TextAlign.Center))
                 }
-                Spacer(GlanceModifier.width(8.dp))
             }
-            Text(Presentation.clock(prayer.time, scene.h24), maxLines = 1, style = TextStyle(color = if (current && !c.dot) c.accent else ink, fontSize = size, fontWeight = if (current || next) FontWeight.Bold else FontWeight.Medium, fontFamily = c.face))
-            /* The iqama sits beside its adhan, which already says AM or PM. */
-            if (iqama) Text(prayer.iqamaAfter?.let { "+$it" } ?: prayer.iqama?.let { Presentation.clock(it, scene.h24).removeSuffix(" AM").removeSuffix(" PM") } ?: "", maxLines = 1,
-                style = TextStyle(color = c.faint, fontSize = ((if (tight) 10 else 12) * s).sp, textAlign = TextAlign.End),
-                modifier = GlanceModifier.width((46 * s).dp))
         }
     }
 }
 
-/** A single line for narrow spaces: the countdown, then (where there's room) the day's times with the open one inked. */
+/** A single line for narrow spaces: the countdown, then (where there's room) the rest of the day's times. */
 class StripPrayerWidget : PrayerWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(DpSize(150.dp, 40.dp), DpSize(280.dp, 40.dp), DpSize(380.dp, 40.dp)))
 
@@ -351,20 +410,17 @@ class StripPrayerWidget : PrayerWidget() {
             val view = scene.view ?: return@Frame Empty(scene)
             val c = scene.colours
             val s = scene.options.scale
+            val (what, howLong) = Presentation.titleParts(view, scene.options.mode)
             Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                Mark(c, 16)
+                Text(what, maxLines = 1, style = TextStyle(color = c.ink, fontSize = (16 * s).sp, fontWeight = FontWeight.Bold, fontFamily = c.display))
                 Spacer(GlanceModifier.width(8.dp))
-                Text(Presentation.panelTitle(view, scene.options.mode), maxLines = 1, style = TextStyle(color = c.ink, fontSize = (14 * s).sp, fontWeight = FontWeight.Bold))
+                Text(howLong, maxLines = 1, style = TextStyle(color = if (c.dot) c.muted else c.accent, fontSize = (13 * s).sp, fontWeight = FontWeight.Medium))
                 if (size.width >= 280.dp) {
                     Spacer(GlanceModifier.defaultWeight())
-                    val all = Presentation.displayPrayers(view)
-                    val shown = if (size.width >= 380.dp) all else all.filter { it.end?.let { end -> end > view.now } ?: true }.take(3)
-                    shown.forEach { p ->
-                        val current = p.id == view.current?.id
-                        val past = p.end?.let { it <= view.now } ?: false
-                        Text("${p.name.take(if (size.width >= 380.dp) 3 else 4)} ${Presentation.clock(p.time, scene.h24).removeSuffix(" AM").removeSuffix(" PM")}", maxLines = 1,
-                            style = TextStyle(color = if (current) c.accent else if (past) c.faint else c.muted, fontSize = (12 * s).sp, fontWeight = if (current) FontWeight.Bold else FontWeight.Normal, fontFamily = c.face),
-                            modifier = GlanceModifier.padding(start = 10.dp))
+                    val ahead = Presentation.displayPrayers(view).filter { (it.end?.let { end -> end > view.now } ?: true) && it.id != view.next?.id }
+                    ahead.take(if (size.width >= 380.dp) 3 else 2).forEach { p ->
+                        Text("${p.name} ${Presentation.clock(p.time, scene.h24).removeSuffix(" AM").removeSuffix(" PM")}", maxLines = 1,
+                            style = TextStyle(color = c.muted, fontSize = (12 * s).sp, fontFamily = c.face), modifier = GlanceModifier.padding(start = 12.dp))
                     }
                 }
             }
