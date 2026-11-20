@@ -126,8 +126,9 @@ private fun Settings(o: WidgetOptions, today: Boolean, change: (WidgetOptions) -
             Toggle("Iqama", o.iqama) { change(o.copy(iqama = it)) }
             Toggle("Night & sunrise", o.night) { change(o.copy(night = it)) }
         }
-        Choice("Look", listOf("system" to "System", "tonal" to "Tonal", "nothing" to "Nothing", "light" to "Light", "dark" to "Dark", "clear" to "Clear"), o.theme) { change(o.copy(theme = it)) }
-        if (o.theme != "nothing" && o.theme != "tonal") Choice("Accent", listOf("system" to "System", "prayer" to "Teal"), o.accent) { change(o.copy(accent = it)) }
+        Choice("Look", app.kimono.prayer.Looks.widget.filter { android.os.Build.VERSION.SDK_INT >= 31 || (it.id != "system" && it.id != "tonal") }.map { it.id to it.label }, o.theme) { change(o.copy(theme = it)) }
+        /* Only the phone's own looks take an accent choice; a preset brings its own. */
+        if (o.theme == "system" || o.theme == "clear") Choice("Accent", listOf("system" to "System", "prayer" to "Teal"), o.accent) { change(o.copy(accent = it)) }
         if (o.theme != "clear") Column {
             Text("Background", style = MaterialTheme.typography.titleSmall)
             Slider(o.opacity, { change(o.copy(opacity = it)) }, valueRange = .2f..1f)

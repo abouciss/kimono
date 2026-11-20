@@ -84,7 +84,7 @@ data class WidgetOptions(
     val mode: TitleMode = TitleMode.NextPrayer,
     val iqama: Boolean = true,
     val night: Boolean = true,
-    /** "system" (the phone's own Material You colours), "tonal", "nothing", "light", "dark" or "clear". */
+    /** A look from [app.kimono.prayer.Looks.widget]: "system" (the phone's own Material You colours), "tonal", "kimono", a preset, or "clear". */
     val theme: String = "system",
     /** "system" (the phone's accent) or "prayer" (Prayer's teal). Nothing keeps its red. */
     val accent: String = "system",
@@ -99,7 +99,7 @@ data class WidgetOptions(
             mode = if (prefs[WidgetKeys.mode] == "left") TitleMode.TimeLeft else TitleMode.NextPrayer,
             iqama = prefs[WidgetKeys.iqama] ?: true,
             night = prefs[WidgetKeys.night] ?: true,
-            theme = prefs[WidgetKeys.theme]?.takeIf { it in setOf("tonal", "nothing", "light", "dark", "clear") } ?: "system",
+            theme = prefs[WidgetKeys.theme]?.takeIf { id -> app.kimono.prayer.Looks.widget.any { it.id == id } } ?: "system",
             accent = if (prefs[WidgetKeys.accent] == "prayer") "prayer" else "system",
             opacity = prefs[WidgetKeys.opacity] ?: 1f,
             text = prefs[WidgetKeys.text] ?: "m",
@@ -124,17 +124,15 @@ class WidgetColours(
     val dot: Boolean = false,
 )
 
-private class Tone(val ground: Color, val ink: Color, val muted: Color, val accent: Color, val chip: Color, val onChip: Color)
+private typealias Tone = app.kimono.prayer.LookTone
 
-/* Where the phone has no Material You (before Android 12): Material's baseline neutrals with Prayer's teal. */
-private val plainDay = Tone(Color(0xFFFDFBFA), Color(0xFF1B1B1D), Color(0xFF47464B), Color(0xFF2F5D62), Color(0xFFD9E7E8), Color(0xFF1C3D40))
-private val plainNight = Tone(Color(0xFF1B1B1D), Color(0xFFE6E1E5), Color(0xFFC9C5CA), Color(0xFF9CC9CD), Color(0xFF2E4A4D), Color(0xFFD3ECEE))
+private val plainDay = app.kimono.prayer.Looks.plainDay
+private val plainNight = app.kimono.prayer.Looks.plainNight
 private val prayerDay = plainDay
 private val prayerNight = plainNight
-/* Nothing: pure white or black, and one red. */
-private val nothingRed = Color(0xFFD71921)
-private val nothingDay = Tone(Color.White, Color.Black, Color(0xFF5C5C5C), nothingRed, Color(0xFFF0F0F0), Color.Black)
-private val nothingNight = Tone(Color.Black, Color.White, Color(0xFFA6A6A6), nothingRed, Color(0xFF1F1F1F), Color.White)
+/* Kimono's own: its paper and plum ink, with Times' teal. */
+private val kimonoDay = Tone(Color(0xFFFFF8F4), Color(0xFF4E2B37), Color(0xFF7A5E68), Color(0xFF2F5D62), Color(0xFFDCE7E5), Color(0xFF1C3D40))
+private val kimonoNight = Tone(Color(0xFF231A1D), Color(0xFFF2E1CA), Color(0xFFBFA9A4), Color(0xFF9CC9CD), Color(0xFF2E4A4D), Color(0xFFD3ECEE))
 
 private fun system(context: Context, id: Int) = Color(context.getColor(id))
 
@@ -152,20 +150,20 @@ private fun youTones(context: Context, tonal: Boolean): Pair<Tone, Tone>? {
 @Suppress("UNUSED_PARAMETER")
 fun widgetColours(context: Context, options: WidgetOptions, appearance: String): WidgetColours {
     val you = youTones(context, tonal = false)
-    val nothing = options.theme == "nothing"
-    var (day, night) = when (options.theme) {
-        "nothing" -> nothingDay to nothingNight
-        "tonal" -> youTones(context, tonal = true) ?: (plainDay to plainNight)
+    val look = app.kimono.prayer.Looks.of(options.theme)
+    val nothing = look?.dotted == true
+    val preset = look?.day
+    val (day, night) = when {
+        preset != null -> preset to (look.night ?: preset)
+        options.theme == "kimono" -> kimonoDay to kimonoNight
+        options.theme == "tonal" -> youTones(context, tonal = true) ?: (plainDay to plainNight)
         else -> you ?: (plainDay to plainNight)
     }
-    when (options.theme) {
-        "light" -> night = day
-        "dark" -> day = night
-    }
+    /* The phone's own looks take the accent asked for; a preset and Kimono bring their own. */
+    val own = options.theme == "system" || options.theme == "clear"
     val (accentDay, accentNight) = when {
-        nothing -> day to night
+        !own -> day to night
         options.accent == "prayer" -> prayerDay to prayerNight
-        options.theme == "tonal" -> day to night
         else -> you ?: (prayerDay to prayerNight)
     }
     /* Clear sits on the wallpaper: ink follows the phone's light or dark. */
@@ -335,9 +333,10 @@ class TodayPrayerWidget : PrayerWidget() {
                 Spacer(GlanceModifier.width(8.dp))
             }
             Text(Presentation.clock(prayer.time, scene.h24), maxLines = 1, style = TextStyle(color = if (current && !c.dot) c.accent else ink, fontSize = size, fontWeight = if (current || next) FontWeight.Bold else FontWeight.Medium, fontFamily = c.face))
-            if (iqama) Text(prayer.iqamaAfter?.let { "+$it" } ?: prayer.iqama?.let { Presentation.clock(it, scene.h24) } ?: "", maxLines = 1,
+            /* The iqama sits beside its adhan, which already says AM or PM. */
+            if (iqama) Text(prayer.iqamaAfter?.let { "+$it" } ?: prayer.iqama?.let { Presentation.clock(it, scene.h24).removeSuffix(" AM").removeSuffix(" PM") } ?: "", maxLines = 1,
                 style = TextStyle(color = c.faint, fontSize = ((if (tight) 10 else 12) * s).sp, textAlign = TextAlign.End),
-                modifier = GlanceModifier.width((if (scene.h24) 44 else 62).dp))
+                modifier = GlanceModifier.width((46 * s).dp))
         }
     }
 }

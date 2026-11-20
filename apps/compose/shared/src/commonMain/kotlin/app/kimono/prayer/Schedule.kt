@@ -51,7 +51,7 @@ class NightPeriod(val start: Instant, val end: Instant, val midnight: Instant, v
 enum class NightPhase { Midnight, LastThird, Sunrise }
 
 /** The night now under way (or tonight's, by day): its midnight, last third, Fajr and the sunrise that closes it. */
-class NightMilestones(val midnight: Instant, val lastThird: Instant, val fajr: Instant, val sunrise: Instant, val active: Boolean, val phase: NightPhase?)
+class NightMilestones(val midnight: Instant, val lastThird: Instant, val fajr: Instant, val sunrise: Instant, val active: Boolean, val phase: NightPhase?, val maghrib: Instant = midnight, val isha: Instant = midnight)
 
 class ScheduleView(
     val today: List<Prayer>,
@@ -117,7 +117,7 @@ object ScheduleBuilder {
             night = night,
             nightActive = night.start <= now && now < night.end,
             lastThirdActive = night.lastThird <= now && now < night.end,
-            milestones = NightMilestones(cycleNight.midnight, cycleNight.lastThird, cycleNight.end, sunrise, cycleActive, phase),
+            milestones = NightMilestones(cycleNight.midnight, cycleNight.lastThird, cycleNight.end, sunrise, cycleActive, phase, maghrib = cycleNight.start, isha = schedules[cycleIndex][5].start),
             now = now,
             date = today,
             timezone = timetable.timezone,
