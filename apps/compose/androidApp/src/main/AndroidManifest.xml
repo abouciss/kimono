@@ -66,6 +66,7 @@
                 <data android:path="/account" />
                 <data android:pathPrefix="/account/" />
                 <data android:path="/prayer" />
+                <data android:path="/times" />
                 <data android:path="/vpn" />
                 <data android:pathPrefix="/vpn/" />
             </intent-filter>
