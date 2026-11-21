@@ -235,7 +235,7 @@ val LocalArranging = staticCompositionLocalOf { false }
 
 /** A pigment as words wear it: itself by day; by night lifted toward cream, so it reads on the dark. */
 @Composable
-internal fun inkOf(pigment: Color): Color = if (app.kimono.theme.LocalNight.current) androidx.compose.ui.graphics.lerp(pigment, Color(0xFFF2E1CA), .5f) else pigment
+internal fun inkOf(pigment: Color): Color = if (app.kimono.theme.LocalNight.current) androidx.compose.ui.graphics.lerp(pigment, Color(0xFFF2E1CA), .6f) else pigment
 
 /** Each widget's colour: the profile's own. */
 val LocalBoardColor = staticCompositionLocalOf { Kata.suo }
@@ -380,24 +380,80 @@ private fun Favourite(w: Widget, d: BoardData, act: BoardActions) {
     val c = w.config.orEmpty()
     val album = w.kind == "album"
     val times = if (!album) c["key"]?.let { d.music?.counts?.get(it) } ?: 0 else 0
+    val stamp = times > 0 && w.size != "s"
+    val cover = d.pic(sharp(c["cover"]))
     Card(onClick = c["key"]?.let { k -> { act.openWeb(if (album) albumPath(k) else songPath(k)) } }) {
+        /* A soft wash of the cover's own colours, slowly drifting. */
+        if (cover != null) Wash(cover)
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val art = when (w.size) { "s" -> min(maxWidth.value, maxHeight.value) * .7f; "m" -> maxHeight.value - 28f; else -> min(maxWidth.value * .62f, maxHeight.value * .6f) }.dp
             Laid(w.size, {
                 Box(Modifier.width(if (album) art * 1.18f else art).height(art), contentAlignment = Alignment.CenterStart) {
                     if (album) Box(Modifier.offset(x = art * .2f).size(art * .94f)) { Record(null, false, art * .94f) }
-                    Cover(d.pic(sharp(c["cover"])), art, if (album) 4.dp else 16.dp, "music")
+                    Cover(cover, art, if (album) 4.dp else 16.dp, "music")
+                    if (!album) Notes(art)
                 }
             }) {
-                Kicker(if (album) "Favourite album" else "Favourite song")
-                Title(c["title"].orEmpty(), big = w.size != "m", align = if (w.size == "m") null else TextAlign.Center)
-                c["subtitle"]?.takeIf { it.isNotBlank() }?.let { Sub(it, align = if (w.size == "m") null else TextAlign.Center) }
-                if (times > 0) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    CountUp(times.toDouble(), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = Mincho), color = inkOf(LocalBoardColor.current))
-                    Text(if (times == 1) "play" else "plays", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
+                Column(Modifier.padding(end = if (stamp && w.size == "m") 58.dp else 0.dp), horizontalAlignment = if (w.size == "m") Alignment.Start else Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Kicker(if (album) "Favourite album" else "Favourite song")
+                    Title(c["title"].orEmpty(), big = w.size != "m", align = if (w.size == "m") null else TextAlign.Center)
+                    c["subtitle"]?.takeIf { it.isNotBlank() }?.let { Sub(it, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .8f), align = if (w.size == "m") null else TextAlign.Center) }
                 }
             }
+            if (stamp) PlayStamp(times, Modifier.align(Alignment.BottomEnd).padding(14.dp))
         }
+    }
+}
+
+/** The cover again, blurred big behind everything at a whisper, drifting. */
+@Composable
+private fun Wash(cover: String) {
+    val still = LocalStill.current
+    val drift = if (still) null else rememberInfiniteTransition(label = "drift").animateFloat(0f, 1f, infiniteRepeatable(tween(16000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "d")
+    AsyncImage(cover, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer {
+        val f = drift?.value ?: 0f
+        scaleX = 1.8f + .3f * f; scaleY = 1.8f + .3f * f; translationX = size.width * .04f * f; translationY = -size.height * .03f * f; alpha = .26f
+    }.blur(42.dp))
+}
+
+/** A song sings: notes drift up off its cover, one after another. */
+@Composable
+private fun Notes(art: Dp) {
+    if (LocalStill.current) return
+    val t = rememberInfiniteTransition(label = "notes")
+    Box(Modifier.size(art)) {
+        listOf(Triple("♪", .18f, -18f), Triple("♫", .58f, 14f), Triple("♪", .80f, -10f), Triple("♬", .42f, 20f)).forEachIndexed { i, (glyph, x, dx) ->
+            val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(4800, easing = LinearEasing), initialStartOffset = androidx.compose.animation.core.StartOffset(i * 1200)), label = "n$i")
+            Text(glyph, style = MaterialTheme.typography.titleLarge.copy(fontSize = (if (art > 140.dp) 26 else 18).sp, fontWeight = FontWeight.Bold), color = Color.White,
+                modifier = Modifier.graphicsLayer {
+                    translationX = art.toPx() * x + dx.dp.toPx() * p
+                    translationY = art.toPx() * .62f - art.toPx() * .7f * p
+                    rotationZ = -10f + 24f * p
+                    val sc = .7f + .4f * p; scaleX = sc; scaleY = sc
+                    alpha = if (p < .15f) p / .15f * .9f else .9f * (1 - p) / .85f
+                    shadowElevation = 0f
+                })
+        }
+    }
+}
+
+/** How often they've played it: a hanko pressed in the corner, landing with a thunk. */
+@Composable
+private fun PlayStamp(times: Int, modifier: Modifier) {
+    val still = LocalStill.current
+    val land = remember { Animatable(if (still) 1f else 0f) }
+    LaunchedEffect(Unit) { if (!still) { delay(500); land.animateTo(1f, androidx.compose.animation.core.spring(.5f, 380f)) } }
+    val ink = androidx.compose.ui.graphics.lerp(LocalBoardColor.current, Color.White, .3f)
+    val shape = RoundedCornerShape(topStart = 12.dp, bottomEnd = 12.dp, topEnd = 5.dp, bottomStart = 5.dp)
+    Column(
+        modifier.graphicsLayer {
+            val v = land.value
+            alpha = (v * 1.4f).coerceAtMost(1f); rotationZ = -24f + 15f * v; val sc = 1.9f - .9f * v; scaleX = sc; scaleY = sc
+        }.widthIn(min = 56.dp).height(56.dp).clip(shape).background(ink.copy(alpha = .16f)).border(2.5.dp, ink, shape).padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+    ) {
+        Text("$times", style = MaterialTheme.typography.headlineSmall.copy(fontFamily = Mincho, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 24.sp), color = ink, maxLines = 1)
+        Text(if (times == 1) "PLAY" else "PLAYS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 9.sp, letterSpacing = 1.3.sp, lineHeight = 11.sp), color = ink)
     }
 }
 
@@ -470,23 +526,44 @@ internal fun Progress(f: Float, track: Color = MaterialTheme.colorScheme.onSurfa
 
 /* ── Watching: a strip of film, the poster its frame ──────────────────── */
 
+private val Cream = Color(0xFFFFF5EA)
+private val Peach = Color(0xFFFFC9A8)
+
+/* A seat in a dark cinema: the poster on its running strip of film, lit by its own colours; the show, the episode and how far, in cream. */
 @Composable
 private fun Watching(w: Widget, d: BoardData, act: BoardActions) {
     val t = d.item("watch", "watching") ?: return Card { Empty("film", "Nothing on right now") }
     val cover = d.pic(t.cover)
-    Card(onClick = { act.openWeb(t.href ?: watchPath(t.itemId)) }) {
+    val pct = ((t.progress ?: 0.0) * 100).roundToInt().coerceIn(0, 100)
+    val small = w.size == "s"
+    Card(color = Color(0xFF15100E), onClick = { act.openWeb(t.href ?: watchPath(t.itemId)) }) {
+        if (cover != null) AsyncImage(cover, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.8f; scaleY = 1.8f; alpha = .5f }.blur(36.dp))
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .4f)))
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val mh = maxHeight
             val words: @Composable ColumnScope.() -> Unit = {
-                Kicker("Watching")
-                Title(t.title, big = w.size != "m")
-                t.subtitle?.let { ep ->
-                    Text(ep, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = .06.sp), color = inkOf(LocalBoardColor.current),
-                        modifier = Modifier.padding(top = 4.dp).rotate(-3f).border(1.5.dp, inkOf(LocalBoardColor.current), RoundedCornerShape(3.dp)).padding(horizontal = 7.dp, vertical = 2.dp))
+                if (!small) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    RecLight()
+                    Text("WATCHING", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = Cream.copy(alpha = .78f))
+                }
+                Text(t.title, style = MaterialTheme.typography.titleLarge.copy(fontFamily = Mincho, fontSize = if (small) 14.sp else if (w.size == "m") 19.sp else 22.sp, lineHeight = if (small) 17.sp else if (w.size == "m") 23.sp else 27.sp),
+                    color = Cream, maxLines = if (small) 1 else 2, overflow = TextOverflow.Ellipsis)
+                t.subtitle?.takeIf { it.isNotBlank() }?.let { ep ->
+                    Text(ep, style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = .06.sp, fontSize = if (small) 10.sp else 12.sp), color = Peach, maxLines = 1,
+                        modifier = Modifier.padding(top = if (small) 0.dp else 4.dp).rotate(-3f).border(1.5.dp, Peach, RoundedCornerShape(3.dp)).padding(horizontal = if (small) 5.dp else 7.dp, vertical = if (small) 0.dp else 2.dp))
+                }
+                if (pct > 0) Row(Modifier.padding(top = if (small) 3.dp else 8.dp).widthIn(max = 220.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Cream.copy(alpha = .18f))) {
+                        Box(Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).clip(RoundedCornerShape(2.dp)).background(Peach))
+                    }
+                    if (!small) Text("$pct%", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Cream.copy(alpha = .7f))
                 }
             }
             when (w.size) {
-                "s" -> FilmStrip(cover, Modifier.fillMaxSize())
+                "s" -> Column(Modifier.fillMaxSize()) {
+                    FilmStrip(cover, Modifier.fillMaxWidth().weight(1f))
+                    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp), content = words)
+                }
                 "m" -> Row(Modifier.fillMaxSize().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     FilmStrip(cover, Modifier.fillMaxHeight().width(mh * .78f))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp), content = words)
@@ -496,25 +573,32 @@ private fun Watching(w: Widget, d: BoardData, act: BoardActions) {
                     Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp), content = words)
                 }
             }
-            /* How far: inked along the foot. */
-            t.progress?.takeIf { it > 0 }?.let { f ->
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .18f))) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(f.toFloat().coerceIn(0f, 1f)).clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp)).background(LocalBoardColor.current))
-                }
-            }
         }
+    }
+}
+
+/** A red light, slowly blinking: on now. */
+@Composable
+private fun RecLight() {
+    val still = LocalStill.current
+    val a = if (still) null else rememberInfiniteTransition(label = "rec").animateFloat(1f, .35f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "a")
+    Box(Modifier.size(14.dp).clip(CircleShape).background(Color(0x40FF5A5F)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(8.dp).graphicsLayer { alpha = a?.value ?: 1f }.clip(CircleShape).background(Color(0xFFFF5A5F)))
     }
 }
 
 /** A length of 35mm film, tilted a touch: sprocket holes along both edges and the poster in its frame. */
 @Composable
 private fun FilmStrip(cover: String?, modifier: Modifier) {
+    /* The film runs: its holes keep moving past. */
+    val still = LocalStill.current
+    val reel = if (still) remember { mutableStateOf(0f) } else rememberInfiniteTransition(label = "reel").animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "shift")
     Box(
         modifier.graphicsLayer { rotationZ = -2f; scaleX = 1.06f; scaleY = 1.06f }.background(Color(0xFF15110E)).drawWithContent {
             drawContent()
             val hole = Size(6.dp.toPx(), 7.dp.toPx())
             val step = 16.dp.toPx()
-            var x = 5.dp.toPx()
+            var x = 5.dp.toPx() - step + reel.value * step
             while (x < size.width) {
                 drawRoundRect(Color(0xFFE9E2D6).copy(alpha = .85f), Offset(x, 4.dp.toPx()), hole, CornerRadius(1.5.dp.toPx()))
                 drawRoundRect(Color(0xFFE9E2D6).copy(alpha = .85f), Offset(x, size.height - 4.dp.toPx() - hole.height), hole, CornerRadius(1.5.dp.toPx()))
@@ -523,7 +607,7 @@ private fun FilmStrip(cover: String?, modifier: Modifier) {
         }.padding(horizontal = 7.dp, vertical = 15.dp),
     ) {
         Box(Modifier.fillMaxSize().clip(RoundedCornerShape(3.dp)).background(Color(0xFF2A221D)), contentAlignment = Alignment.Center) {
-            if (cover != null) AsyncImage(cover, null, contentScale = ContentScale.Crop, alignment = androidx.compose.ui.BiasAlignment(0f, -.5f), modifier = Modifier.fillMaxSize())
+            if (cover != null) AsyncImage(cover, null, contentScale = ContentScale.Crop, alignment = androidx.compose.ui.BiasAlignment(0f, -.6f), modifier = Modifier.fillMaxSize())
             else Icon(kimonoIcon("film"), null, tint = Color.White.copy(alpha = .5f), modifier = Modifier.size(28.dp))
         }
     }
