@@ -13,7 +13,7 @@ import { dirname } from "node:path";
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export type AnimeEntry = { anilistId: number | null; malId: number | null; kitsuId: number | null; season: number | null; type: string };
+export type AnimeEntry = { anilistId: number | null; malId: number | null; kitsuId: number | null; season: number | null; type: string; tvdbSeason?: number | null };
 
 const idOf = (raw: unknown, key: "tv" | "movie"): number | null => {
   if (typeof raw === "number") return raw;
@@ -32,7 +32,8 @@ export function indexAnimeMap(entries: Json[]): AnimeMap {
     const anilistId = Number(e.anilist_id) || null, malId = Number(e.mal_id) || null;
     if (!anilistId && !malId) continue;
     const seasonRaw = e.season?.tmdb ?? e.season?.tvdb ?? null;
-    const entry: AnimeEntry = { anilistId, malId, kitsuId: Number(e.kitsu_id) || null, season: seasonRaw === null ? null : Number(seasonRaw), type: String(e.type ?? "").toUpperCase() };
+    const tvdbRaw = e.season?.tvdb ?? null;
+    const entry: AnimeEntry = { anilistId, malId, kitsuId: Number(e.kitsu_id) || null, season: seasonRaw === null ? null : Number(seasonRaw), type: String(e.type ?? "").toUpperCase(), tvdbSeason: tvdbRaw === null ? null : Number(tvdbRaw) };
     const movie = entry.type === "MOVIE";
     add(movie ? map.byTmdbMovie : map.byTmdbTv, idOf(e.themoviedb_id, movie ? "movie" : "tv"), entry);
     add(map.byTvdb, idOf(e.thetvdb_id ?? e.tvdb_id, "tv"), entry);
@@ -97,6 +98,111 @@ export function kitsuEpisode(
   const ordered = episodes.filter((e) => e.season > 0).slice().sort((a, b) => a.season - b.season || a.number - b.number);
   const index = ordered.findIndex((e) => e.season === at.season && e.number === at.episode);
   return index < 0 || !fits(entries[0].kitsuId, index + 1) ? null : { kitsuId: entries[0].kitsuId, episode: index + 1 };
+}
+
+/** An episode as Cinemeta lists it: Stremio addons read `tt…:season:episode` in its numbering. */
+export type CinemetaVideo = { season: number; episode: number; released: string | null };
+
+/**
+ * Where a TMDB episode sits in Cinemeta's (IMDb's) numbering, which the
+ * `tt…:season:episode` search goes by. Anime often counts differently there:
+ * TMDB files Bleach's Thousand-Year Blood War as season 2, Cinemeta has only
+ * the first 366 in sixteen seasons, so `tt0434665:2:5` is episode 25. Matched
+ * by air date (within two days); null when no episode there aired then, and
+ * the IMDb search is left out rather than bring back the wrong episode.
+ */
+export function imdbEpisode(
+  videos: CinemetaVideo[],
+  episodes: { season: number; number: number; airDate: string | null }[],
+  at: { season: number; episode: number },
+): { season: number; episode: number } | null {
+  const target = episodes.find((e) => e.season === at.season && e.number === at.episode);
+  const day = (s: string | null) => { const t = s ? Date.parse(s.slice(0, 10)) : NaN; return Number.isFinite(t) ? t : null; };
+  const when = day(target?.airDate ?? null);
+  const regular = videos.filter((v) => v.season > 0 && v.episode > 0);
+  if (when === null) {
+    /* No date to go by: only when Cinemeta's season is the same length as TMDB's. */
+    const same = regular.filter((v) => v.season === at.season).length === episodes.filter((e) => e.season === at.season).length;
+    return same && regular.some((v) => v.season === at.season && v.episode === at.episode) ? { season: at.season, episode: at.episode } : null;
+  }
+  const near = regular.filter((v) => { const t = day(v.released); return t !== null && Math.abs(t - when) <= 2 * 86_400_000; })
+    .sort((a, b) => a.season - b.season || a.episode - b.episode);
+  if (!near.length) return null;
+  if (near.some((v) => v.season === at.season && v.episode === at.episode)) return { season: at.season, episode: at.episode };
+  /* Two that aired together (a double premiere): the same place among them. */
+  const together = episodes.filter((e) => e.season > 0 && day(e.airDate) !== null && Math.abs(day(e.airDate)! - when) <= 2 * 86_400_000)
+    .sort((a, b) => a.season - b.season || a.number - b.number);
+  if (together.length !== near.length) return near.length === 1 ? { season: near[0].season, episode: near[0].episode } : null;
+  const v = near[together.findIndex((e) => e.season === at.season && e.number === at.episode)];
+  return v ? { season: v.season, episode: v.episode } : null;
+}
+
+/** The ways an anime episode's file may be numbered: season and episode pairs, and plain episode numbers. */
+export type EpisodeNames = { pairs: [number, number][]; numbers: number[] };
+
+/**
+ * Every honest name for one anime episode: TMDB's S2E5, TVDB's season for
+ * the same run (Bleach's S17E05), the Kitsu entry's own count ("2nd Season -
+ * 05", "S01E05"), IMDb's when it differs, and the absolute number ("- 175").
+ */
+export function episodeNames(
+  entries: Pick<AnimeEntry, "kitsuId" | "season" | "tvdbSeason">[],
+  episodes: { season: number; number: number }[],
+  at: { season: number; episode: number },
+  kitsu: { kitsuId: number; episode: number } | null,
+  imdb: { season: number; episode: number } | null,
+): EpisodeNames {
+  const pairs: [number, number][] = [[at.season, at.episode]];
+  const numbers = [at.episode];
+  for (const e of entries) if (e.season === at.season && e.tvdbSeason && e.tvdbSeason > 0) pairs.push([e.tvdbSeason, at.episode]);
+  if (kitsu) {
+    numbers.push(kitsu.episode);
+    pairs.push([1, kitsu.episode], [at.season, kitsu.episode]);
+    /* A part of a split season is often named as its own season ("Part 2" → S02). */
+    const parts = entries.filter((e) => e.season === at.season && e.kitsuId);
+    const index = parts.findIndex((e) => e.kitsuId === kitsu.kitsuId);
+    if (index > 0) pairs.push([index + 1, kitsu.episode]);
+  }
+  if (imdb) pairs.push([imdb.season, imdb.episode]);
+  const ordered = episodes.filter((e) => e.season > 0).slice().sort((a, b) => a.season - b.season || a.number - b.number);
+  const absolute = ordered.findIndex((e) => e.season === at.season && e.number === at.episode);
+  if (absolute >= 0) numbers.push(absolute + 1);
+  return { pairs: pairs.filter(([s, e], i) => pairs.findIndex(([s2, e2]) => s2 === s && e2 === e) === i), numbers: [...new Set(numbers)] };
+}
+
+/** The episode numbers a file's name states: S02E05 pairs, and plain ones ("- 025", "(060)", "Episode 25", "E175"). */
+export function namedEpisodes(filename: string): { pairs: [number, number][]; numbers: number[] } {
+  const t = ` ${filename.replace(/\.[a-z0-9]{2,4}$/i, "").replace(/[._]/g, " ")} `;
+  const pairs: [number, number][] = [];
+  for (const m of t.matchAll(/\bS(\d{1,2}) ?E(\d{1,4})(?:v\d)?\b/gi)) pairs.push([Number(m[1]), Number(m[2])]);
+  for (const m of t.matchAll(/\b(\d{1,2})x(\d{2,3})\b/gi)) pairs.push([Number(m[1]), Number(m[2])]);
+  const numbers: number[] = [];
+  const plain = [
+    / - (\d{1,4})(?:v\d)?(?= |\[|\(|$)/g,
+    /\((\d{2,4})\)/g,
+    /\b(?:episode|ep) ?(\d{1,4})\b/gi,
+    /(?<!S\d{1,2} ?)(?<![a-z\d])E(\d{2,4})\b/gi,
+  ];
+  for (const pattern of plain) for (const m of t.matchAll(pattern)) {
+    const n = Number(m[1]);
+    if (m[1].length === 4 && n >= 1900 && n <= 2099) continue;
+    numbers.push(n);
+  }
+  return { pairs, numbers: [...new Set(numbers)] };
+}
+
+/**
+ * Whether a file is plainly another episode: its name gives an episode
+ * number and none of them is one of this episode's names. A plain number
+ * outranks a pair, since TVDB-style names carry both ("S02E09 (060)").
+ * Names without a number (whole seasons, films) are left in.
+ */
+export function namesOtherEpisode(filename: string, names: EpisodeNames): boolean {
+  if (!filename) return false;
+  const said = namedEpisodes(filename);
+  if (said.numbers.length) return !said.numbers.some((n) => names.numbers.includes(n));
+  if (said.pairs.length) return !said.pairs.some(([s, e]) => names.pairs.some(([s2, e2]) => s2 === s && e2 === e));
+  return false;
 }
 
 /** AniList tags that read as a mood, strongest first, leaving out spoilers. */
@@ -169,6 +275,18 @@ export async function kitsuParts(base: string, ids: number[]): Promise<KitsuPart
     if (!response.ok) return null;
     const data: Json[] = ((await response.json()) as Json).data ?? [];
     return data.map((d) => ({ kitsuId: Number(d.id), episodes: Number(d.attributes?.episodeCount) || null, startDate: d.attributes?.startDate ?? null }));
+  } catch {
+    return null;
+  }
+}
+
+/** A series' episodes in Cinemeta's numbering; null when it doesn't answer. */
+export async function cinemetaVideos(base: string, imdbId: string): Promise<CinemetaVideo[] | null> {
+  try {
+    const response = await fetch(`${base}/meta/series/${encodeURIComponent(imdbId)}.json`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8_000) });
+    if (!response.ok) return null;
+    const videos: Json[] = ((await response.json()) as Json).meta?.videos ?? [];
+    return videos.map((v) => ({ season: Number(v.season) || 0, episode: Number(v.episode ?? v.number) || 0, released: typeof v.released === "string" ? v.released : null }));
   } catch {
     return null;
   }

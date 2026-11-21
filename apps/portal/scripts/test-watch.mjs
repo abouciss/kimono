@@ -383,7 +383,7 @@ test('a search already under way is joined, not started twice, and forgotten whe
   assert.equal(running.size, 0);
   await assert.rejects(ahead.shared(running, 'k', async () => { throw new Error('down'); }), /down/);
   assert.equal(running.size, 0, 'a failed search is forgotten too, so the next one tries again');
-  assert.equal(ahead.streamsKey('movie-603', 0, 0), 'streams2:movie-603:0:0');
+  assert.equal(ahead.streamsKey('movie-603', 0, 0), 'streams3:movie-603:0:0');
 });
 
 test('found streams wait in the same cache play reads, for twenty minutes', () => {
@@ -1607,4 +1607,52 @@ test('remove from history forgets every episode of that title, and only that one
   model.forgetProgress(db, 'sami', 'tv:1');
   assert.deepEqual(model.recentTitles(db, 'Sami').map((p) => p.titleId), ['tv:2']);
   assert.equal(model.recentTitles(db, 'noor').length, 1);
+});
+
+test("anime: IMDb's numbering checked by air date, and files naming another episode left out", () => {
+  /* Bleach: Cinemeta has the first 366 in sixteen seasons and no Thousand-Year Blood War; TMDB has it as season 2. */
+  const cinemeta = [
+    { season: 2, episode: 5, released: '2005-03-29T00:00:00.000Z' },
+    { season: 16, episode: 24, released: '2012-03-27T00:00:00.000Z' },
+  ];
+  const tmdb = [
+    { season: 1, number: 366, airDate: '2012-03-27' },
+    { season: 2, number: 5, airDate: '2022-11-08' },
+  ];
+  assert.equal(anime.imdbEpisode(cinemeta, tmdb, { season: 2, episode: 5 }), null, 'no IMDb search for TYBW');
+  assert.deepEqual(anime.imdbEpisode(cinemeta, tmdb, { season: 1, episode: 366 }), { season: 16, episode: 24 }, 'translated by date');
+  assert.deepEqual(anime.imdbEpisode([{ season: 1, episode: 3, released: null }, { season: 1, episode: 4, released: null }], [{ season: 1, number: 3, airDate: null }, { season: 1, number: 4, airDate: null }], { season: 1, episode: 3 }), { season: 1, episode: 3 }, 'no dates, same length');
+  assert.deepEqual(anime.imdbEpisode(
+    [{ season: 1, episode: 1, released: '2020-01-01' }, { season: 1, episode: 2, released: '2020-01-01' }],
+    [{ season: 1, number: 1, airDate: '2020-01-01' }, { season: 1, number: 2, airDate: '2020-01-01' }], { season: 1, episode: 2 }), { season: 1, episode: 2 }, 'a double premiere');
+
+  /* Bleach TYBW part 2, episode 5 = TMDB S2E18, TVDB S17E18, Kitsu 46903 ep 5, absolute 384. */
+  const bleach = [{ kitsuId: 244, season: 1, tvdbSeason: null }, { kitsuId: 43078, season: 2, tvdbSeason: 17 }, { kitsuId: 46903, season: 2, tvdbSeason: 17 }];
+  const eps = [...Array.from({ length: 366 }, (_, i) => ({ season: 1, number: i + 1 })), ...Array.from({ length: 40 }, (_, i) => ({ season: 2, number: i + 1 }))];
+  const names = anime.episodeNames(bleach, eps, { season: 2, episode: 18 }, { kitsuId: 46903, episode: 5 }, null);
+  const other = (f) => anime.namesOtherEpisode(f, names);
+  assert.equal(other('Bleach - S17E18 - 2160p WEB H.264 -NanDesuKa (B-Global).mkv'), false);
+  assert.equal(other('[ZigZag] BLEACH Thousand-Year Blood War S02E05 [1080p DSNP WEB-DL].mkv'), false, "the part's own season");
+  assert.equal(other('[SubsPlease] Bleach - Sennen Kessen-hen - Ketsubetsu-tan - 05 (1080p) [ABCD1234].mkv'), false);
+  assert.equal(other('[Judas] Bleach - 384.mkv'), false, 'absolute');
+  assert.equal(other('Bleach.S02E05.Episode.25.1080p.DSNP.WEB-DL.AAC2.0.H.264-ZigZag.mkv'), true, 'classic Bleach episode 25');
+  assert.equal(other('[Erai-raws] Bleach - 025 [1080p DSNP WEB-DL AVC AAC][MultiSub][8A750F2D].mkv'), true);
+  assert.equal(other('Bleach.S02E19.1080p.mkv'), true, 'the next one');
+  assert.equal(other('Bleach Thousand-Year Blood War Part 2 1080p'), false, 'no number: left in');
+  assert.equal(other(''), false);
+
+  /* Black Clover's new season 2, episode 5 (absolute 175): the old 170 carry TVDB's four seasons. */
+  const clover = [{ kitsuId: 13209, season: 1, tvdbSeason: 1 }, { kitsuId: 50024, season: 2, tvdbSeason: 2 }];
+  const ceps = [...Array.from({ length: 170 }, (_, i) => ({ season: 1, number: i + 1 })), ...Array.from({ length: 13 }, (_, i) => ({ season: 2, number: i + 1 }))];
+  const cn = anime.episodeNames(clover, ceps, { season: 2, episode: 5 }, { kitsuId: 50024, episode: 5 }, { season: 2, episode: 5 });
+  assert.equal(anime.namesOtherEpisode('[SubsPlease] Black Clover - 175 (1080p) [19BCC639].mkv', cn), false);
+  assert.equal(anime.namesOtherEpisode('[Erai-raws] Black Clover 2nd Season - 05 [1080p CR WEB-DL AVC AAC][MultiSub][C8D18DEA].mkv', cn), false);
+  assert.equal(anime.namesOtherEpisode('[ToonsHub] Black Clover S02E05 1080p CR WEB-DL DUAL AAC2.0 H.264.mkv', cn), false);
+  assert.equal(anime.namesOtherEpisode('[Judas] Black Clover - S02E05 (056).mkv', cn), true, 'old episode 56');
+  assert.equal(anime.namesOtherEpisode('Black Clover (2017) - S01E60 (Bluray-1080p AV1 Opus)-Pi13.mkv', cn), true);
+  /* And old episode 60 still finds its TVDB-named files. */
+  const c60 = anime.episodeNames(clover, ceps, { season: 1, episode: 60 }, { kitsuId: 13209, episode: 60 }, { season: 1, episode: 60 });
+  assert.equal(anime.namesOtherEpisode('[Judas] Black Clover - S02E09 (060).mkv', c60), false);
+  assert.equal(anime.namesOtherEpisode('Black Clover (2017) - S01E60 (Bluray-1080p AV1 Opus)-Pi13.mkv', c60), false);
+  assert.equal(anime.namesOtherEpisode('Black Clover - S02E05 - The Highest vs The Lowest - 2160p HDR.mkv', c60), true);
 });

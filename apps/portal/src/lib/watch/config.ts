@@ -49,6 +49,8 @@ export function watchConfig(settings: PlatformSettings) {
     aniskipUrl: "https://api.aniskip.com/v2",
     /* Episode counts of anime seasons split into parts. */
     kitsuUrl: "https://kitsu.app/api/edge",
+    /* Episode numbering as Stremio addons read IMDb ids. */
+    cinemetaUrl: "https://v3-cinemeta.strem.io",
     /* Fribb's map between TMDB, TVDB, IMDb, AniList and MyAnimeList ids. */
     animeMapUrl: value("anime_map_url") || "https://raw.githubusercontent.com/Fribb/anime-lists/master/anime-list-full.json",
     colors: instance?.colors,

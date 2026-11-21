@@ -10,7 +10,7 @@ import { resolveSecrets } from "../secrets";
 import { getPlatformSettings } from "../settings";
 import { stateDir } from "../state";
 import { anyPlayable, noteSearch, notePlayable, quietAfter, sourcesQuiet, playableOf, pool, shared, streamsKey, streamTtl, toCheck, visible } from "./ahead";
-import { animeEntriesFor, animeMap, anilistMedia, jikanFillers, kitsuEpisode, kitsuParts, type KitsuPart } from "./anime";
+import { animeEntriesFor, animeMap, anilistMedia, cinemetaVideos, episodeNames, imdbEpisode, jikanFillers, kitsuEpisode, kitsuParts, namesOtherEpisode, type CinemetaVideo, type EpisodeNames, type KitsuPart } from "./anime";
 import { watchAppId, watchConfig, type WatchConfig } from "./config";
 import { absoluteNumbers, availability, badge, episodeLabel, episodeLayout, fillerAhead, nextEpisode, resumePoint, seasonTracker } from "./labels";
 import {
@@ -640,7 +640,10 @@ function releasesFor(cfg: WatchConfig, title: Title, season: number, episode: nu
       notePlayable(db, title.id, true);
       return found;
     }
-    const ids = [await kitsuIdFor(cfg, title, season, episode), title.imdbId ? stremioId(title.imdbId, season || undefined, episode || undefined) : null].filter((id): id is string => Boolean(id));
+    const plan = await animeSearch(cfg, title, season, episode);
+    /* With neither, IMDb as TMDB numbers it, and the names below weed out the wrong ones. */
+    const imdbAt = plan && (plan.imdb || !plan.kitsu) ? plan.imdb ?? { season, episode } : plan ? null : { season, episode };
+    const ids = [plan?.kitsu ?? null, title.imdbId && imdbAt ? stremioId(title.imdbId, imdbAt.season || undefined, imdbAt.episode || undefined) : null].filter((id): id is string => Boolean(id));
     if (!ids.length) throw new WatchProblem("There's no way to find streams for this one yet.", 404);
     const manifest = await ensureProvisioned(db, cfg, await nzbdavAccess());
     let found: Release[] = [], complete = true;
@@ -667,6 +670,8 @@ function releasesFor(cfg: WatchConfig, title: Title, season: number, episode: nu
     }
     /* Still nothing, and the search didn't finish: that's no answer, so it isn't kept and play doesn't say "no copy". */
     if (!found.length && !complete) throw new WatchProblem("Watch's sources are busy right now. Try again in a moment.", 503);
+    /* Anime searches bring back neighbouring episodes and other seasons' numbering: a file that names another episode goes. */
+    if (plan) found = found.filter((r) => !namesOtherEpisode(r.filename, plan.names));
     keep(db, key, found, streamTtl);
     /* Anything found says the title plays. Nothing found says it doesn't, but only for a first episode or a film, and only when no source failed: a timeout is not an answer. */
     const streak = noteSearch(db, found.length === 0);
@@ -675,25 +680,44 @@ function releasesFor(cfg: WatchConfig, title: Title, season: number, episode: nu
     return found;
   });
 }
-/** An anime episode's Stremio id by Kitsu ("kitsu:41982:3"), or null when its numbering there isn't clear. */
-async function kitsuIdFor(cfg: WatchConfig, title: Title, season: number, episode: number): Promise<string | null> {
+/**
+ * How to search for an anime episode: its Stremio id by Kitsu
+ * ("kitsu:41982:3", null when its numbering there isn't clear), where it sits
+ * in IMDb's numbering (null when nothing there matches, so that search is left
+ * out), and the names its files may go by. Null for anything that isn't an
+ * anime episode, which is searched by IMDb as it is.
+ */
+async function animeSearch(cfg: WatchConfig, title: Title, season: number, episode: number): Promise<{ kitsu: string | null; imdb: { season: number; episode: number } | null; names: EpisodeNames } | null> {
   if (title.shelf !== "Anime" || title.kind !== "series" || season <= 0) return null;
   const map = await animeMap(cfg.animeMapUrl, join(root, "anime-list.json"));
   const entries = map ? animeEntriesFor(map, { kind: "series", tmdbId: title.tmdbId, imdbId: title.imdbId }) : [];
-  if (!entries.some((e) => e.kitsuId)) return null;
   const db = watchDb();
-  /* The entries this episode could belong to; their lengths change while they air, so they're kept a day. */
-  const ids = [...new Set(entries.filter((e) => e.kitsuId && (e.season === season || e.season === null)).map((e) => e.kitsuId!))].sort((a, b) => a - b);
-  const partsKey = `kitsu:${ids.join(",")}`;
-  let parts = cached<KitsuPart[]>(db, partsKey);
-  if (!parts) {
-    parts = await kitsuParts(cfg.kitsuUrl, ids);
-    if (parts) keep(db, partsKey, parts, 24 * hours(1));
+  const episodes = await allEpisodes(cfg, title).catch(() => [] as Episode[]);
+  let kitsu: { kitsuId: number; episode: number } | null = null;
+  if (entries.some((e) => e.kitsuId)) {
+    /* The entries this episode could belong to; their lengths change while they air, so they're kept a day. */
+    const ids = [...new Set(entries.filter((e) => e.kitsuId && (e.season === season || e.season === null)).map((e) => e.kitsuId!))].sort((a, b) => a - b);
+    const partsKey = `kitsu:${ids.join(",")}`;
+    let parts = cached<KitsuPart[]>(db, partsKey);
+    if (!parts) {
+      parts = await kitsuParts(cfg.kitsuUrl, ids);
+      if (parts) keep(db, partsKey, parts, 24 * hours(1));
+    }
+    kitsu = kitsuEpisode(entries, episodes, { season, episode }, parts ?? []);
   }
-  /* One long entry is counted from the very first episode, so every season has to be there. */
-  const episodes = entries.length === 1 && entries[0].season === null ? await allEpisodes(cfg, title).catch(() => []) : [];
-  const at = kitsuEpisode(entries, episodes, { season, episode }, parts ?? []);
-  return at ? `kitsu:${at.kitsuId}:${at.episode}` : null;
+  /* IMDb's seasons, checked against TMDB's by air date; when Cinemeta doesn't answer, as before. */
+  let imdb: { season: number; episode: number } | null = { season, episode };
+  if (title.imdbId) {
+    const videosKey = `cinemeta:${title.imdbId}`;
+    let videos = cached<CinemetaVideo[]>(db, videosKey);
+    if (!videos) {
+      videos = await cinemetaVideos(cfg.cinemetaUrl, title.imdbId);
+      if (videos?.length) keep(db, videosKey, videos, 24 * hours(1));
+    }
+    if (videos?.length) imdb = imdbEpisode(videos, episodes, { season, episode });
+  }
+  const names = episodeNames(entries, episodes, { season, episode }, kitsu, imdb);
+  return { kitsu: kitsu ? `kitsu:${kitsu.kitsuId}:${kitsu.episode}` : null, imdb, names };
 }
 const searching = ((globalThis as unknown as { kimonoWatchSearching?: Map<string, Promise<Release[]>> }).kimonoWatchSearching ??= new Map());
 
