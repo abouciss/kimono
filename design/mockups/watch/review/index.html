@@ -1,0 +1,661 @@
+<title>Kimono Watch Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap">
+<style>
+/* Layout: a single reading column of findings, then full-bleed "screens" (TV 1280×720, phone 390×844 / 844×390, web 1280×800) scaled to the column. Dark only, like the product. */
+:root{
+  --bg:#110C0A; --surface:#1B1412; --surface-2:#261E1B; --surface-3:#312825; --line:#3C3330;
+  --fg:#EFE0DA; --fg-2:#D8C2BD; --fg-3:#A08C88;
+  --suo:#D06A82; --suo-deep:#7E3448; --moss:#BFD0AE; --paper:#F4E9E1; --ink:#110C0A;
+  --display:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",Georgia,serif;
+  --ui:"Zen Maru Gothic","Hiragino Maru Gothic ProN",system-ui,sans-serif;
+  color-scheme:dark;
+}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--ui);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 80px}
+a{color:var(--suo)}
+h1,h2{font-family:var(--display);font-weight:800;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,46px);line-height:1.1}
+h2{font-size:clamp(24px,3.4vw,32px);line-height:1.15;margin-top:64px}
+h3{font:700 18px/1.3 var(--ui);margin:28px 0 8px}
+p{margin:8px 0;max-width:68ch;color:var(--fg-2)}
+.lede{font-size:18px;color:var(--fg)}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top svg{width:44px;height:44px}
+.top .word{font-family:var(--display);font-weight:700;font-size:22px}
+.top .word b{color:var(--suo);font-weight:700}
+.meta{color:var(--fg-3);font-size:14px}
+nav.toc{display:flex;flex-wrap:wrap;gap:4px 18px;margin:22px 0 0;padding:12px 0;border-block:1px solid var(--line);font-size:14px}
+nav.toc a{color:var(--fg-2);text-decoration:none}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--fg)}
+:focus-visible{outline:2px solid var(--suo);outline-offset:3px}
+
+/* findings */
+.find{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;padding:18px 0;border-bottom:1px solid var(--line)}
+.find>div{min-width:0}
+@media (max-width:760px){.find{grid-template-columns:minmax(0,1fr)}}
+.sev{display:inline-block;font:700 11px/1 var(--ui);letter-spacing:.08em;padding:4px 6px;border:1px solid currentColor;border-radius:2px;margin-right:8px;vertical-align:2px}
+.s0{color:var(--suo)} .s1{color:#E2A0A8} .s2{color:var(--fg-3)}
+.find h3{margin:0 0 6px;display:inline}
+.find ul{margin:8px 0 0;padding-left:18px;color:var(--fg-2)}
+.find li{margin:4px 0}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;align-content:start}
+.shots img{width:100%;border-radius:4px;border:1px solid var(--line);display:block}
+.shots figcaption{font-size:12px;color:var(--fg-3);margin-top:4px}
+figure{margin:0}
+code{font-size:.88em;background:var(--surface-2);padding:1px 5px;border-radius:3px;color:var(--fg)}
+
+/* screen frames */
+.frame{position:relative;width:100%;overflow:hidden;border-radius:10px;border:1px solid var(--line);background:#000;margin-top:14px}
+.frame>.scr{position:absolute;top:0;left:0;transform-origin:0 0;overflow:hidden}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:760px){.pair{grid-template-columns:minmax(0,1fr)}}
+.narrow{max-width:390px}
+.notes{margin:10px 0 0;padding-left:18px;color:var(--fg-2);font-size:15px}
+.notes li{margin:5px 0}
+.notes b{color:var(--fg)}
+
+/* ── product atoms (inside screens) ── */
+.scr{font-family:var(--ui);color:var(--fg);background:var(--bg)}
+.cover{position:absolute;inset:0;background-size:cover;background-position:center}
+.scrim-b{position:absolute;inset:auto 0 0 0;height:55%;background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,0))}
+.scrim-t{position:absolute;inset:0 0 auto 0;height:30%;background:linear-gradient(to bottom,rgba(0,0,0,.7),rgba(0,0,0,0))}
+.seal{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;height:48px;padding:0 24px;border-radius:3px;font:700 16px/1 var(--ui);letter-spacing:.03em;white-space:nowrap;background:var(--paper);color:var(--ink);box-shadow:inset 0 -3px 0 #C9B9AE}
+.seal::before{content:"";position:absolute;inset:4px;border:1px solid rgba(17,12,10,.22);border-radius:1px}
+.seal.suo{background:var(--suo);color:#fffaf2;box-shadow:inset 0 -3px 0 #9A4A5E}
+.seal.suo::before{border-color:rgba(255,253,248,.34)}
+.seal.quiet{background:var(--surface-3);color:var(--fg);box-shadow:inset 0 -2px 0 #4A3E3A}
+.seal.quiet::before{display:none}
+.tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;border:1px solid var(--fg-3);border-radius:2px;font:700 11px/1 var(--ui);letter-spacing:.06em;color:var(--fg-2);white-space:nowrap}
+.tags{display:inline-flex;gap:6px;flex-wrap:wrap;vertical-align:middle}
+.ring{outline:3px solid var(--paper);outline-offset:4px}
+.ic{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic.f{fill:currentColor;stroke:none}
+.subs{position:absolute;left:0;right:0;text-align:center;font:700 34px/1.25 var(--ui);color:var(--paper);text-shadow:-2px -2px 0 #110C0A,2px -2px 0 #110C0A,-2px 2px 0 #110C0A,2px 2px 0 #110C0A,0 2px 0 #110C0A,0 3px 8px rgba(0,0,0,.6)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--moss);display:inline-block}
+
+/* TV player */
+.tvp .top-band{position:absolute;left:56px;right:56px;top:36px;display:flex;align-items:center;gap:18px}
+.tvp .top-band img{height:54px}
+.tvp .top-band .ep{font-size:20px;color:var(--fg-2)}
+.tvp .bar{position:absolute;left:56px;right:56px;bottom:132px;height:6px;border-radius:3px;background:rgba(255,255,255,.22)}
+.tvp .bar .buf{position:absolute;inset:0 auto 0 0;width:52%;background:rgba(255,255,255,.35);border-radius:3px}
+.tvp .bar .fill{position:absolute;inset:0 auto 0 0;width:38%;background:var(--suo);border-radius:3px}
+.tvp .bar .seg{position:absolute;top:0;bottom:0;background:var(--moss);border-radius:3px}
+.tvp .bar .knob{position:absolute;top:50%;left:38%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--paper)}
+.tvp .time{position:absolute;right:56px;bottom:146px;font:500 18px var(--ui);color:var(--fg-2);font-variant-numeric:tabular-nums}
+.tvp .time.l{left:56px;right:auto}
+.tvp .row{position:absolute;left:44px;right:44px;bottom:30px;display:flex;align-items:flex-start;justify-content:space-between}
+.tvp .grp{display:flex;gap:6px}
+.ctl{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:84px;padding:10px 8px 8px;border-radius:6px;color:var(--fg-2);font:500 15px/1.1 var(--ui)}
+.ctl .ic{width:30px;height:30px;color:var(--paper)}
+.ctl.on{background:rgba(49,40,37,.9);color:var(--fg);outline:3px solid var(--paper);outline-offset:2px}
+.ctl .q{font:700 12px/1 var(--ui);letter-spacing:.06em;border:1px solid var(--fg-3);border-radius:2px;padding:3px 5px;color:var(--fg)}
+.skipbtn{position:absolute;right:56px;bottom:200px}
+
+/* sheets */
+.panel{position:absolute;top:0;right:0;bottom:0;background:var(--surface);border-left:1px solid var(--line);box-shadow:-30px 0 60px rgba(0,0,0,.5)}
+.panel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:repeating-linear-gradient(to bottom,var(--suo-deep) 0 22px,transparent 22px 30px);opacity:.7}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.colh{font:700 14px/1 var(--ui);letter-spacing:.08em;color:var(--fg-3);text-transform:uppercase;margin-bottom:12px}
+.opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:6px;font-size:19px;color:var(--fg-2)}
+.opt small{font-size:15px;color:var(--fg-3)}
+.opt.sel{background:var(--surface-3);color:var(--fg)}
+.opt .tick{width:18px;color:var(--moss);font-weight:700}
+.opt.foc{outline:3px solid var(--paper);outline-offset:-1px;color:var(--fg);background:var(--surface-3)}
+.foot{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.frow{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:17px;color:var(--fg-2)}
+.joint{width:52px;height:28px;border-radius:4px;background:var(--surface-3);position:relative;border:1px solid var(--line)}
+.joint i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:2px;background:var(--fg-3)}
+.joint.on{background:#3F4A37;border-color:#5C6B50}
+.joint.on i{left:27px;background:var(--moss)}
+
+/* phone */
+.ph{font-size:15px}
+.ph .status{height:44px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg span{padding:8px 12px;font:500 14px/1 var(--ui);color:var(--fg-2);border-left:1px solid var(--line)}
+.seg span:first-child{border-left:0}
+.seg span.on{background:var(--surface-3);color:var(--fg);box-shadow:inset 0 -2px 0 var(--suo)}
+.set-group{margin:0 16px 18px;background:var(--surface);border-radius:12px;overflow:hidden}
+.set-row{padding:13px 14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.set-row:first-child{border-top:0}
+.set-row .k{font-weight:500}
+.set-row .v{color:var(--fg-3);font-size:14px}
+.gh{margin:18px 30px 8px;font:700 12px/1 var(--ui);letter-spacing:.1em;color:var(--fg-3);text-transform:uppercase}
+
+/* web header */
+.whead{position:absolute;left:0;right:0;top:0;height:72px;display:flex;align-items:center;gap:30px;padding:0 48px;background:linear-gradient(to bottom,rgba(17,12,10,.9),rgba(17,12,10,0))}
+.whead .lock{display:flex;align-items:center;gap:10px;font:700 24px var(--display)}
+.whead .lock svg{width:34px;height:34px}
+.whead .lock b{color:var(--suo);font-weight:700}
+.whead nav{display:flex;gap:24px;font:500 16px var(--ui);color:var(--fg-2)}
+.whead nav .on{color:var(--fg);box-shadow:0 10px 0 -8px var(--suo)}
+.whead .rt{margin-left:auto;display:flex;align-items:center;gap:22px;color:var(--fg-2)}
+.av{width:36px;height:36px;border-radius:28%;display:grid;place-items:center;background:#3E5236;font:800 18px var(--display);color:var(--paper)}
+.menu{position:absolute;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 20px 50px rgba(0,0,0,.55);padding:8px}
+.menu .mi{padding:10px 12px;border-radius:6px;font-size:15px;color:var(--fg-2);display:flex;align-items:center;gap:10px}
+.menu .mi.on{background:var(--surface-3);color:var(--fg)}
+
+/* cards */
+.card{position:relative;border-radius:6px;overflow:hidden;background:var(--surface-2)}
+.card .art{position:absolute;inset:0;background-size:cover;background-position:center}
+.card .lg{position:absolute;left:10px;bottom:10px;max-width:62%;max-height:38%;object-fit:contain;object-position:left bottom;filter:drop-shadow(0 1px 6px rgba(0,0,0,.65))}
+.card .corner{position:absolute;top:8px;right:8px;background:rgba(17,12,10,.72)}
+.under{font:700 15px/1.3 var(--ui);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.under small{display:block;font:500 13px var(--ui);color:var(--fg-3)}
+
+/* loader */
+.stages{display:flex;gap:46px;justify-content:center;align-items:flex-start}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px;font:500 15px var(--ui);color:var(--fg-3);width:90px}
+.mark{width:26px;height:26px;border-radius:50%;border:2px solid var(--fg-3);position:relative}
+.stage.done .mark{border-color:var(--moss);background:var(--moss)}
+.stage.done{color:var(--fg-2)}
+.stage.now{color:var(--fg)}
+.stage.now .mark{border-color:var(--suo);background:conic-gradient(var(--suo) 0 40%,transparent 40%)}
+.stage.now .mark::after{content:"";position:absolute;inset:-10px;border:2px dashed rgba(208,106,130,.55);border-radius:50%}
+.stline{font:500 20px var(--ui);color:var(--fg);text-align:center;margin-top:26px}
+.stline span{color:var(--fg-3)}
+.links{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+
+.steps{display:flex;gap:22px;margin-top:22px;font:500 15px var(--ui);color:var(--fg-3)}
+.steps .done{color:var(--fg-2)} .steps .done::first-letter{color:var(--moss)} .steps .now{color:var(--fg)}
+.icons{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;margin-top:14px}
+.icons figure{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;color:var(--fg-3);text-align:center}
+.adaptive{width:96px;height:96px;border-radius:50%;background:var(--bg);display:grid;place-items:center;box-shadow:0 0 0 1px var(--line)}
+.adaptive svg{width:62px;height:62px}
+.themed{width:96px;height:96px;border-radius:50%;background:#DCE3F2;display:grid;place-items:center;color:#2B3550}
+.themed svg{width:58px;height:58px}
+.bannerx{width:320px;max-width:100%;aspect-ratio:16/9;background:var(--bg);border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;gap:12px;font:700 30px var(--display)}
+.bannerx svg{width:64px;height:64px}.bannerx b{color:var(--suo);font-weight:700}
+/* tables */
+.tbl{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+th{font-weight:700;color:var(--fg-3);border-top:0;background:var(--surface)}
+td:first-child{font-weight:700;white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){.stage.now .mark::after{animation:spin 6s linear infinite}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="ib" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="85" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter>
+    <filter id="if" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".08" numOctaves="2" seed="92" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4"/></filter>
+    <filter id="iw" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".02 .06" numOctaves="3" seed="90" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="7" result="d"/><feGaussianBlur in="d" stdDeviation=".6"/></filter>
+    <radialGradient id="wa" cx="50%" cy="75%" r="75%"><stop offset="0" stop-color="#fff8f4"/><stop offset=".5" stop-color="#f3eaec"/><stop offset=".9" stop-color="#d09da9"/><stop offset="1" stop-color="#762d38"/></radialGradient>
+    <radialGradient id="wb" cx="50%" cy="75%" r="75%"><stop offset="0" stop-color="#fff8f4"/><stop offset=".5" stop-color="#d6aab4"/><stop offset=".9" stop-color="#f1e7e9"/><stop offset="1" stop-color="#762d38"/></radialGradient>
+    <clipPath id="bc"><circle cx="50" cy="50" r="14"/></clipPath>
+    <g id="pet"><path d="M50 46 C37 38 32 21 41 10 C45 5 50 3 50 3 C55 5 58 8 61 12 C68 23 62 38 50 46Z" filter="url(#iw)"/><path d="M50 46 C37 38 32 21 41 10 C45 5 50 3 50 3 C55 5 58 8 61 12 C68 23 62 38 50 46Z" fill="none" stroke="#4e2b37" stroke-width="2" stroke-dasharray="100 7" opacity=".85" filter="url(#ib)"/><path d="M50 41 C49 29 49 18 50 8" fill="none" stroke="#762d38" stroke-width="1" opacity=".4" filter="url(#if)"/></g>
+  </defs>
+  <symbol id="bloom" viewBox="0 0 100 100">
+    <use href="#pet" fill="url(#wa)" transform="rotate(0 50 50)"/>
+    <use href="#pet" fill="url(#wb)" transform="rotate(72 50 50)"/>
+    <use href="#pet" fill="url(#wa)" transform="rotate(144 50 50)"/>
+    <use href="#pet" fill="url(#wb)" transform="rotate(216 50 50)"/>
+    <use href="#pet" fill="url(#wa)" transform="rotate(288 50 50)"/>
+    <circle cx="50" cy="50" r="14.9" fill="#3a2128" filter="url(#iw)"/>
+    <circle cx="50" cy="50" r="15" fill="none" stroke="#4e2b37" stroke-width="1.7" stroke-dasharray="77 8" opacity=".85" filter="url(#ib)"/>
+    <g clip-path="url(#bc)"><path d="M43 36 L66 50 L43 64 Z" transform="translate(50 50) scale(.5) translate(-50 -50)" fill="#fffaf2" stroke="#fffdf8" stroke-width="4.5" stroke-linejoin="round" filter="url(#if)"/></g>
+  </symbol>
+  <symbol id="inkring-track" viewBox="0 0 120 120"><circle cx="60" cy="60" r="48" fill="none" stroke="rgba(239,224,218,.16)" stroke-width="4"/></symbol>
+  <symbol id="inkring-arc" viewBox="0 0 120 120"><circle cx="60" cy="60" r="48" fill="none" stroke="#D06A82" stroke-width="6" stroke-linecap="round" transform="rotate(-90 60 60)" filter="url(#ib)" style="stroke-dasharray:inherit"/></symbol>
+  <symbol id="inkloader" viewBox="0 0 100 100"><path d="M50 8 C60 8 62 20 72 22 C82 24 92 30 88 42 C85 52 94 58 88 68 C82 78 70 74 62 82 C55 90 45 90 38 82 C30 74 18 78 12 68 C6 58 15 52 12 42 C8 30 18 24 28 22 C38 20 40 8 50 8Z" fill="#D06A82" filter="url(#iw)"/></symbol>
+  <symbol id="bloom-mono" viewBox="0 0 100 100"><mask id="mh"><rect width="100" height="100" fill="#fff"/><path d="M43 36 L66 50 L43 64 Z" transform="translate(50 50) scale(.5) translate(-50 -50)" fill="#000" stroke="#000" stroke-width="4.5" stroke-linejoin="round"/></mask><g mask="url(#mh)" fill="currentColor"><path id="pm" d="M50 46 C37 38 32 21 41 10 C45 5 50 3 50 3 C55 5 58 8 61 12 C68 23 62 38 50 46Z"/><use href="#pm" transform="rotate(72 50 50)"/><use href="#pm" transform="rotate(144 50 50)"/><use href="#pm" transform="rotate(216 50 50)"/><use href="#pm" transform="rotate(288 50 50)"/><circle cx="50" cy="50" r="15"/></g></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-back10" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/><text x="12" y="15.5" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif" font-weight="700">10</text></symbol>
+  <symbol id="i-fwd10" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/><text x="12" y="15.5" font-size="7" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif" font-weight="700">10</text></symbol>
+  <symbol id="i-eps" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h14v12"/></symbol>
+  <symbol id="i-cc" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M6 13h4M12 13h6M6 16h8"/></symbol>
+  <symbol id="i-hd" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M7 9v6M7 12h3.5M10.5 9v6M14 9h1.6a3 3 0 0 1 0 6H14z"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 5l10 7-10 7z" fill="currentColor"/><path d="M18 5v14"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M4 7h12M4 12h9M4 17h6M18 9v10M15 16l3 3 3-3"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="top"><svg><use href="#bloom"/></svg><span class="word">kimono <b>watch</b></span></div>
+  <h1>A harsh look against Netflix</h1>
+  <p class="meta">10 November 2026 · web /watch (desktop and phone width), Android TV APK on the emulator, phone app read from code · critique and redesign only, nothing built</p>
+  <p class="lede">The server is ahead of every client. Most of what feels unfinished is the clients hiding or faking what the server already knows. On TV, the remote experience was carried over from mouse and touch rather than designed for it.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#worst">The worst of it</a><a href="#player">Player on TV</a><a href="#sheets">Audio, subtitles, quality</a><a href="#phone">Player on phone</a><a href="#header">Header and settings</a><a href="#loading">Loading</a><a href="#tags">Format tags</a><a href="#rows">Rows and sorting</a><a href="#brand">Brand</a><a href="#server">What the server needs</a>
+  </nav>
+
+  <h2 id="worst">The worst of it</h2>
+  <p>Ranked. S0 means fix before anyone else uses it. The full list, 25 items, is in <code>critique.md</code> next to this page.</p>
+
+  <div class="find"><div><span class="sev s0">S0</span><h3>Web rows don't scroll, and there's no See all</h3>
+    <ul><li>The row grid lets each row grow as wide as its contents (4331 px in a 1440 px window), so a rail never overflows. The arrows have nothing to move and are invisible until hover.</li><li>Films for tonight has 15 titles; you can reach 6. A one-line CSS fix (<code>.kw-row{min-width:0}</code>) made every row scroll when I tried it in the page.</li><li>There's no "See all" page on any client.</li></ul></div>
+    <div class="shots"><figure><img src="img/web-04-rows-titles.jpg" alt="Web Home rows, cut off at the right edge"><figcaption>Rows run off the page</figcaption></figure><figure><img src="img/tv-13-row-right.jpg" alt="TV row scrolled with the D-pad"><figcaption>TV rows do scroll</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s0">S0</span><h3>The loading percentage is made up</h3>
+    <ul><li>The web counts toward 90% on a timer. It sat at 89% for about 50 seconds while the stream was being prepared.</li><li>Android reaches 99% in 6 seconds whatever is happening.</li><li>The real stages are knowable: finding a copy, choosing one, preparing it, buffering.</li></ul></div>
+    <div class="shots"><figure><img src="img/web-08-loader-stuck-89.jpg" alt="Web loader at 89%"><figcaption>Web, 50 s at 89%</figcaption></figure><figure><img src="img/tv-05.jpg" alt="TV loader at 99%"><figcaption>TV, 99% and waiting</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s0">S0</span><h3>Language and playback preferences have no home</h3>
+    <ul><li>The server stores audio language, sub or dub, subtitles, autoplay, skip intros, fillers and per-device quality. The web shows only quality, in the avatar menu. Android shows nothing.</li><li>There's no subtitle size or style anywhere.</li></ul></div>
+    <div class="shots"><figure><img src="img/web-15-account-menu.jpg" alt="Web avatar menu with only quality"><figcaption>The only setting, under the avatar</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s0">S0</span><h3>TV remote: you can't see focus, and the controls fight</h3>
+    <ul><li>The control row shows focus only as a slight scale on a white icon, and the labels are hidden on TV.</li><li>Five seconds after pausing, the pause card takes over. Left and right then seek a video you can't see, and the card, the buffering ring and the seek ripple stack on top of each other.</li><li>During the intro, OK skips instead of pausing.</li></ul></div>
+    <div class="shots"><figure><img src="img/tv-09.jpg" alt="TV controls with no visible focus"><figcaption>Which one has focus?</figcaption></figure><figure><img src="img/tv-12.jpg" alt="Pause card, spinner and ripple stacked"><figcaption>Three layers at once</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s0">S0</span><h3>Quality is hidden, format tags are never shown</h3>
+    <ul><li>Web quality is filed under the speed icon. Android has no quality control at all. "Auto" never says what it picked.</li><li>The server already returns 4K / Dolby Vision / Atmos badges for each play. No client draws them.</li></ul></div>
+    <div class="shots"><figure><img src="img/web-10-speed-quality.jpg" alt="Quality inside the speed menu"><figcaption>Quality under "Speed"</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s1">S1</span><h3>Titles typed over the art read as unpolished</h3>
+    <ul><li>Mincho 800 at 15 to 20 px over busy stills wraps into the art, clips, and vanishes on light images. This comes from the approved reference.</li><li>We already have each title's logo art and only use it in the hero.</li></ul></div>
+    <div class="shots"><figure><img src="img/web-04-rows-titles.jpg" alt="Card titles over art"><figcaption>Web</figcaption></figure><figure><img src="img/tv-13-row-right.jpg" alt="TV card titles over art"><figcaption>TV</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s1">S1</span><h3>Raw release names in the subtitle menu</h3>
+    <ul><li>"English (9volt)", "Portuguese (FULL)" twice, "(FORCED)" in capitals.</li><li>The web uses the browser's grey caption box and Android draws an outline: two looks, and no setting.</li></ul></div>
+    <div class="shots"><figure><img src="img/web-11-audio-subs.jpg" alt="Subtitle menu with raw names"><figcaption>Track names leak</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s1">S1</span><h3>Pills in the wrong place, three brands, duplicated chrome</h3>
+    <ul><li>Series / Films / Anime are generic pills sitting on the hero. On TV they collide with the title logo. They belong in the header.</li><li>Web uses the bloom lockup, TV a 観 seal with "KIMONO" in capitals, and the launcher says "Watch".</li><li>The title appears twice in the player, the web has two fullscreen buttons, and a ghost panel lingers after a sheet closes.</li></ul></div>
+    <div class="shots"><figure><img src="img/tv-02.jpg" alt="TV hero with pills over the logo"><figcaption>"Anime" on top of "THE"</figcaption></figure><figure><img src="img/web-02-home.jpg" alt="Web home with pills"><figcaption>Pills under the nav</figcaption></figure></div></div>
+
+  <div class="find"><div><span class="sev s2">S2</span><h3>Smaller but felt</h3>
+    <ul><li>The title page says "35 episodes left" next to "That's the end of the series so far".</li><li>Search on desktop is a list of phone rows, with no year, so two Doraemons look like duplicates.</li><li>My list's empty state is a single grey line. The account menu opens behind the title modal.</li><li>"172m left" should be "2 h 52 m left".</li><li>About 55 s to the first frame on the web, with nothing warmed up while the title page is open.</li></ul></div>
+    <div class="shots"><figure><img src="img/web-05-title.jpg" alt="Title page"><figcaption>Contradicting tracker</figcaption></figure><figure><img src="img/web-17-search.jpg" alt="Search results"><figcaption>Search</figcaption></figure></div></div>
+
+  <h3>Where the approved reference falls short</h3>
+  <p>The reference set the card titles in Mincho over the art, and it has no settings, format tags, sort, loading stages or TV focus model. That's why none of them got built. Its palette, Top 10, hover card, pause card and shrinking end card are good and stay.</p>
+
+  <!-- ───────────── PLAYER TV ───────────── -->
+  <h2 id="player">The player on TV</h2>
+  <p>Every control is labelled, focus is a paper ring you can see from the sofa, and the skip button takes focus when it appears, so OK does what the screen shows.</p>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr tvp">
+    <div class="cover" style="background-image:url(art/ep4.jpg)"></div>
+    <div class="scrim-t"></div><div class="scrim-b"></div>
+    <div class="top-band"><img src="art/frieren-logo.png" alt=""><span class="ep">S1:E4 · The Land Where Souls Rest</span></div>
+    <div class="skipbtn"><span class="seal ring">Skip intro<svg class="ic" style="width:20px;height:20px"><use href="#i-next"/></svg></span></div>
+    <span class="time l">1:24</span><span class="time">−22:31</span>
+    <div class="bar"><div class="buf"></div><div class="seg" style="left:3%;width:6%"></div><div class="fill" style="width:7%"></div><div class="knob" style="left:7%"></div></div>
+    <div class="row">
+      <div class="grp">
+        <div class="ctl"><svg class="ic"><use href="#i-pause"/></svg>Pause</div>
+        <div class="ctl"><svg class="ic"><use href="#i-back10"/></svg>Back 10</div>
+        <div class="ctl"><svg class="ic"><use href="#i-fwd10"/></svg>Forward 10</div>
+      </div>
+      <div class="grp">
+        <div class="ctl"><svg class="ic"><use href="#i-eps"/></svg>Episodes</div>
+        <div class="ctl"><svg class="ic"><use href="#i-cc"/></svg>Audio &amp; subtitles</div>
+        <div class="ctl"><span class="q">1080p · 5.1</span>Quality</div>
+        <div class="ctl"><svg class="ic"><use href="#i-next"/></svg>Next episode</div>
+      </div>
+    </div>
+  </div></div>
+  <ul class="notes">
+    <li><b>OK</b> acts on what's focused. <b>Left and right</b> while playing seek 10 s without bringing up the chrome. <b>Holding</b> opens the thumbnail strip and speeds up: 10 s, then 30 s, 60 s, 5 min.</li>
+    <li><b>Up</b> focuses the scrub bar; <b>Down</b> from the control row opens Episodes. <b>Back</b> hides the chrome, and a second Back within 3 s leaves.</li>
+    <li>The intro is drawn on the bar in moss. The title appears once, in the top band. There's no Back arrow on TV: the remote has one.</li>
+    <li>The Quality control shows what's playing, so it's findable without opening anything.</li>
+  </ul>
+
+  <h3>Scrubbing with a remote</h3>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr tvp">
+    <div class="cover" style="background-image:url(art/ep4.jpg);filter:brightness(.45)"></div>
+    <div style="position:absolute;left:0;right:0;bottom:200px;display:flex;justify-content:center;align-items:flex-end;gap:14px">
+      <div style="width:190px;opacity:.6"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/ep2.jpg)"></div></div></div>
+      <div style="width:190px;opacity:.8"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/ep3.jpg)"></div></div></div>
+      <div style="width:300px;text-align:center"><div class="card ring" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/ep5.jpg)"></div></div><div style="font:700 24px var(--ui);margin-top:12px;font-variant-numeric:tabular-nums">14:30</div></div>
+      <div style="width:190px;opacity:.8"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/ep6.jpg)"></div></div></div>
+      <div style="width:190px;opacity:.6"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/ep1.jpg)"></div></div></div>
+    </div>
+    <span class="time l">1:24</span><span class="time">−22:31</span>
+    <div class="bar"><div class="seg" style="left:3%;width:6%"></div><div class="fill" style="width:7%"></div><div class="knob" style="left:7%;background:var(--fg-3)"></div><div class="knob" style="left:60%;width:22px;height:22px;margin:-11px 0 0 -11px;box-shadow:0 0 0 4px rgba(244,233,225,.25)"></div></div>
+    <div style="position:absolute;left:0;right:0;bottom:60px;text-align:center;color:var(--fg-2);font-size:18px">+13 min · OK to jump · Back to cancel</div>
+  </div></div>
+
+  <h3>Next episode, and filler ahead</h3>
+  <div class="pair">
+    <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+      <div class="cover" style="background-image:url(art/ep6.jpg);filter:brightness(.8)"></div>
+      <div style="position:absolute;right:56px;bottom:56px;width:420px;background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+        <div style="aspect-ratio:16/9;background:url(art/ep5.jpg) center/cover"></div>
+        <div style="padding:16px 18px 18px">
+          <div style="color:var(--fg-3);font-size:15px">Next episode</div>
+          <div style="font:700 21px/1.3 var(--ui);margin:4px 0 14px">5 · Phantoms of the Dead</div>
+          <span class="seal ring" style="width:100%;overflow:hidden"><svg class="ic" style="width:20px;height:20px"><use href="#i-play"/></svg>Play now<i style="position:absolute;left:0;bottom:0;height:3px;width:62%;background:var(--suo)"></i></span>
+          <div style="color:var(--fg-3);font-size:14px;margin-top:10px">Starts in 5 · Back to keep watching the credits</div>
+        </div>
+      </div>
+    </div></div>
+    <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+      <div class="cover" style="background-image:url(art/ep6.jpg);filter:brightness(.8)"></div>
+      <div style="position:absolute;right:56px;bottom:56px;width:460px;background:var(--surface);border-radius:12px;padding:22px">
+        <div style="font:700 24px/1.3 var(--display)">Episodes 5–6 are filler</div>
+        <div style="display:flex;gap:12px;margin:18px 0 12px"><span class="seal suo ring">Skip to 7</span><span class="seal quiet">Watch 5</span></div>
+        <div style="color:var(--fg-2);font-size:16px;display:flex;align-items:center;gap:10px"><span class="joint"><i></i></span>Always skip filler</div>
+      </div>
+    </div></div>
+  </div>
+  <ul class="notes"><li>The countdown drains along the seal's base, not in a ring. With autoplay off, the seal reads "Play next" and doesn't count. Filler never counts down.</li></ul>
+
+  <!-- ───────────── SHEETS ───────────── -->
+  <h2 id="sheets">Audio, subtitles and quality</h2>
+  <p>Side panels on TV and web, bottom sheets on phone. Plain language names, one qualifier at most. Changes apply live, and the panel remembers the choice for this show by default.</p>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+    <div class="cover" style="background-image:url(art/ep4.jpg);filter:brightness(.55)"></div>
+    <div class="subs" style="bottom:70px;right:560px;font-size:30px">I overslept all the time.</div>
+    <div class="panel" style="width:560px;padding:34px 30px">
+      <div class="cols">
+        <div><div class="colh">Audio</div>
+          <div class="opt sel"><span class="tick">✓</span>Japanese <small>Original</small></div>
+          <div class="opt"><span class="tick"></span>English <small>Dub</small></div>
+          <div class="opt"><span class="tick"></span>Portuguese <small>Dub</small></div>
+        </div>
+        <div><div class="colh">Subtitles</div>
+          <div class="opt"><span class="tick"></span>Off</div>
+          <div class="opt sel foc"><span class="tick">✓</span>English</div>
+          <div class="opt"><span class="tick"></span>English <small>Signs</small></div>
+          <div class="opt"><span class="tick"></span>Portuguese <small>Brazil</small></div>
+          <div class="opt"><span class="tick"></span>Spanish</div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="frow">Keep for Frieren<span class="joint on"><i></i></span></div>
+        <div class="frow">Subtitle style<svg class="ic" style="width:20px;height:20px"><use href="#i-chev"/></svg></div>
+        <div class="frow">Your defaults<svg class="ic" style="width:20px;height:20px"><use href="#i-chev"/></svg></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="pair" style="margin-top:16px">
+    <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+      <div class="cover" style="background-image:url(art/ep4.jpg);filter:brightness(.55)"></div>
+      <div class="panel" style="width:520px;padding:34px 30px">
+        <div class="colh">Quality</div>
+        <div class="opt sel"><span class="tick">✓</span><span style="flex:1">Auto</span><span class="tags"><span class="dot"></span><small>1080p now</small></span></div>
+        <div class="opt foc"><span class="tick"></span><span style="flex:1">4K</span><span class="tags"><span class="tag">Dolby Vision</span><span class="tag">Atmos</span></span></div>
+        <div class="opt"><span class="tick"></span><span style="flex:1">1080p</span><span class="tags"><span class="tag">HDR</span><span class="tag">5.1</span></span></div>
+        <div class="opt"><span class="tick"></span><span style="flex:1">720p</span></div>
+        <div class="opt"><span class="tick"></span><span style="flex:1">Data saver</span></div>
+        <div class="foot">
+          <div class="frow">Speed<span style="color:var(--fg)">1×</span></div>
+          <div class="frow">Make this the default on this TV<span class="joint"><i></i></span></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+      <div class="cover" style="background-image:url(art/ep4.jpg)"></div>
+      <div class="subs" style="bottom:60px;font-size:36px">You haven’t seen it?</div>
+      <div style="position:absolute;left:40px;top:40px;display:grid;gap:14px">
+        <div style="font:700 13px var(--ui);letter-spacing:.1em;color:var(--fg-3);background:rgba(17,12,10,.7);padding:6px 10px;border-radius:4px">SUBTITLE STYLE · OUTLINE, M</div>
+      </div>
+      <div style="position:absolute;right:40px;top:40px;width:420px;background:var(--surface);border-radius:12px;padding:20px">
+        <div class="colh">Size</div><div class="seg"><span>S</span><span class="on">M</span><span>L</span><span>XL</span></div>
+        <div class="colh" style="margin-top:18px">Look</div><div class="seg"><span class="on">Outline</span><span>Shadow</span><span>Box</span></div>
+        <div class="colh" style="margin-top:18px">Colour</div><div class="seg"><span class="on">Paper</span><span>Yellow</span></div>
+      </div>
+    </div></div>
+  </div>
+  <ul class="notes"><li>Quality rows show only what this screen can display. "Auto" says what it's playing. Speed moves into Quality's footer, because it's rarer than quality.</li><li>Subtitle style previews live over the picture. The house default is Zen Maru 700 in paper with an ink outline, and no box.</li></ul>
+
+  <!-- ───────────── PHONE ───────────── -->
+  <h2 id="phone">The player on phone</h2>
+  <div class="frame" data-w="844" data-h="390" style="aspect-ratio:844/390"><div class="scr ph">
+    <div class="cover" style="background-image:url(art/ep4.jpg)"></div>
+    <div class="scrim-t"></div><div class="scrim-b" style="height:60%"></div>
+    <div style="position:absolute;left:24px;top:18px;right:24px;display:flex;align-items:center;gap:14px"><svg class="ic" style="width:24px;height:24px"><use href="#i-chev" transform="rotate(180 12 12)"/></svg><img src="art/frieren-logo.png" alt="" style="height:30px"><span style="color:var(--fg-2);font-size:13px">S1:E4 · The Land Where Souls Rest</span></div>
+    <div style="position:absolute;left:0;right:0;top:150px;display:flex;justify-content:center;gap:70px;align-items:center;color:var(--paper)"><svg class="ic" style="width:34px;height:34px"><use href="#i-back10"/></svg><svg class="ic" style="width:52px;height:52px"><use href="#i-pause"/></svg><svg class="ic" style="width:34px;height:34px"><use href="#i-fwd10"/></svg></div>
+    <div style="position:absolute;left:24px;right:24px;bottom:64px;height:4px;border-radius:2px;background:rgba(255,255,255,.25)"><div style="width:38%;height:100%;background:var(--suo);border-radius:2px"></div><div style="position:absolute;left:38%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:var(--paper)"></div></div>
+    <div style="position:absolute;left:24px;right:24px;bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--fg-2)">
+      <span style="font-variant-numeric:tabular-nums">8:41 / 23:56</span>
+      <span style="display:flex;gap:26px;align-items:center"><span style="display:flex;gap:6px;align-items:center"><svg class="ic" style="width:22px;height:22px"><use href="#i-eps"/></svg>Episodes</span><span style="display:flex;gap:6px;align-items:center"><svg class="ic" style="width:22px;height:22px"><use href="#i-cc"/></svg>Audio &amp; subtitles</span><span class="tag" style="color:var(--fg)">1080p</span><span style="display:flex;gap:6px;align-items:center"><svg class="ic" style="width:22px;height:22px"><use href="#i-next"/></svg>Next</span></span>
+    </div>
+  </div></div>
+  <ul class="notes"><li>The quality tag is a tap target of its own, one tap from the Quality sheet. Labels sit beside the icons in landscape; the bottom row reaches into the home-indicator inset.</li><li>Double-tap the sides for ±10 s (it stacks while tapping), drag the left half for brightness and the right half for volume, pinch to fill.</li></ul>
+
+  <!-- ───────────── HEADER + SETTINGS ───────────── -->
+  <h2 id="header">Header and settings</h2>
+  <p>Series, Films and Anime move into the header as destinations, like Netflix's Shows and Movies. The avatar is about who's watching: profiles and the account. Settings get their own gear, and quality moves into Settings and the player.</p>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+    <div class="cover" style="background-image:url(art/frieren-bd.jpg)"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(17,12,10,.92) 0,rgba(17,12,10,.55) 45%,rgba(17,12,10,0) 75%)"></div>
+    <div class="scrim-b" style="height:30%;background:linear-gradient(to top,var(--bg),rgba(17,12,10,0))"></div>
+    <div class="whead">
+      <div class="lock"><svg><use href="#bloom"/></svg>kimono <b>watch</b></div>
+      <nav><span class="on">Home</span><span>Series</span><span>Films</span><span>Anime</span><span>New &amp; hot</span><span>My list</span></nav>
+      <div class="rt"><svg class="ic" style="width:24px;height:24px"><use href="#i-search"/></svg><svg class="ic" style="width:24px;height:24px"><use href="#i-gear"/></svg><span class="av">K</span></div>
+    </div>
+    <div class="menu" style="right:40px;top:66px;width:250px">
+      <div style="display:flex;gap:10px;padding:8px 12px 12px;border-bottom:1px solid var(--line);margin-bottom:6px">
+        <span class="av" style="outline:2px solid var(--paper);outline-offset:2px">K</span><span class="av" style="background:#7E3448">A</span><span class="av" style="background:#8A5A2B">M</span><span class="av" style="background:var(--surface-3);color:var(--fg-2);font-family:var(--ui)">+</span>
+      </div>
+      <div class="mi on"><svg class="ic" style="width:20px;height:20px"><use href="#i-gear"/></svg>Settings</div>
+      <div class="mi">Kimono account</div>
+      <div class="mi">Switch profile</div>
+    </div>
+    <div style="position:absolute;left:48px;top:250px;width:520px">
+      <img src="art/frieren-logo.png" alt="" style="width:380px">
+      <div style="margin:18px 0;color:var(--fg-2);font-size:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">2023 · 13+ · 1 season <span class="tags"><span class="tag">HD</span><span class="tag">5.1</span></span></div>
+      <div style="display:flex;gap:12px"><span class="seal"><svg class="ic" style="width:18px;height:18px"><use href="#i-play"/></svg>Resume S1:E4</span><span class="seal quiet">More info</span></div>
+    </div>
+  </div></div>
+
+  <h3>Settings on TV</h3>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+    <div style="position:absolute;left:0;top:0;bottom:0;width:380px;background:var(--surface);padding:48px 28px">
+      <div style="font:800 36px var(--display);margin:0 14px 30px">Settings</div>
+      <div class="opt sel foc" style="font-size:20px">Languages</div>
+      <div class="opt" style="font-size:20px">Subtitle style</div>
+      <div class="opt" style="font-size:20px">Playing</div>
+      <div class="opt" style="font-size:20px">Quality on this TV</div>
+      <div class="opt" style="font-size:20px;margin-top:30px">Switch profile</div>
+    </div>
+    <div style="position:absolute;left:440px;top:72px;right:60px">
+      <div style="display:grid;gap:26px">
+        <div><div style="font:700 21px var(--ui);margin-bottom:10px">My language</div><span class="seal quiet" style="height:44px">English<svg class="ic" style="width:18px;height:18px"><use href="#i-chev"/></svg></span></div>
+        <div><div style="font:700 21px var(--ui);margin-bottom:10px">Anime</div><div class="seg" style="transform:scale(1.25);transform-origin:left"><span class="on">Original, with subtitles</span><span>Dubbed when there is one</span></div></div>
+        <div><div style="font:700 21px var(--ui);margin-bottom:10px">Films and series</div><div class="seg" style="transform:scale(1.25);transform-origin:left"><span class="on">Original audio</span><span>My language when there is one</span></div></div>
+        <div><div style="font:700 21px var(--ui);margin-bottom:6px">Subtitles</div><div style="color:var(--fg-3);font-size:16px;margin-bottom:10px">Automatic: when the audio isn’t in your language.</div><div class="seg" style="transform:scale(1.25);transform-origin:left"><span class="on">Automatic</span><span>Always</span><span>Off</span></div></div>
+        <div><div style="font:700 21px var(--ui);margin-bottom:10px">Subtitle language</div><span class="seal quiet" style="height:44px">Same as my language<svg class="ic" style="width:18px;height:18px"><use href="#i-chev"/></svg></span></div>
+      </div>
+    </div>
+  </div></div>
+
+  <h3>Settings on phone</h3>
+  <div class="pair">
+    <div class="frame narrow" data-w="390" data-h="844" style="aspect-ratio:390/844"><div class="scr ph" style="padding-top:44px">
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 18px 14px"><svg class="ic" style="width:24px;height:24px"><use href="#i-chev" transform="rotate(180 12 12)"/></svg><span style="font:800 26px var(--display)">Settings</span></div>
+      <div class="gh">Languages</div>
+      <div class="set-group">
+        <div class="set-row"><span class="k">My language</span><span class="v">English ›</span></div>
+        <div class="set-row" style="flex-direction:column;align-items:flex-start"><span class="k">Anime</span><div class="seg"><span class="on">Subtitles</span><span>Dubbed</span></div></div>
+        <div class="set-row" style="flex-direction:column;align-items:flex-start"><span class="k">Films and series</span><div class="seg"><span class="on">Original</span><span>My language</span></div></div>
+        <div class="set-row" style="flex-direction:column;align-items:flex-start"><span class="k">Subtitles</span><div class="seg"><span class="on">Automatic</span><span>Always</span><span>Off</span></div></div>
+        <div class="set-row"><span class="k">Subtitle style</span><span class="v">Outline · M ›</span></div>
+      </div>
+      <div class="gh">Playing</div>
+      <div class="set-group">
+        <div class="set-row"><span class="k">Autoplay next episode</span><span class="joint on"><i></i></span></div>
+        <div class="set-row"><span class="k">Skip intros and recaps</span><span class="joint"><i></i></span></div>
+        <div class="set-row" style="flex-direction:column;align-items:flex-start"><span class="k">Filler episodes</span><div class="seg"><span class="on">Ask</span><span>Skip</span><span>Watch</span></div></div>
+      </div>
+      <div class="gh">Quality on this phone</div>
+      <div class="set-group">
+        <div class="set-row" style="flex-direction:column;align-items:flex-start"><div class="seg"><span class="on">Auto</span><span>1080p</span><span>720p</span><span>Saver</span></div><span class="v">This phone plays 1080p · HDR10</span></div>
+      </div>
+    </div></div>
+    <div>
+      <ul class="notes" style="margin-top:14px">
+        <li><b>Same groups, same order everywhere:</b> Languages, Subtitle style, Playing, Quality on this device.</li>
+        <li><b>Reachable from:</b> the header gear (web, phone, TV), the avatar menu, the player's "Your defaults" row, and the title page's Sub | Dub joint.</li>
+        <li><b>Saves as you change it,</b> with a brief moss tick and no Save button. Segmented joints for four options or fewer, never dropdowns.</li>
+        <li><b>Quality lists only what this device can play.</b> The web never offers 4K. One plain line says what the device can do.</li>
+        <li><b>One helper line on the whole page,</b> under Subtitles: Automatic.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ───────────── LOADING ───────────── -->
+  <h2 id="loading">Loading that tells the truth</h2>
+  <p>Four stages, each from a real signal, shown on Kimono's InkRing. The web has already moved to InkRing and its stepped stages. The server stage events would make every step real. Stages that are already done show filled, without fake animation.</p>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+    <div class="cover" style="background-image:url(art/ep4.jpg);filter:blur(22px) brightness(.32);transform:scale(1.1)"></div>
+    <div class="links" style="flex-direction:column">
+      <img src="art/frieren-logo.png" alt="" style="width:340px">
+      <div style="color:var(--fg-2);font-size:19px;margin:12px 0 54px">S1:E4 · The Land Where Souls Rest</div>
+      <div style="position:relative;width:120px;height:120px"><svg viewBox="0 0 120 120" style="width:120px;height:120px"><use href="#inkring-track"/><use href="#inkring-arc" style="stroke-dasharray:163 400"/></svg><div style="position:absolute;inset:0;display:grid;place-items:center;font:700 24px var(--ui);font-variant-numeric:tabular-nums">54%</div></div>
+      <div class="steps"><span class="done">✓ Find</span><span class="done">✓ Choose</span><span class="now">Prepare</span><span>Buffer</span></div>
+      <div class="stline">Getting it ready <span>· picked 1080p</span> <span class="tags" style="margin-left:6px"><span class="tag">HD</span><span class="tag">5.1</span></span></div>
+    </div>
+    <div style="position:absolute;left:56px;top:40px;color:var(--fg-3);font-size:16px">Back to leave</div>
+  </div></div>
+  <div class="pair" style="margin-top:16px">
+    <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+      <div class="cover" style="background-image:url(art/apoth-bd.jpg);filter:blur(22px) brightness(.32);transform:scale(1.1)"></div>
+      <div class="links" style="flex-direction:column">
+        <img src="art/apoth-logo.png" alt="" style="width:300px">
+        <div style="height:70px"></div>
+        <div style="position:relative;width:120px;height:120px"><svg viewBox="0 0 120 120" style="width:120px;height:120px"><use href="#inkring-track"/><use href="#inkring-arc" style="stroke-dasharray:45 400"/></svg><div style="position:absolute;inset:0;display:grid;place-items:center;font:700 24px var(--ui);font-variant-numeric:tabular-nums">15%</div></div>
+        <div class="steps"><span class="now">Find</span><span>Choose</span><span>Prepare</span><span>Buffer</span></div>
+        <div class="stline">Finding the best copy <span>· 3 of 5 places checked</span></div>
+        <div style="color:var(--fg-3);font-size:17px;margin-top:22px">This one’s taking a while.</div>
+        <div style="display:flex;gap:12px;margin-top:16px"><span class="seal quiet ring">Try another copy</span><span class="seal quiet">Back</span></div>
+      </div>
+    </div></div>
+    <div class="frame" data-w="844" data-h="390" style="aspect-ratio:844/390"><div class="scr ph">
+      <div class="cover" style="background-image:url(art/ep4.jpg);filter:brightness(.6)"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;height:64px;background:rgba(17,12,10,.86);display:flex;align-items:center;gap:14px;padding:0 24px">
+        <svg viewBox="0 0 100 100" style="width:30px;height:30px"><use href="#inkloader"/></svg>
+        <span style="font-size:15px">Switching to 4K · Buffering 72%</span>
+        <span class="tags" style="margin-left:auto"><span class="tag">4K</span><span class="tag">Dolby Vision</span></span>
+      </div>
+      <svg viewBox="0 0 844 8" preserveAspectRatio="none" style="position:absolute;left:0;bottom:62px;width:100%;height:8px"><path d="M0 4 Q 10 1 20 4 T 40 4 T 60 4 T 80 4 T 100 4 T 120 4 T 140 4 T 160 4 T 180 4 T 200 4 T 220 4 T 240 4 T 260 4 T 280 4 T 300 4 T 320 4 T 340 4 T 360 4 T 380 4 T 400 4 T 420 4 T 440 4 T 460 4 T 480 4 T 500 4 T 520 4 T 540 4 T 560 4 T 580 4 T 600 4" fill="none" stroke="var(--suo)" stroke-width="3" stroke-linecap="round" filter="url(#if)"/><path d="M608 4 H844" stroke="rgba(255,255,255,.25)" stroke-width="2"/></svg>
+    </div></div>
+  </div>
+  <ul class="notes"><li><b>Only the house loaders.</b> InkRing for the start of playback, with a real percentage: each stage owns a span of the ring and fills it by its real signal, and the ring holds still when there's no signal. InkLoader for waits with no measure (stalls, sign-in, app start). InkWave for linear progress (the mid-play band, downloads). Android's own WavyRing goes.</li><li><b>After 12 s</b> with no stage change, one quiet line appears. <b>After 25 s</b>, "Try another copy" picks the next version.</li><li><b>Changing quality mid-play</b> keeps the last frame, dimmed, with a slim band. It never cuts to black.</li><li><b>Start sooner:</b> the web asks the server to warm the stream as soon as the title page opens, or as soon as Resume gets focus on TV.</li></ul>
+
+  <!-- ───────────── TAGS ───────────── -->
+  <h2 id="tags">Format tags</h2>
+  <p>Stamps, not pills: a hairline border with 2 px corners. They show only what this device will actually get, and nothing when it's unknown. Cards carry one tag at most (4K); the title page carries the full set.</p>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr" style="background:rgba(0,0,0,.6)">
+    <div style="position:absolute;left:190px;top:30px;width:900px;bottom:0;background:var(--surface);border-radius:12px 12px 0 0;overflow:hidden">
+      <div style="height:380px;background:url(art/frieren-bd.jpg) center 30%/cover;position:relative"><div class="scrim-b" style="background:linear-gradient(to top,var(--surface),rgba(27,20,18,0))"></div><img src="art/frieren-logo.png" alt="" style="position:absolute;left:40px;bottom:26px;width:320px"></div>
+      <div style="padding:6px 40px;display:grid;grid-template-columns:1.6fr 1fr;gap:34px">
+        <div>
+          <div style="display:flex;gap:10px;align-items:center;color:var(--fg-2);font-size:15px;flex-wrap:wrap">2023 <span class="tag">13+</span> 28 episodes <span class="tags"><span class="tag">HD</span><span class="tag">5.1</span></span></div>
+          <div style="display:flex;gap:12px;margin:16px 0 10px"><span class="seal" style="flex:1"><svg class="ic" style="width:18px;height:18px"><use href="#i-play"/></svg>Resume S1:E4</span><div class="seg" style="align-self:center"><span class="on">Sub</span><span>Dub</span></div></div>
+          <div style="font-size:14px;color:var(--fg-2)">Episode 4 of 28 · 24 left · 21 m left in this one</div>
+          <div style="font-size:14px;color:var(--fg-3);margin-top:12px">Audio: Japanese, English · Subtitles: English, Portuguese +4</div>
+        </div>
+        <div style="font-size:14px;color:var(--fg-3);line-height:1.7">Cast: <span style="color:var(--fg-2)">Atsumi Tanezaki, Kana Ichinose</span><br>Genres: <span style="color:var(--fg-2)">Fantasy, Drama, Adventure</span></div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ───────────── ROWS + SORT ───────────── -->
+  <h2 id="rows">Rows, See all and sorting</h2>
+  <p>Logos on the art and names under the cards, so nothing is typed over a still. Every row scrolls, shows an arrow while there's more, and its title opens the full category.</p>
+  <div class="frame" data-w="1280" data-h="430" style="aspect-ratio:1280/430"><div class="scr" style="padding:30px 0 0 48px">
+    <div style="display:flex;align-items:baseline;gap:10px;font:700 22px var(--ui)">Because you watched Frieren <span style="font:500 15px var(--ui);color:var(--suo)">Explore all ›</span><span style="margin-left:auto;margin-right:60px;display:flex;gap:4px"><i style="width:14px;height:2px;background:var(--fg)"></i><i style="width:14px;height:2px;background:var(--fg-3)"></i><i style="width:14px;height:2px;background:var(--fg-3)"></i></span></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <div style="width:290px;flex:none"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/eternity-bd.jpg)"></div><img class="lg" src="art/eternity-logo.png" alt=""></div><div class="under">To Your Eternity<small>2021 · Anime</small></div></div>
+      <div style="width:290px;flex:none"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/natsume-bd.jpg)"></div><img class="lg" src="art/natsume-logo.png" alt=""></div><div class="under">Natsume’s Book of Friends<small>2008 · Anime</small></div></div>
+      <div style="width:290px;flex:none"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/demon-bd.jpg)"></div><img class="lg" src="art/demon-logo.png" alt=""><span class="tag corner">4K</span></div><div class="under">Demon Slayer: Kimetsu no Yaiba<small>2019 · Anime</small></div></div>
+      <div style="width:290px;flex:none"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/apoth-bd.jpg)"></div><img class="lg" src="art/apoth-logo.png" alt=""></div><div class="under">The Apothecary Diaries<small>2023 · Anime</small></div></div>
+    </div>
+    <div style="position:absolute;right:0;top:74px;width:58px;height:164px;background:rgba(17,12,10,.78);display:grid;place-items:center;color:var(--paper)"><svg class="ic"><use href="#i-chev"/></svg></div>
+  </div></div>
+
+  <h3>My list with sort and filters (web)</h3>
+  <div class="frame" data-w="1280" data-h="720" style="aspect-ratio:16/9"><div class="scr">
+    <div class="whead" style="position:relative;background:none"><div class="lock"><svg><use href="#bloom"/></svg>kimono <b>watch</b></div><nav><span>Home</span><span>Series</span><span>Films</span><span>Anime</span><span>New &amp; hot</span><span class="on">My list</span></nav><div class="rt"><svg class="ic" style="width:24px;height:24px"><use href="#i-search"/></svg><svg class="ic" style="width:24px;height:24px"><use href="#i-gear"/></svg><span class="av">K</span></div></div>
+    <div style="padding:10px 48px 0">
+      <div style="font:800 36px var(--display)">My list</div>
+      <div style="display:flex;align-items:flex-end;margin-top:16px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;gap:28px;font:500 16px var(--ui);color:var(--fg-2)"><span style="color:var(--fg);padding-bottom:10px;box-shadow:inset 0 -3px 0 var(--suo)">All</span><span>Series</span><span>Films</span><span>Anime</span></div>
+        <div style="margin-left:auto;display:flex;gap:10px;padding-bottom:8px;position:relative">
+          <span class="seal quiet" style="height:38px;font-size:14px;padding:0 14px">Filters</span>
+          <span class="seal quiet" style="height:38px;font-size:14px;padding:0 14px"><svg class="ic" style="width:18px;height:18px"><use href="#i-sort"/></svg>Sort: Recently added</span>
+          <div class="menu" style="right:0;top:48px;width:260px;z-index:2">
+            <div class="mi on">✓ Recently added</div><div class="mi">Recently watched</div><div class="mi">Release year, newest</div><div class="mi">Release year, oldest</div><div class="mi">A–Z</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:14px;color:var(--fg-3);margin:12px 0 16px">In progress · Plays in 4K · <span style="color:var(--suo)">Clear</span></div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:14px">
+        <div><div class="card" style="aspect-ratio:2/3"><div class="art" style="background-image:url(art/frieren-p.jpg)"></div></div><div class="under">Frieren<small>2023</small></div></div>
+        <div><div class="card" style="aspect-ratio:2/3"><div class="art" style="background-image:url(art/odyssey-p.jpg)"></div><span class="tag corner">4K</span></div><div class="under">The Odyssey<small>2026</small></div></div>
+        <div><div class="card" style="aspect-ratio:2/3"><div class="art" style="background-image:url(art/apoth-p.jpg)"></div></div><div class="under">The Apothecary Diaries<small>2023</small></div></div>
+        <div><div class="card" style="aspect-ratio:2/3"><div class="art" style="background-image:url(art/lupin-p.jpg)"></div><span class="tag corner">4K</span></div><div class="under">Lupin<small>2021</small></div></div>
+        <div><div class="card" style="aspect-ratio:2/3"><div class="art" style="background-image:url(art/godzilla-p.jpg)"></div><span class="tag corner">4K</span></div><div class="under">Godzilla Minus Zero<small>2026</small></div></div>
+        <div><div class="card" style="aspect-ratio:2/3"><div class="art" style="background-image:url(art/demon-p.jpg)"></div></div><div class="under">Demon Slayer<small>2019</small></div></div>
+        <div><div class="card" style="aspect-ratio:2/3"><div class="art" style="background-image:url(art/natsume-p.jpg)"></div></div><div class="under">Natsume’s Book of Friends<small>2008</small></div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <h3>TV: the row ends in See all, focus stays put</h3>
+  <div class="frame" data-w="1280" data-h="400" style="aspect-ratio:1280/400"><div class="scr" style="padding:34px 0 0 64px">
+    <div style="font:700 26px var(--ui)">Anime</div>
+    <div style="display:flex;gap:16px;margin-top:16px;align-items:flex-start">
+      <div style="width:330px;flex:none"><div class="card ring" style="aspect-ratio:16/9;transform:scale(1.06);transform-origin:left center"><div class="art" style="background-image:url(art/eternity-bd.jpg)"></div><img class="lg" src="art/eternity-logo.png" alt=""></div><div class="under" style="font-size:18px;margin-top:16px">To Your Eternity<small style="font-size:15px">2021 · 3 seasons</small></div></div>
+      <div style="width:300px;flex:none"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/natsume-bd.jpg)"></div><img class="lg" src="art/natsume-logo.png" alt=""></div></div>
+      <div style="width:300px;flex:none"><div class="card" style="aspect-ratio:16/9"><div class="art" style="background-image:url(art/godzilla-bd.jpg)"></div><img class="lg" src="art/godzilla-logo.png" alt=""></div></div>
+      <div style="width:300px;flex:none"><div class="card" style="aspect-ratio:16/9;display:grid;place-items:center;text-align:center"><div><div style="font:800 28px var(--display)">Anime</div><div style="color:var(--fg-2);margin-top:6px">See all ›</div></div></div></div>
+    </div>
+  </div></div>
+  <ul class="notes"><li><b>Sort options:</b> My list has Recently added, Recently watched, Release year and A–Z. Categories have Popular, Release year, A–Z and Recently added to Kimono. Search has Best match, Release year and A–Z.</li><li><b>Filters:</b> genre, not started / in progress / finished, plays in 4K, has a dub in my language. Active filters show as one line of text, not chips.</li><li>Years everywhere, so the two Doraemons stop looking like a bug.</li></ul>
+
+  <!-- ───────────── BRAND ───────────── -->
+  <h2 id="brand">Brand: one bloom everywhere</h2>
+  <p>The web header is right: the house lockup, as in Photos and VPN. Android still wears the demo's made-up 観 seal in four places, the launcher calls the app "Watch", and the web tab shows Kimono's generic favicon.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Surface</th><th>Now</th><th>Should be</th></tr></thead>
+    <tbody>
+      <tr><td>Web header</td><td>AppLockup: bloom, kimono, watch ✓</td><td>No change</td></tr>
+      <tr><td>Web favicon</td><td>Kimono’s generic favicon</td><td>Watch’s bloom at 16, 32 and 48 px, plus a 180 px touch icon</td></tr>
+      <tr><td>Web tab title</td><td>“Kimono Watch · Kimono”</td><td>“Kimono Watch”, or “Frieren · Kimono Watch”</td></tr>
+      <tr><td>Android launcher</td><td>観 seal, labelled “Watch”</td><td>The bloom on night, labelled “Kimono Watch”</td></tr>
+      <tr><td>Themed icon</td><td>観 seal silhouette</td><td>The bloom silhouette with the play glyph cut out</td></tr>
+      <tr><td>TV banner</td><td>観 seal and a wordmark</td><td>The lockup at banner scale</td></tr>
+      <tr><td>TV and phone header</td><td>観 and “KIMONO” in capitals</td><td>Shared InkBloom with the play glyph, kimono, watch</td></tr>
+      <tr><td>Profiles and sign-in</td><td>観 seal</td><td>The bloom</td></tr>
+      <tr><td>Loaders on Android</td><td>Custom WavyRing</td><td>InkLoader, InkWave, InkRing</td></tr>
+    </tbody>
+  </table></div>
+  <div class="icons">
+    <figure><span class="adaptive"><svg><use href="#bloom"/></svg></span>Launcher icon</figure>
+    <figure><span class="themed"><svg><use href="#bloom-mono"/></svg></span>Themed icon</figure>
+    <figure><span class="bannerx"><svg><use href="#bloom"/></svg>kimono <b>watch</b></span>TV banner, 320×180</figure>
+    <figure><span style="display:flex;gap:10px;align-items:flex-end"><svg style="width:16px;height:16px"><use href="#bloom"/></svg><svg style="width:32px;height:32px"><use href="#bloom"/></svg><svg style="width:48px;height:48px"><use href="#bloom"/></svg></span>Favicon 16, 32, 48</figure>
+  </div>
+
+  <!-- ───────────── SERVER ───────────── -->
+  <h2 id="server">What the server needs</h2>
+  <p>Everything else in this review runs on data the API already returns.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>For</th><th>Addition</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Loading stages</td><td><code>POST /play</code> streams stage events (find, choose, prepare, ready) when asked for NDJSON; plus <code>prewarm: true</code></td><td>Needs a per-source callback in stream finding, and a status hook from the packager</td></tr>
+      <tr><td>Tags on cards and titles</td><td><code>formats</code> on the title view and cards, for this device, only when releases are already cached</td><td>Reuses <code>badges()</code> and <code>rank()</code>; never searches just for a tag</td></tr>
+      <tr><td>Subtitle style</td><td><code>subtitleStyle {size, look, colour}</code> in prefs</td><td>Stored only</td></tr>
+      <tr><td>Clean track names</td><td>Tracks as <code>{lang, label, kind, original}</code>, deduped, release-group names stripped</td><td>Fixes "English (9volt)"</td></tr>
+      <tr><td>Sort, filter, See all</td><td><code>/list?sort=&amp;shelf=&amp;state=</code>, <code>/browse/:row?sort=&amp;page=</code>, <code>search?shelf=&amp;sort=</code></td><td><code>added_at</code> and progress times already exist</td></tr>
+      <tr><td>"This TV plays…"</td><td><code>device.can</code> on <code>GET /prefs?device=</code></td><td>From the last device profile sent with play</td></tr>
+      <tr><td>Title languages</td><td><code>languages {audio, subtitles}</code> on the title view</td><td>From cached releases</td></tr>
+      <tr><td>Continue watching edits</td><td>Remove from row; mark as watched</td><td>Small</td></tr>
+      <tr><td>Dark logos</td><td><code>logoTone</code> per card</td><td>Computed once per image; fixes The Odyssey's slate-blue logo</td></tr>
+    </tbody>
+  </table></div>
+  <p class="meta" style="margin-top:28px">Full write-ups: <code>design/mockups/watch/review/critique.md</code> and <code>spec.md</code>. Screens use real titles from the household catalogue.</p>
+</div>
+
+<script>
+(function(){
+  var frames=document.querySelectorAll('.frame');
+  function fit(f){var w=+f.dataset.w,h=+f.dataset.h,s=f.clientWidth/w,scr=f.firstElementChild;scr.style.width=w+'px';scr.style.height=h+'px';scr.style.transform='scale('+s+')';}
+  frames.forEach(function(f){fit(f); if(window.ResizeObserver){new ResizeObserver(function(){fit(f)}).observe(f)}});
+  window.addEventListener('resize',function(){frames.forEach(fit)});
+})();
+</script>

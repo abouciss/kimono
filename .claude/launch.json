@@ -48,6 +48,21 @@
       "port": 3000
     },
     {
+      "name": "voice-test",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "3517",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-zBAEHU/fdbff89c-496b-4832-963d-05d7051fbe91/scratchpad/voicetest"
+      ],
+      "port": 3517,
+      "autoPort": false
+    },
+    {
       "name": "specimens",
       "runtimeExecutable": "python3",
       "runtimeArgs": [
@@ -58,6 +73,18 @@
         "design/specimens"
       ],
       "port": 3480
+    },
+    {
+      "name": "watch-demo",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "3481",
+        "--directory",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-Z0Vffb/f182f526-5ae6-476a-812b-1d889579ccb1/scratchpad/footage/site"
+      ],
+      "port": 3481
     },
     {
       "name": "portal-dev-3000",
@@ -106,6 +133,24 @@
       "port": 7480
     },
     {
+      "name": "sandbox-node-current",
+      "runtimeExecutable": "/private/tmp/claude-501/-Users-akram-dev-kimono/8bbec5d1-96ae-43c3-8363-63acb20a3adb/scratchpad/kimono",
+      "runtimeArgs": [
+        "node",
+        "sandboxes",
+        "serve",
+        "--listen",
+        "127.0.0.1:7480",
+        "--key-file",
+        "/private/tmp/claude-501/-Users-akram-dev-kimono/ebc7f2ff-ec87-48cd-aee3-4445cf022458/scratchpad/node.key",
+        "--image",
+        "ghcr.io/kimonoapps/kimono-sandbox:0.6.0",
+        "--state-dir",
+        "/private/tmp/claude-501/-Users-akram-dev-kimono/ebc7f2ff-ec87-48cd-aee3-4445cf022458/scratchpad/node-state"
+      ],
+      "port": 7480
+    },
+    {
       "name": "sandbox-node-naming",
       "runtimeExecutable": "/private/tmp/claude-501/-Users-akram-dev-kimono/c3310c9c-11f3-4918-a5ff-d873e3b51fcc/scratchpad/kimono",
       "runtimeArgs": [
@@ -122,6 +167,113 @@
         "/private/tmp/claude-501/-Users-akram-dev-kimono/ebc7f2ff-ec87-48cd-aee3-4445cf022458/scratchpad/node-state"
       ],
       "port": 7480
+    },
+    {
+      "name": "sandbox-node-scripture",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DOCKER_CONTEXT=desktop-linux",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-2dGHDi/d9cc994c-2b91-4f13-958b-5434e43aaa0d/scratchpad/kimono",
+        "node",
+        "sandboxes",
+        "serve",
+        "--listen",
+        "127.0.0.1:7480",
+        "--key-file",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-2dGHDi/d9cc994c-2b91-4f13-958b-5434e43aaa0d/scratchpad/node.key",
+        "--image",
+        "kimono-sandbox:scripture-test",
+        "--state-dir",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-2dGHDi/d9cc994c-2b91-4f13-958b-5434e43aaa0d/scratchpad/node-state"
+      ],
+      "port": 7480
+    },
+    {
+      "name": "sandbox-node-latency",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DOCKER_CONTEXT=desktop-linux",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-K58xUF/92d697c4-9c0e-474f-9d97-98ec85509c0b/scratchpad/kimono",
+        "node",
+        "sandboxes",
+        "serve",
+        "--listen",
+        "127.0.0.1:7480",
+        "--key-file",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-K58xUF/92d697c4-9c0e-474f-9d97-98ec85509c0b/scratchpad/node.key",
+        "--image",
+        "kimono-sandbox:replay",
+        "--state-dir",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-K58xUF/92d697c4-9c0e-474f-9d97-98ec85509c0b/scratchpad/node-state"
+      ],
+      "port": 7480
+    },
+    {
+      "name": "portal-test-dev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "KIMONO_STATE_DIR=/tmp/kimono-portal-test",
+        "pnpm",
+        "--filter",
+        "@kimono/portal",
+        "dev",
+        "--port",
+        "3000"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "books-epub-check",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "3491",
+        "--directory",
+        "/private/tmp/claude-501/-Users-akram-dev-kimono/84415949-3a71-4b9d-8340-19ce666f3f65/scratchpad"
+      ],
+      "port": 3491
+    },
+    {
+      "name": "books-print-pages",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "3492",
+        "--directory",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-sxILYp/7491d40e-6e1e-4ae5-ab56-5685b03c6dae/scratchpad/pp"
+      ],
+      "port": 3492
+    },
+    {
+      "name": "music-fetcher",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "KIMONO_FETCHER_KEY=dev-music-key",
+        "BGUTIL_URL=http://127.0.0.1:4416",
+        "KIMONO_FETCHER_LISTEN=127.0.0.1:4417",
+        "KIMONO_FETCHER_WORK=/private/tmp/claude-501/-Users-akram--claude-spares-spare-jqdyEB/798acb8f-4f50-4b9d-a2b0-f5db0845ce0c/scratchpad/fetcher-work",
+        "/private/tmp/claude-501/-Users-akram--claude-spares-spare-jqdyEB/798acb8f-4f50-4b9d-a2b0-f5db0845ce0c/scratchpad/ytenv/bin/python",
+        "-I",
+        "infra/compose/server/music-fetcher/fetcher.py"
+      ],
+      "port": 4417,
+      "autoPort": false
+    },
+    {
+      "name": "irisify-demo",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "IRISIFY_PROJECT=/private/tmp/claude-501/-Users-akram-dev-kimono/e4622e18-c454-4fa3-9320-3a37aae45d38/scratchpad/demo",
+        "python3",
+        "/Users/akram/dev/irisify/bin/irisify",
+        "dashboard",
+        "--port",
+        "7420"
+      ],
+      "port": 7420,
+      "autoPort": false
     }
   ]
 }
