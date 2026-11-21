@@ -77,3 +77,27 @@ test("a magnet goes through Real-Debrid and lands in Drive, with its progress to
   assert.equal(found.length, 1);
   assert.equal(found[0].size, body.length);
 });
+
+test("Drive's Magnet saves into the folder it was started in, and lists only the person's own", async () => {
+  const { startDriveDownload, driveDownloads } = await import("../src/lib/drive/debrid.ts");
+  const space = drive.createSpace(drive.db(), "mina", { name: "Films" });
+  const real = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(String(input));
+    const at = url.pathname.replace("/rest/1.0", "");
+    if (at === "/torrents/addMagnet") return Response.json({ id: "T2" });
+    if (at === "/torrents/info/T2") return Response.json({ status: "downloaded", progress: 100, filename: "Open Movie.mkv", links: ["https://real-debrid.com/d/C"] });
+    if (at === "/unrestrict/link") return Response.json({ download: "https://x.download.real-debrid.com/d/C/Open%20Movie.mkv", filename: "Open Movie.mkv", filesize: 5 });
+    if (url.hostname.endsWith(".download.real-debrid.com")) { const r = new Response("12345"); Object.defineProperty(r, "url", { value: url.href }); return r; }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  try {
+    const started = startDriveDownload("mina", space.rootId, { magnet: "magnet:?xt=urn:btih:def&dn=Open+Movie" }, "Open Movie");
+    for (let i = 0; i < 50 && driveDownloads("mina")[0]?.state !== "done"; i++) await new Promise((r) => setTimeout(r, 100));
+    assert.equal(driveDownloads("mina")[0].id, started.id);
+    assert.equal(driveDownloads("mina")[0].state, "done", JSON.stringify(driveDownloads("mina")));
+    assert.deepEqual(driveDownloads("mina")[0].saved, ["Open Movie.mkv"]);
+    assert.equal(driveDownloads("akram").length, 0);
+    assert.deepEqual(drive.childrenOf(drive.db(), space.rootId, "mina").children.map((n) => [n.name, n.size]), [["Open Movie.mkv", 5]]);
+  } finally { globalThis.fetch = real; }
+});

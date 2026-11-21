@@ -61,7 +61,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     response = await fetch(`/api/v1/drive${path}`, {
       ...init,
-      headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers },
+      headers: { ...(typeof init.body === "string" ? { "Content-Type": "application/json" } : {}), ...init.headers },
       credentials: "same-origin",
     });
   } catch {
@@ -100,7 +100,13 @@ export const drive = {
   shares: (id: string) => call<ShareInfo>(`/nodes/${id}/shares`),
   share: (id: string, username: string, role: "editor" | "viewer" | null) => call<ShareInfo | { left: true }>(`/nodes/${id}/shares`, json("PUT", { username, role })),
   crests: () => call<Crests>("/crests"),
+  downloads: () => call<{ ready: boolean; downloads: Download[] }>("/downloads"),
+  download: (folder: string, what: string | File) => call<Download>("/downloads", typeof what === "string" ? json("POST", { folder, magnet: what }) : { method: "POST", body: (() => { const form = new FormData(); form.set("folder", folder); form.set("torrent", what); return form; })()}),
+  forgetDownload: (id: string) => call<unknown>(`/downloads?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
+
+/** A download through Real-Debrid into a folder (app/api/v1/drive/downloads). */
+export type Download = { id: string; name: string; folderId: string; startedAt: number; state: "adding" | "waiting" | "downloading" | "saving" | "done" | "failed"; status: string; percent?: number; saved?: string[] };
 
 /* ── a space opened by its link: no sign-in, and nothing about who is in it ── */
 
