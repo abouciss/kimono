@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The widget as it looks, for launchers that draw a preview from a layout. -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="horizontal" android:paddingHorizontal="12dp" android:gravity="center_vertical"
-    android:background="@drawable/prayer_preview_ground">
-    <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_crescent" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp"
-        android:text="Asr in 1h05min" android:textSize="14sp" android:textStyle="bold" android:textColor="#221A17" />
-</LinearLayout>
+    android:scaleType="fitCenter" android:adjustViewBounds="true"
+    android:src="@drawable/prayer_preview_strip" />

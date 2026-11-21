@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.updateAll
 import androidx.work.Constraints
@@ -108,17 +107,24 @@ object PrayerWidgets {
         }
     }
 
-    /** Android 15's widget picker shows each widget as it really looks; set once per version, as it's rate-limited. */
-    fun publishPreviews(context: Context) {
+    /**
+     * The widget picker shows the pictures in the app (drawable prayer_preview_*). Earlier
+     * builds handed Android 15 generated previews instead, which stay until taken back:
+     * take them back once per install or update.
+     */
+    fun clearPreviews(context: Context) {
         if (Build.VERSION.SDK_INT < 35) return
         val prefs = context.getSharedPreferences("prayer-widgets", Context.MODE_PRIVATE)
-        val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode }.getOrDefault(0)
-        if (prefs.getLong("previews", -1) == version) return
-        scope.launch {
-            val manager = GlanceAppWidgetManager(context)
-            val all = listOf(NextPrayerReceiver::class, TodayPrayerReceiver::class, StripPrayerReceiver::class)
-            if (all.all { runCatching { manager.setWidgetPreviews(it) }.getOrDefault(-1) == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS }) prefs.edit().putLong("previews", version).apply()
+        val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime }.getOrDefault(0)
+        if (prefs.getLong("previews-cleared", -1) == version) return
+        val manager = AppWidgetManager.getInstance(context)
+        receivers.forEach { receiver ->
+            val provider = android.content.ComponentName(context, receiver)
+            listOf(android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN, android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_KEYGUARD).forEach { category ->
+                runCatching { manager.removeWidgetPreview(provider, category) }
+            }
         }
+        prefs.edit().putLong("previews-cleared", version).apply()
     }
 
     const val REFRESH = "prayer-refresh"

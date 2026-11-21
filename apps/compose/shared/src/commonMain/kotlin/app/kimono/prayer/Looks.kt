@@ -23,6 +23,7 @@ class Look(
 )
 
 object Looks {
+    const val SKY = "sky"
     const val KIMONO = "kimono"
     const val PHONE = "system"
     const val TONAL = "tonal"
@@ -54,8 +55,8 @@ object Looks {
     /** What the Times screen offers. */
     val screen = listOf(Look(KIMONO, "Kimono"), Look(PHONE, "Follow phone"), Look(TONAL, "Phone accent")) + presets
 
-    /** What a widget offers: the phone's own first, and Clear over the wallpaper. */
-    val widget = listOf(Look(PHONE, "Follow phone"), Look(TONAL, "Phone accent"), Look(KIMONO, "Kimono")) + presets + Look(CLEAR, "Clear")
+    /** What a widget offers: the sky at this hour first, then the phone's own, and Clear over the wallpaper. */
+    val widget = listOf(Look(SKY, "Sky"), Look(PHONE, "Follow phone"), Look(TONAL, "Phone accent"), Look(KIMONO, "Kimono")) + presets + Look(CLEAR, "Clear")
 
     fun of(id: String?): Look? = (screen + widget).firstOrNull { it.id == id }
 }

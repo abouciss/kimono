@@ -11,6 +11,7 @@
     android:widgetCategory="home_screen|keyguard"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewImage="@drawable/prayer_preview_strip"
     android:previewLayout="@layout/prayer_preview_strip"
     android:configure="app.kimono.android.PrayerWidgetConfig"
     android:widgetFeatures="reconfigurable|configuration_optional" />
