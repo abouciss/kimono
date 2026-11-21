@@ -2,6 +2,7 @@ import "server-only";
 
 import { createPlaylist, kept, keepTracks, seedRecording } from "./index";
 import { MusicProblem, plainTitle, videoTrack, type Track } from "./model";
+import { pace } from "./pace";
 import { deezerSource as dz } from "./sources";
 import { playlistOf, songOnYouTube } from "./youtube";
 
@@ -263,7 +264,15 @@ export function match(w: Wanted): Promise<Track | null> {
  */
 async function onYouTube(w: Wanted): Promise<Track | null> {
   if (w.from) return videoTrack({ id: w.from.id, title: w.from.title, artists: w.from.channel, seconds: w.seconds, cover: w.from.cover, album: w.album });
-  return kept("import-youtube", wantedId(w), 90 * DAY, () => songOnYouTube(w));
+  /*
+   * One search at a time across every import, a second or two apart (./pace.ts):
+   * a big playlist's misses never go to YouTube in one burst. While YouTube is
+   * being rested the song is a miss for now, not kept as one.
+   */
+  return kept("import-youtube", wantedId(w), 90 * DAY, async () => {
+    if (!(await pace().searchTurn())) throw new MusicProblem("YouTube is resting.", 503);
+    return songOnYouTube(w);
+  });
 }
 
 /** Where a song named elsewhere is here: Deezer's track when it has it, else its YouTube video. */

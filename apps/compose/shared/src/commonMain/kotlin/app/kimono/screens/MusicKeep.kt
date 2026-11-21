@@ -158,6 +158,7 @@ fun MusicDownloadsScreen(player: MusicPlayer, free: Long?, go: MusicGo, back: ()
     val waiting = d.waiting.collectAsState().value
     val now = d.now.collectAsState().value
     val failed = d.failed.collectAsState().value
+    val resumes = d.resumes.collectAsState().value
     var clearing by remember { mutableStateOf(false) }
     var order by remember { mutableStateOf("recent") }
     val tracks = remember(kept, order) {
@@ -179,6 +180,11 @@ fun MusicDownloadsScreen(player: MusicPlayer, free: Long?, go: MusicGo, back: ()
             if (coming.isNotEmpty()) {
                 item(key = "coming-head") {
                     KeepHead(if (coming.size == 1) "Arriving" else "Arriving · ${coming.size}", "Stop all") { d.cancel(coming) }
+                }
+                /* A short wait between songs is the usual pace; only a long rest is worth a word. */
+                val minutes = resumes?.let { (it - kotlin.time.Clock.System.now().toEpochMilliseconds() + 59_999) / 60_000 } ?: 0
+                if (minutes > 1) item(key = "coming-rest") {
+                    Text("Carrying on in about $minutes min", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 20.dp, bottom = 6.dp))
                 }
                 items(coming.take(6), key = { "c" + it.key }) { t ->
                     val p = now?.takeIf { it.first == t.key }?.second

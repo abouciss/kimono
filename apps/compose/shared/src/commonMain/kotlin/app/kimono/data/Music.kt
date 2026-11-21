@@ -172,6 +172,10 @@ class Music(val session: Session) {
     suspend fun history(): List<Track> = get<Wrap<Track>>("history").tracks
     suspend fun ratings(): List<RatedItem> = json.decodeFromString<Ratings>(session.call("$BASE/ratings")).ratings
     suspend fun ready(keys: List<String>) { runCatching { send<JsonObject>("ready", HttpMethod.Post, buildJsonObject { putJsonArray("keys") { keys.forEach { add(it) } } }) } }
+    @Serializable private data class OnServer(val here: List<String> = emptyList())
+    /** Which of [keys] the server already has, so downloading them asks YouTube nothing. */
+    suspend fun onServer(keys: List<String>): Set<String> =
+        if (keys.isEmpty()) emptySet() else send<OnServer>("status", HttpMethod.Post, buildJsonObject { putJsonArray("keys") { keys.forEach { add(it) } } }).here.toSet()
     suspend fun played(key: String, seconds: Int) { runCatching { send<JsonObject>("play", HttpMethod.Post, buildJsonObject { put("key", key); put("seconds", seconds) }) } }
     /** "track", "album" or "artist"; "down", "up", "love" or null. */
     suspend fun rate(kind: String, key: String, rating: String?) {

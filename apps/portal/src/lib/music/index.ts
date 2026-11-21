@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { apiError } from "../api-v1";
 import { getPlatformSettings } from "../settings";
 import { stateDir } from "../state";
-import { audioStatus, prefetch } from "./audio";
+import { audioKept, audioStatus, prefetch } from "./audio";
 import { musicConfig, type MusicConfig } from "./config";
 import { deezerId, isTrackKey, MusicProblem, plainTitle, searchScore, videoId, type Album, type Artist, type Lyrics, type Playlist, type RatedKind, type Rating, type Row, type Track } from "./model";
 import { deezerSource as dz, lastfm, lrclib } from "./sources";
@@ -346,6 +346,13 @@ export function songStatus(key: string): { stage: "finding" } | { stage: "fetchi
   const s = audioStatus(row.video);
   if (!s || s.ready) return s ? { stage: "ready" } : { stage: "fetching", fraction: 0 };
   return { stage: "fetching", fraction: s.size ? Math.min(1, s.got / s.size) : 0 };
+}
+
+/** Whether a song's audio is already on the server: playing or downloading it asks YouTube nothing. */
+export function onServer(key: string): boolean {
+  const own = videoId(key);
+  const row = own ? { video: own } : musicDb().prepare("SELECT video FROM recordings WHERE track = ?").get(key) as { video: string | null } | undefined;
+  return Boolean(row?.video && audioKept(row.video));
 }
 
 /** Gets the next songs ready while this one plays, so the queue never stops to fetch. */

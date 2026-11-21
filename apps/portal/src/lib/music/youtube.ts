@@ -3,6 +3,7 @@ import "server-only";
 import { Innertube, Platform } from "youtubei.js";
 import { matchScore, MusicProblem, plainTitle, songOfVideo, videoTrack, type Candidate, type Track } from "./model";
 import { poExpires, poToken } from "./po-token";
+import { pace } from "./pace";
 
 /*
  * YouTube.js asks for an evaluator to run the player's signature and "n"
@@ -74,7 +75,8 @@ function bestThumb(t: Thumbs): string | null {
 type Found = Candidate & { cover: string | null; album: string | null };
 
 async function candidates(yt: Innertube, query: string, type: "song" | "video"): Promise<Found[]> {
-  const res = await yt.music.search(query, { type });
+  /* YouTube saying "slow down" to a search rests the bulk work too. */
+  const res = await yt.music.search(query, { type }).catch((error: unknown) => { pace().heard(error instanceof Error ? error.message : String(error)); throw error; });
   const shelf = type === "song" ? res.songs : res.videos;
   return (shelf?.contents ?? []).flatMap((item) => {
     const it = item as unknown as { id?: string; title?: string; artists?: { name: string }[]; authors?: { name: string }[]; duration?: { seconds: number }; thumbnail?: Thumbs; thumbnails?: Thumbs; album?: { name?: string } };
@@ -198,7 +200,12 @@ export async function playlistOf(id: string, max = 5000) {
   let page = await yt.music.getPlaylist(id);
   const header = page.header as unknown as { title?: { toString(): string }; thumbnail?: { contents?: { url: string }[] } } | undefined;
   const items = [...(page.items ?? [])];
-  while (page.has_continuation && items.length < max) { page = await page.getContinuation(); items.push(...(page.items ?? [])); }
+  /* A page of a hundred at a time, with a breath between: a long playlist isn't read in one burst. */
+  while (page.has_continuation && items.length < max) {
+    await new Promise((r) => setTimeout(r, 400 + Math.random() * 400));
+    page = await page.getContinuation();
+    items.push(...(page.items ?? []));
+  }
   return {
     name: header?.title?.toString() ?? "",
     cover: header?.thumbnail?.contents?.[0]?.url ?? null,

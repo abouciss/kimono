@@ -37,6 +37,9 @@ sealed interface SongKeep {
     data class Failed(val why: String) : SongKeep
 }
 
+/** The server asking a bulk download to wait its turn with YouTube, [seconds] long. */
+private class Paced(val seconds: Long) : Exception("Waiting its turn")
+
 /**
  * 蔵 Songs kept on the phone, to play with no connection. A download is the
  * server's own file as it is (AAC, about 1 MB a minute): nothing is converted
@@ -44,6 +47,11 @@ sealed interface SongKeep {
  * from where a cut-short one stopped (the stream answers byte ranges). What's
  * still to come is kept too, so a download asked for survives the app closing;
  * one that fails waits to be tried again, and is, once the connection's back.
+ *
+ * A long list isn't asked of YouTube in one go: the server paces what it
+ * hasn't got yet (a song every several seconds, resting when YouTube pushes
+ * back) and says how long to wait. Meanwhile the songs the server already has
+ * come first, since they cost YouTube nothing.
  */
 class MusicDownloads(private val music: Music, private val platform: Platform, private val scope: CoroutineScope) {
     @Serializable data class Kept(val track: Track, val file: String, val size: Long, val at: Long)
@@ -64,6 +72,9 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
     private val _now = MutableStateFlow<Pair<String, Float>?>(null)
     /** The song arriving now, and how far (0 to 1). */
     val now: StateFlow<Pair<String, Float>?> = _now
+    private val _resumes = MutableStateFlow<Long?>(null)
+    /** When the waiting songs carry on, while the server has them wait its turn (epoch ms; null when they're coming). */
+    val resumes: StateFlow<Long?> = _resumes
     private val _failed = MutableStateFlow<Map<String, Failed>>(emptyMap())
     /** Songs that didn't arrive, and why. */
     val failed: StateFlow<Map<String, Failed>> = _failed
@@ -250,7 +261,7 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
                 _now.value = next.key to 0f
                 val got = try {
                     Result.success(withContext(Dispatchers.Default) { fetchWithRetries(next) })
-                } catch (c: CancellationException) { throw c } catch (e: Throwable) { Result.failure(e) }
+                } catch (c: CancellationException) { throw c } catch (p: Paced) { rest(p.seconds); continue } catch (e: Throwable) { Result.failure(e) }
                 lock.withLock {
                     _now.value = null
                     _waiting.value = _waiting.value.filter { it.key != next.key }
@@ -271,6 +282,22 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
                 }
             }
         }
+    }
+
+    /** The server says wait: the songs it already has go first, else the wait. */
+    private suspend fun rest(seconds: Long) {
+        _now.value = null
+        val here = runCatching { music.onServer(_waiting.value.take(500).map { it.key }) }.getOrDefault(emptySet())
+        if (here.isNotEmpty()) {
+            lock.withLock {
+                val all = _waiting.value
+                _waiting.value = all.filter { it.key in here } + all.filter { it.key !in here }
+                save()
+            }
+            return
+        }
+        _resumes.value = nowMillis() + seconds * 1000
+        try { delay(seconds.coerceIn(1, 3 * 3600) * 1000) } finally { _resumes.value = null }
     }
 
     private suspend fun fetchWithRetries(track: Track): Kept {
@@ -300,9 +327,10 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
         val have = SystemFileSystem.metadataOrNull(partial)?.size ?: 0L
         var total = 0L
         try {
-            music.session.respond("/api/v1/music/stream?key=${track.key.encodeURLQueryComponent()}", configure = {
+            music.session.respond("/api/v1/music/stream?key=${track.key.encodeURLQueryComponent()}&for=keep", configure = {
                 if (have > 0) header("Range", "bytes=$have-")
             }, long = true) { response ->
+                if (response.status.value == 503) response.headers["retry-after"]?.toLongOrNull()?.let { throw Paced(it) }
                 val append = response.status.value == 206
                 if (!append && !response.status.isSuccess()) throw music.session.problemOf(response, "That song couldn't be downloaded.")
                 val length = response.headers["content-length"]?.toLongOrNull() ?: 0L
@@ -323,7 +351,7 @@ class MusicDownloads(private val music: Music, private val platform: Platform, p
                 if (length > 0 && received < total) throw KimonoProblem(OFFLINE)
                 total = received
             }
-        } catch (p: KimonoProblem) { throw p } catch (c: CancellationException) { throw c } catch (_: Exception) { throw KimonoProblem(OFFLINE) }
+        } catch (p: KimonoProblem) { throw p } catch (p: Paced) { throw p } catch (c: CancellationException) { throw c } catch (_: Exception) { throw KimonoProblem(OFFLINE) }
         SystemFileSystem.atomicMove(partial, target)
         return Kept(track, target.toString(), total, nowMillis())
     }

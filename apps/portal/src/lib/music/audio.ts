@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { stateDir } from "../state";
 import type { MusicConfig } from "./config";
 import { MusicProblem } from "./model";
+import { pace } from "./pace";
 
 import { forgetSession, forgetStream, streamOf } from "./youtube";
 
@@ -120,7 +121,7 @@ async function viaYtDlp(config: MusicConfig, videoId: string): Promise<Source> {
 
 const wakeAll = (job: Job) => { for (const w of job.wake) w(); job.wake.clear(); };
 
-async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: boolean) => void) {
+async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: boolean) => void, settled?: () => void) {
   const s = state();
   const part = partOf(videoId);
   const fd = openSync(part, "w", 0o600);
@@ -184,6 +185,7 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
     renameSync(part, fileOf(videoId));
     s.index[videoId] = { size: job.size, mime: job.mime, at: tick() };
     s.failures.delete(videoId);
+    pace().fine();
     evict();
     writeIndex();
   } catch (error) {
@@ -192,26 +194,30 @@ async function fill(config: MusicConfig, videoId: string, job: Job, ready: (ok: 
     job.failed = error instanceof Error ? error : new Error(String(error));
     const last = `gave up: ${job.failed.message}`;
     s.failures.set(videoId, { at: Date.now(), notes: notes.at(-1)?.endsWith(job.failed.message) ? notes : [...notes, last] });
+    /* YouTube saying "slow down" to any of it rests the bulk downloads. */
+    for (const note of [...notes, job.failed.message]) pace().heard(note);
     console.warn(`music: couldn't get ${videoId}: ${job.failed.message}`);
     ready(false);
   } finally {
     job.done = true;
     wakeAll(job);
     s.jobs.delete(videoId);
+    settled?.();
   }
 }
 
 /** Starts getting a song into the cache (once, however many ask), and answers when its length is known. */
-async function begin(config: MusicConfig, videoId: string): Promise<Job | Entry> {
+async function begin(config: MusicConfig, videoId: string, settled?: () => void): Promise<Job | Entry> {
   const entry = kept(videoId);
-  if (entry) return entry;
+  if (entry) { settled?.(); return entry; }
   const s = state();
   let job = s.jobs.get(videoId);
+  if (job) settled?.();
   if (!job) {
     job = { size: 0, mime: "audio/mp4", got: 0, done: false, failed: null, wake: new Set(), via: "youtube.js" };
     s.jobs.set(videoId, job);
     const started = job;
-    await new Promise<boolean>((ready) => void fill(config, videoId, started, ready));
+    await new Promise<boolean>((ready) => void fill(config, videoId, started, ready, settled));
   } else if (!job.size && !job.done) {
     const waiting = job;
     await new Promise<void>((woke) => { waiting.wake.add(woke); });
@@ -262,8 +268,8 @@ export function prefetch(config: MusicConfig, videoId: string) {
 export type Served = { body: ReadableStream<Uint8Array>; size: number; mime: string; range: { start: number; end: number } | null };
 
 /** A song's audio, whole or a byte range, from the cache, waiting for bytes still on their way. */
-export async function serveAudio(config: MusicConfig, videoId: string, range?: { start: number; end?: number }): Promise<Served> {
-  const got = await begin(config, videoId);
+export async function serveAudio(config: MusicConfig, videoId: string, range?: { start: number; end?: number }, settled?: () => void): Promise<Served> {
+  const got = await begin(config, videoId, settled);
   const job = "wake" in got ? got : null;
   const size = got.size;
   if (range && range.start >= size) throw new MusicProblem("That range isn't in the song.", 416);
@@ -299,6 +305,9 @@ export async function serveAudio(config: MusicConfig, videoId: string, range?: {
   });
   return { body, size, mime: got.mime, range: range ? { start, end } : null };
 }
+
+/** Whether the server has this song's audio already (so getting it costs YouTube nothing). */
+export function audioKept(videoId: string): boolean { return kept(videoId) !== null; }
 
 /** How far a song has got into the cache: kept, on its way (bytes so far of how many), or not started. */
 export function audioStatus(videoId: string): { ready: true } | { ready: false; got: number; size: number } | null {

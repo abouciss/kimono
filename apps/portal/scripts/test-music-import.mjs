@@ -53,3 +53,44 @@ test('connecting: Apple developer token verifies, sign-in links carry PKCE, a fo
   /* Someone else can't finish your sign-in. */
   await assert.rejects(finishSignIn(config, 'spotify', sp.searchParams.get('state'), 'code', 'mallory'), /ran out/);
 });
+
+test('bulk YouTube work takes turns: seconds apart, capped each hour', async () => {
+  const { Pacer } = await import('../src/lib/music/pace.ts');
+  const p = new Pacer(1000, 0, 3, () => 0.5);
+  assert.equal(p.take(0), 0);
+  assert.equal(p.take(0), 1000);
+  assert.equal(p.take(0), 2000);
+  /* A fourth in the same hour waits for the first to be an hour old. */
+  assert.equal(p.take(0), 3_600_000);
+});
+
+test('a bulk song from YouTube waits its turn; pushback rests bulk work, longer each time', async () => {
+  const { Pace, isPushback } = await import('../src/lib/music/pace.ts');
+  let now = 1_000_000;
+  const pace = new Pace(() => now, () => 0.5);
+  const first = pace.claimSong();
+  assert.ok('release' in first);
+  /* Another while one is arriving waits. */
+  assert.ok('wait' in pace.claimSong());
+  first.release();
+  const soon = pace.claimSong();
+  assert.ok('wait' in soon && soon.wait > 0 && soon.wait <= 8000);
+  now += 8000;
+  const second = pace.claimSong();
+  assert.ok('release' in second);
+  second.release();
+
+  assert.ok(isPushback('Sign in to confirm you’re not a bot'));
+  assert.ok(isPushback('YouTube turned the audio down (429)'));
+  assert.ok(!isPushback('YouTube turned the audio down (403)'));
+  pace.heard('HTTP Error 429: Too Many Requests');
+  assert.equal(pace.cooling(), 2 * 60_000);
+  assert.equal(await pace.searchTurn(), false);
+  now += 2 * 60_000 + 1;
+  pace.heard('429');
+  assert.equal(pace.cooling(), 4 * 60_000);
+  now += 4 * 60_000 + 1;
+  pace.fine();
+  pace.heard('429');
+  assert.equal(pace.cooling(), 2 * 60_000);
+});
