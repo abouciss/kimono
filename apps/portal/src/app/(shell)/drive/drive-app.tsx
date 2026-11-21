@@ -129,8 +129,20 @@ function useDownloads(land: (folderId: string) => void) {
   return {
     ready, list,
     start: async (folderId: string, what: string | File) => { const d = await drive.download(folderId, what); done.current.delete(d.id); setList((now) => [...now, d]); setTick((n) => n + 1); },
-    clear: () => { for (const d of list) if (d.state === "done" || d.state === "failed") void drive.forgetDownload(d.id).catch(() => {}); setList((now) => now.filter((d) => d.state !== "done" && d.state !== "failed")); },
+    dismiss: (id: string) => { void drive.forgetDownload(id).catch(() => {}); setList((now) => now.filter((d) => d.id !== id)); },
   };
+}
+type Downloads = ReturnType<typeof useDownloads>;
+
+/** A magnet link in pasted text, if there is one. */
+const magnetIn = (text: string) => /magnet:\?[^\s"'<>]+/i.exec(text)?.[0] ?? null;
+const isTorrent = (file: File) => /\.torrent$/i.test(file.name) || file.type === "application/x-bittorrent";
+
+/** Each .torrent among `files` starts a download; the rest are returned to be uploaded. */
+function torrentsOut(files: File[], folderId: string, downloads: Downloads | undefined, onToast: (toast: Toast) => void): File[] {
+  if (!downloads) return files;
+  for (const file of files.filter(isTorrent)) void downloads.start(folderId, file).catch((error) => onToast({ text: problemText(error) }));
+  return files.filter((file) => !isTorrent(file));
 }
 
 function useToast() {
@@ -190,7 +202,6 @@ export function DriveApp({ me }: { me: Me }) {
   const [making, setMaking] = useState(false);
   const uploads = useUploads();
   const downloads = useDownloads(uploads.land);
-  const [magnetFor, setMagnetFor] = useState<string | null>(null);
 
   const loadSpaces = useCallback(() => drive.spaces().then(
     (list) => { setSpaces(list); setProblem(null); },
@@ -261,7 +272,7 @@ export function DriveApp({ me }: { me: Me }) {
             onGo={(folder, file) => go({ space: current.id, folder: folder === current.rootId ? null : folder, file: file ?? null })}
             onSettings={() => go({ space: current.id, view: "settings" })}
             onUpload={(files, folderId) => uploads.start(files, folderId, current.name)}
-            onMagnet={downloads.ready ? setMagnetFor : undefined}
+            downloads={downloads.ready ? downloads : undefined}
             onToast={setToast}
           />
         : <section className="dv-sheet"><div className="dv-empty">
@@ -270,11 +281,7 @@ export function DriveApp({ me }: { me: Me }) {
           </div></section>}
     </div>
 
-    {uploads.uploads.length || downloads.list.length ? <div className="dv-trays">
-      {downloads.list.length ? <DownloadTray downloads={downloads.list} onClear={downloads.clear} /> : null}
-      {uploads.uploads.length ? <UploadTray uploads={uploads.uploads} onClear={uploads.clear} onCancel={uploads.cancel} onToast={setToast} /> : null}
-    </div> : null}
-    {magnetFor ? <MagnetDialog onClose={() => setMagnetFor(null)} onStart={async (what) => { await downloads.start(magnetFor, what); setMagnetFor(null); }} /> : null}
+    {uploads.uploads.length ? <UploadTray uploads={uploads.uploads} onClear={uploads.clear} onCancel={uploads.cancel} onToast={setToast} /> : null}
     <ToastView toast={toast} onDone={() => setToast(null)} />
     {making ? <NewSpaceDialog onClose={() => setMaking(false)} onMade={async (space) => { setMaking(false); await loadSpaces(); go({ space: space.id }); }} /> : null}
   </div>;
@@ -371,12 +378,12 @@ async function entriesOf(directory: FileSystemDirectoryEntry): Promise<FileSyste
   }
 }
 
-function SpaceView({ space, guest = null, room = false, me, folderId, openFile, people, landed, onGo, onSettings, onUpload, onMagnet, onToast }: {
+function SpaceView({ space, guest = null, room = false, me, folderId, openFile, people, landed, onGo, onSettings, onUpload, downloads, onToast }: {
   space: Space; guest?: Guest | null; folderId: string; openFile: string | null; people: Record<string, Person>; landed: Record<string, number>;
   /** Shared with you, rather than a space: each thing in it says what you may do with it. */
   room?: boolean; me?: Me;
   onGo: (folder: string, file?: string | null) => void; onSettings?: () => void;
-  onUpload: (files: File[], folderId: string) => void; onMagnet?: (folderId: string) => void; onToast: (toast: Toast) => void;
+  onUpload: (files: File[], folderId: string) => void; downloads?: Downloads; onToast: (toast: Toast) => void;
 }) {
   const token = guest?.token ?? null;
 
@@ -549,13 +556,30 @@ function SpaceView({ space, guest = null, room = false, me, folderId, openFile, 
       if (entry?.isDirectory) folders.push(entry as FileSystemDirectoryEntry);
       else { const file = item.getAsFile(); if (file) files.push(file); }
     }
-    if (files.length) onUpload(files, folder.folder.id);
+    const uploading = torrentsOut(files, folder.folder.id, canEdit ? downloads : undefined, onToast);
+    if (uploading.length) onUpload(uploading, folder.folder.id);
     if (!folders.length) return;
     if (token) { onToast({ text: "Only files can be added here, not folders." }); return; }
     void (async () => {
       try { for (const entry of folders) await addTree(entry, folder.folder.id); await load(); } catch (error) { onToast({ text: problemText(error) }); await load(); }
     })();
   };
+
+  /* A magnet link pasted anywhere but a text field: Real-Debrid fetches it into the folder that's open. */
+  const folderHere = folder?.folder.id;
+  useEffect(() => {
+    if (!downloads || !canEdit || !folderHere) return;
+    const paste = (event: ClipboardEvent) => {
+      if ((event.target as HTMLElement | null)?.closest?.("input, textarea, [contenteditable]")) return;
+      const magnet = magnetIn(event.clipboardData?.getData("text") ?? "");
+      if (!magnet) return;
+      event.preventDefault();
+      void downloads.start(folderHere, magnet).catch((error) => onToast({ text: problemText(error) }));
+    };
+    window.addEventListener("paste", paste);
+    return () => window.removeEventListener("paste", paste);
+  }, [downloads, canEdit, folderHere, onToast]);
+  const fetching = downloads && folderHere ? downloads.list.filter((d) => d.folderId === folderHere && d.state !== "done") : [];
 
   /* Files let go of anywhere on the page land in the folder that's open. */
   useFileDrop(canAdd && folder ? { label: `Drop to add to ${folder.path.length ? folder.folder.name : space.name}`, onDrop: drop } : null);
@@ -634,11 +658,10 @@ function SpaceView({ space, guest = null, room = false, me, folderId, openFile, 
         <div className="dv-acts">
           {!guest && !room ? <button type="button" className="dv-textbtn" onClick={onSettings}>People</button> : null}
           {canEdit ? <Seal type="button" tone="quiet" onClick={() => setNaming(true)}><Icon name="folder" />New folder</Seal> : null}
-          {canEdit && onMagnet && folder ? <Seal type="button" tone="quiet" onClick={() => onMagnet(folder.folder.id)}><Icon name="download" />Magnet</Seal> : null}
           {canAdd ? <Seal type="button" onClick={() => picker.current?.click()}><Icon name="upload" />Upload</Seal> : null}
         </div>
         {canAdd ? <input ref={picker} type="file" multiple hidden onChange={(event) => {
-          const files = Array.from(event.target.files ?? []);
+          const files = folder ? torrentsOut(Array.from(event.target.files ?? []), folder.folder.id, canEdit ? downloads : undefined, onToast) : [];
           if (files.length && folder) onUpload(files, folder.folder.id);
           event.target.value = "";
         }} /> : null}
@@ -676,11 +699,22 @@ function SpaceView({ space, guest = null, room = false, me, folderId, openFile, 
     <div className={cx("dv-list", guest && "guest")} ref={list}>
       {problem ? <div className="dv-empty"><p>{problem}</p></div>
         : !folder ? <FolderSkeleton />
-        : !rows.length ? <div className="dv-empty">
+        : !rows.length && !fetching.length ? <div className="dv-empty">
             <h3>{found ? "Nothing by that name" : "Nothing here yet"}</h3>
             {!found && canAdd ? <p>Drop files here, or upload them.</p> : null}
           </div>
-        : rows.map((node) => <Fragment key={node.id}>
+        : <>{fetching.map((d) => <div className={cx("dv-r", "dv-fetch", d.state === "failed" && "bad")} key={d.id} data-fetch={d.id}>
+            <span />
+            <span className="dv-kind typed"><Icon name="download" /></span>
+            <div className="nm"><b>{d.name}</b>
+              {d.state === "failed" ? <small>{d.status}</small> : <><small>{d.status}</small><InkWave className="dv-wave" label={`Downloading ${d.name}`} value={(d.percent ?? 0) / 100} /></>}
+            </div>
+            {!guest ? <span className="c-share" /> : null}
+            <span className="num c-size">{d.state !== "failed" && d.percent != null ? `${d.percent}%` : ""}</span>
+            <span className="num dv-when c-when" />
+            <span className="dv-rowmenu">{d.state === "failed" ? <button type="button" className="dv-more" aria-label="Dismiss" onClick={() => downloads?.dismiss(d.id)}><Icon name="close" /></button> : null}</span>
+          </div>)}
+        {rows.map((node) => <Fragment key={node.id}>
             <div className={cx("dv-r", selected.has(node.id) && "sel", opened?.id === node.id && "open")} data-row={node.id}
               onContextMenu={(event) => {
                 if ((event.target as HTMLElement).closest("input")) return;
@@ -711,7 +745,7 @@ function SpaceView({ space, guest = null, room = false, me, folderId, openFile, 
             </div>
             {opened?.id === node.id ? <Drawer node={node} url={fileUrl(node)} token={token} guest={Boolean(guest)} canEdit={editable(node)} people={people}
               onSave={() => save([node])} onShare={() => void share(node)} onUnlink={() => void unlink(node)} onClose={() => onGo(here)} /> : null}
-          </Fragment>)}
+          </Fragment>)}</>}
     </div>
 
     {menu && menuNode ? <FloatingMenu at={menu} label={`Actions for ${menuNode.name}`} onClose={closeMenu}>
@@ -1318,48 +1352,6 @@ function RecentView({ spaces, people, onOpen }: { spaces: Space[]; people: Recor
           </div>)}
     </div>
   </section>;
-}
-
-/* ── a magnet link or a .torrent, fetched by Real-Debrid into this folder ── */
-
-function MagnetDialog({ onClose, onStart }: { onClose: () => void; onStart: (what: string | File) => Promise<void> }) {
-  const [magnet, setMagnet] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const picker = useRef<HTMLInputElement>(null);
-  const go = async (what: string | File) => {
-    setBusy(true); setProblem(null);
-    try { await onStart(what); } catch (error) { setProblem(problemText(error)); setBusy(false); }
-  };
-  const ok = /^magnet:\?/i.test(magnet.trim());
-  return <Dialog title="Download a torrent" onClose={onClose} footer={<>
-    <span className={cx("left", problem && "bad")}>{problem}</span>
-    <Seal type="button" tone="quiet" disabled={busy} onClick={() => picker.current?.click()}>Choose .torrent</Seal>
-    <Seal type="button" disabled={!ok || busy} onClick={() => void go(magnet.trim())}>Download</Seal>
-  </>}>
-    <label className="k-field"><span>Magnet link</span><textarea autoFocus rows={4} value={magnet} spellCheck={false} placeholder="magnet:?xt=urn:btih:…" onChange={(e) => setMagnet(e.target.value)}
-      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && ok && !busy) { e.preventDefault(); void go(magnet.trim()); } }} /></label>
-    <input ref={picker} type="file" accept=".torrent,application/x-bittorrent" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void go(file); }} />
-  </Dialog>;
-}
-
-function DownloadTray({ downloads, onClear }: { downloads: Download[]; onClear: () => void }) {
-  const going = downloads.filter((d) => d.state !== "done" && d.state !== "failed");
-  return <div className="dv-uploads" role="region" aria-label="Downloads">
-    <header><span>{going.length ? `Downloading ${going.length === 1 ? "1 torrent" : `${going.length} torrents`}` : `${downloads.length} ${downloads.length === 1 ? "download" : "downloads"}`}</span>
-      {downloads.length > going.length ? <button type="button" className="dv-linkbtn" onClick={onClear}>Clear</button> : null}</header>
-    <div className="dv-up-list">
-      {downloads.map((d) => <div className="dv-up" key={d.id}>
-        <span className="dv-kind"><span className="ext"><Icon name="download" /></span></span>
-        <div><b>{d.name}</b>
-          {d.state === "failed" ? <small className="err">{d.status}</small>
-            : d.state === "done" ? <small>Done · {d.saved?.length === 1 ? d.saved[0] : `${d.saved?.length ?? 0} files`}</small>
-            : <><InkWave className="dv-wave" label={`Downloading ${d.name}`} value={(d.percent ?? 0) / 100} /><small>{[d.status, d.percent != null ? `${d.percent}%` : null].filter(Boolean).join(" · ")}</small></>}
-        </div>
-        {d.state === "done" ? <span className="dv-done" aria-label="Done"><Icon name="check" /></span> : <span />}
-      </div>)}
-    </div>
-  </div>;
 }
 
 /* ── the upload tray ── */

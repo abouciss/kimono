@@ -237,8 +237,9 @@
 .dv-uploads > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 8px; font-weight: 700; }
 .dv-uploads > header small { font-weight: 500; color: var(--k-ink-soft); font-size: 12px; }
 .dv-up-list { overflow: auto; }
-.dv-trays { position: fixed; z-index: 50; right: 24px; bottom: 24px; width: 400px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 10px; }
-.dv-trays > .dv-uploads { position: static; width: auto; max-width: none; max-height: min(40vh, 360px); }
+.dv-fetch .dv-kind { display: grid; place-items: center; color: var(--k-ink-soft); }
+.dv-fetch .nm .dv-wave { margin-top: 6px; }
+.dv-fetch.bad .nm small { color: color-mix(in srgb, var(--k-suo-deep) var(--k-tint), var(--k-night-ink)); }
 .dv-up { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: var(--k-r-m); }
 .dv-up .dv-kind { width: 36px; height: 36px; }
 .dv-up > div { min-width: 0; }

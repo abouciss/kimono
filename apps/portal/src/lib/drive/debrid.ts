@@ -77,7 +77,7 @@ export async function debridToDrive(owner: string, folderId: string, ask: Ask, t
       if (["magnet_error", "error", "virus", "dead"].includes(info.status)) throw new Refused(info.status === "virus" ? "Real-Debrid flagged it as a virus." : info.status === "dead" ? "Nobody is sharing it any more." : "Real-Debrid couldn't fetch it.");
       if (Date.now() - began > 12 * 3600_000) throw new Refused("It's taking too long to come down.");
       const percent = typeof info.progress === "number" ? info.progress : undefined;
-      const status = info.status === "magnet_conversion" ? "Finding it" : info.status === "queued" ? "Waiting its turn" : info.status === "compressing" || info.status === "uploading" ? "Getting it ready" : `Fetching ${info.filename ?? "it"}`;
+      const status = info.status === "magnet_conversion" ? "Finding it" : info.status === "queued" ? "Waiting its turn" : info.status === "compressing" || info.status === "uploading" ? "Getting it ready" : "Fetching";
       await tell({ state: info.status === "downloading" ? "downloading" : "waiting", status, percent: percent === undefined ? undefined : Math.round(percent * 0.8) });
     }
 
@@ -138,7 +138,7 @@ export function forgetDriveDownload(owner: string, id: string) {
   if (d && d.owner === owner.toLowerCase() && (d.state === "done" || d.state === "failed")) downloads.delete(id);
 }
 
-function view({ owner: _owner, ...d }: DriveDownload & { owner: string }): DriveDownload { return { ...d }; }
+function view(entry: DriveDownload & { owner: string }): DriveDownload { const { owner, ...d } = entry; void owner; return d; }
 
 type Info = { status: string; progress?: number; filename?: string; links?: string[] };
 
