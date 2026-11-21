@@ -166,6 +166,14 @@ private fun youTones(context: Context, tonal: Boolean): Pair<Tone, Tone>? {
         Tone(c("system_neutral1_900"), c("system_neutral1_50"), c("system_neutral2_200"), c("system_accent1_200"), c("system_accent2_700"), c("system_accent2_100"))
 }
 
+/** Nothing OS's dark widget: system_neutral1_900 under pure white, the land a step lighter (neutral1 800). */
+private fun nothingDark(context: Context): Tone? {
+    if (Build.VERSION.SDK_INT < 31) return null
+    val r = android.R.color::class.java
+    fun c(name: String) = system(context, r.getField(name).getInt(null))
+    return Tone(c("system_neutral1_900"), Color.White, Color.White.copy(alpha = .6f), Color.White, c("system_neutral1_800"), Color.White)
+}
+
 private enum class Phase { Night, Dawn, Day, Gold, Dusk }
 
 private fun phaseOf(view: ScheduleView?): Phase {
@@ -227,8 +235,10 @@ fun widgetPalette(context: Context, options: WidgetOptions, view: ScheduleView?,
         options.accent == "prayer" -> plainDay to plainNight
         else -> youTones(context, tonal = false) ?: (plainDay to plainNight)
     }
-    val t = if (night) dark else day
-    val a = if (night) accentDark else accentDay
+    /* Mono is Nothing's own dark widget: the phone's neutral1 900 (what Nothing OS paints its widgets with), all in white. */
+    val mono = if (options.theme == "mono") nothingDark(context) else null
+    val t = mono ?: if (night) dark else day
+    val a = mono ?: if (night) accentDark else accentDay
     val clear = options.theme == "clear"
     val ground = if (clear) Color.Transparent else t.ground
     val land = if (clear) t.ground.copy(alpha = .62f) else a.chip

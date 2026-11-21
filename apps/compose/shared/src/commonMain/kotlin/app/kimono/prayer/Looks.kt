@@ -39,8 +39,8 @@ object Looks {
     val presets = listOf(
         /* Nothing: pure white or black, and one red. */
         Look("nothing", "Nothing", tone(0xFFFFFFFF, 0xFF000000, 0xFF5C5C5C, 0xFFD71921, 0xFFF0F0F0, 0xFF000000), tone(0xFF000000, 0xFFFFFFFF, 0xFFA6A6A6, 0xFFD71921, 0xFF1F1F1F, 0xFFFFFFFF), dotted = true),
-        /* Mono: dark grey, white ink, and white for the accent too. */
-        Look("mono", "Mono", tone(0xFF1E1E20, 0xFFFFFFFF, 0xFFA8A8AC, 0xFFFFFFFF, 0xFF2E2E31, 0xFFFFFFFF)),
+        /* Mono: Nothing's dark widget, all in white (on Android 12 and later the grey is the phone's own neutral 900, as Nothing paints it). */
+        Look("mono", "Mono", tone(0xFF1C1B1F, 0xFFFFFFFF, 0x99FFFFFF, 0xFFFFFFFF, 0xFF313033, 0xFFFFFFFF)),
         Look("paper", "Paper", tone(0xFFFBF5EA, 0xFF2E2620, 0xFF6F6257, 0xFF9A4B32, 0xFFF0DCCB, 0xFF4A2214)),
         Look("sumi", "Sumi", tone(0xFF1C1A18, 0xFFEDE6DA, 0xFFB3AA9C, 0xFFE0B26A, 0xFF3A3328, 0xFFF6E7C8)),
         Look("midnight", "Midnight", tone(0xFF0E1726, 0xFFE4EAF4, 0xFF9AA8BE, 0xFF8FB4FF, 0xFF1F3152, 0xFFDCE6FF)),
