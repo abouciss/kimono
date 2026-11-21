@@ -117,3 +117,23 @@ test("a download that fails says why, not just that it stopped", async () => {
     assert.deepEqual(ended, { state: "failed", status: "Couldn't reach Real-Debrid. Try again." });
   } finally { globalThis.fetch = real; }
 });
+
+test("a file Real-Debrid says is over a gigabyte starts saving instead of failing on its timer", async () => {
+  const { startDriveDownload, driveDownloads } = await import("../src/lib/drive/debrid.ts");
+  const space = drive.createSpace(drive.db(), "ren", { name: "Big" });
+  const real = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    const at = url.pathname.replace("/rest/1.0", "");
+    if (at === "/torrents/addMagnet") return Response.json({ id: "T3" });
+    if (at === "/torrents/info/T3") return Response.json({ status: "downloaded", progress: 100, filename: "Big.mkv", links: ["https://real-debrid.com/d/D"] });
+    if (at === "/unrestrict/link") return Response.json({ download: "https://x.download.real-debrid.com/d/D/Big.mkv", filename: "Big.mkv", filesize: 1_500_000_001 });
+    if (url.hostname.endsWith(".download.real-debrid.com")) { const r = new Response("123", { headers: { "content-length": "3" } }); Object.defineProperty(r, "url", { value: url.href }); return r; }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  try {
+    startDriveDownload("ren", space.rootId, { magnet: "magnet:?xt=urn:btih:big" }, "Big");
+    for (let i = 0; i < 50 && !["done", "failed"].includes(driveDownloads("ren")[0]?.state); i++) await new Promise((r) => setTimeout(r, 100));
+    assert.equal(driveDownloads("ren")[0].state, "done", driveDownloads("ren")[0].status);
+  } finally { globalThis.fetch = real; }
+});
