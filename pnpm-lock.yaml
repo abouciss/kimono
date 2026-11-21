@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   next@16.4.5:
-    hash: 9ee09ba54e9cb501d786905f0a9afe1c9fef012f5fac86b1443a5c3169f39e3d
+    hash: 2399b4bca9ce9a3e2dcb5846aa003ba41a00d6b58c1d29868dd6f72e5478117a
     path: patches/next@16.4.5.patch
 
 importers:
@@ -72,10 +72,10 @@ importers:
         version: 0.19.1
       next:
         specifier: 16.4.5
-        version: 16.4.5(patch_hash=9ee09ba54e9cb501d786905f0a9afe1c9fef012f5fac86b1443a5c3169f39e3d)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 16.4.5(patch_hash=2399b4bca9ce9a3e2dcb5846aa003ba41a00d6b58c1d29868dd6f72e5478117a)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       next-auth:
         specifier: 5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.4.5(patch_hash=9ee09ba54e9cb501d786905f0a9afe1c9fef012f5fac86b1443a5c3169f39e3d)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
+        version: 5.0.0-beta.32(next@16.4.5(patch_hash=2399b4bca9ce9a3e2dcb5846aa003ba41a00d6b58c1d29868dd6f72e5478117a)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -5318,15 +5318,15 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  next-auth@5.0.0-beta.32(next@16.4.5(patch_hash=9ee09ba54e9cb501d786905f0a9afe1c9fef012f5fac86b1443a5c3169f39e3d)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1):
+  next-auth@5.0.0-beta.32(next@16.4.5(patch_hash=2399b4bca9ce9a3e2dcb5846aa003ba41a00d6b58c1d29868dd6f72e5478117a)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1):
     dependencies:
       '@auth/core': 0.41.3
-      next: 16.4.5(patch_hash=9ee09ba54e9cb501d786905f0a9afe1c9fef012f5fac86b1443a5c3169f39e3d)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      next: 16.4.5(patch_hash=2399b4bca9ce9a3e2dcb5846aa003ba41a00d6b58c1d29868dd6f72e5478117a)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react: 19.3.1
 
   next-tick@1.1.0: {}
 
-  next@16.4.5(patch_hash=9ee09ba54e9cb501d786905f0a9afe1c9fef012f5fac86b1443a5c3169f39e3d)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+  next@16.4.5(patch_hash=2399b4bca9ce9a3e2dcb5846aa003ba41a00d6b58c1d29868dd6f72e5478117a)(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
       '@next/env': 16.4.5
       '@swc/helpers': 0.5.23
