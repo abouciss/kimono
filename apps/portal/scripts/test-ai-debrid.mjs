@@ -101,3 +101,19 @@ test("Drive's Magnet saves into the folder it was started in, and lists only the
     assert.deepEqual(drive.childrenOf(drive.db(), space.rootId, "mina").children.map((n) => [n.name, n.size]), [["Open Movie.mkv", 5]]);
   } finally { globalThis.fetch = real; }
 });
+
+test("a download that fails says why, not just that it stopped", async () => {
+  const { debridToDrive } = await import("../src/lib/drive/debrid.ts");
+  const space = drive.createSpace(drive.db(), "ren", { name: "Stuff" });
+  const real = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const at = new URL(String(input)).pathname.replace("/rest/1.0", "");
+    if (at === "/torrents/addMagnet") return Response.json({ id: "T3" });
+    if (at === "/torrents/info/T3") return Response.json({ status: "downloaded", progress: 100, filename: "x", links: ["https://real-debrid.com/d/D"] });
+    throw new TypeError("fetch failed");
+  };
+  try {
+    const ended = await debridToDrive("ren", space.rootId, { magnet: "magnet:?xt=urn:btih:aaa" }, () => {});
+    assert.deepEqual(ended, { state: "failed", status: "Couldn't reach Real-Debrid. Try again." });
+  } finally { globalThis.fetch = real; }
+});

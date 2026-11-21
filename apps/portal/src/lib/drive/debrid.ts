@@ -2,9 +2,10 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 import { addToDrive, blobFromWeb } from "../code/drive";
+import { CodeProblem } from "../code/model";
 import { getPlatformSettings } from "../settings";
 import { watchConfig } from "../watch/config";
-import { maxFileBytes, root as driveRoot } from "./index";
+import { DriveProblem, maxFileBytes, root as driveRoot } from "./index";
 import { freeBytes, reserveBytes } from "./storage";
 
 /*
@@ -98,21 +99,27 @@ export async function debridToDrive(owner: string, folderId: string, ask: Ask, t
     const saved: string[] = [];
     let before = 0;
     for (const link of links) {
-      const response = await fetch(link.download, { cache: "no-store", signal: AbortSignal.timeout(Math.max(600_000, link.filesize / 2_000)) });
+      /* Stopped only when nothing comes for a while, however big the file or slow the link. */
+      const idle = new AbortController();
+      let quiet: ReturnType<typeof setTimeout> = setTimeout(() => idle.abort(new Stalled()), stallMs);
+      const heard = () => { clearTimeout(quiet); quiet = setTimeout(() => idle.abort(new Stalled()), stallMs); };
+      const response = await fetch(link.download, { cache: "no-store", signal: idle.signal }).catch((error) => { clearTimeout(quiet); throw error; });
       if (!response.url.startsWith("https://")) { await response.body?.cancel(); throw new Refused("Real-Debrid gave a link Kimono won't follow."); }
       if (!response.ok || !response.body) throw new Refused("Real-Debrid's link didn't open.");
       const size = Number(response.headers.get("content-length")) || link.filesize;
       const stored = await blobFromWeb(response.body, size, (bytes) => {
+        heard();
         void tell({ state: "saving", status: "Saving to Drive", percent: 80 + Math.round(((before + bytes) / Math.max(total, 1)) * 20) });
-      });
+      }).finally(() => clearTimeout(quiet));
       const node = await addToDrive(folderId, owner, links.length > 1 ? `${name}/${link.filename}` : link.filename, stored);
       saved.push(links.length > 1 ? `${name}/${node.name}` : node.name);
       before += stored.size;
     }
     return await end({ state: "done", status: "Saved to Drive", percent: 100, saved });
   } catch (error) {
-    if (!(error instanceof Refused)) console.warn("Couldn't finish a download:", error instanceof Error ? error.name : "unknown");
-    return await end({ state: "failed", status: error instanceof Refused ? error.message : "The download stopped." });
+    const status = whyStopped(error);
+    if (!(error instanceof Refused)) console.warn("Couldn't finish a download:", error instanceof Error ? `${error.name}: ${error.message}` : String(error), "→", status);
+    return await end({ state: "failed", status });
   }
 }
 
@@ -139,6 +146,20 @@ export function forgetDriveDownload(owner: string, id: string) {
 }
 
 function view(entry: DriveDownload & { owner: string }): DriveDownload { const { owner, ...d } = entry; void owner; return d; }
+
+const stallMs = 120_000;
+class Stalled extends Error { name = "Stalled"; }
+
+/** Why it stopped, in words: Kimono's own reasons as they are, the network's said plainly. */
+function whyStopped(error: unknown): string {
+  if (error instanceof Refused || error instanceof DriveProblem || error instanceof CodeProblem) return error.message;
+  const cause = error instanceof Error ? error.cause ?? error : error;
+  if (cause instanceof Stalled || (error instanceof Error && (error.name === "AbortError" || error.name === "Stalled"))) return "Real-Debrid stopped sending it. Try again.";
+  if (error instanceof Error && error.name === "TimeoutError") return "Real-Debrid took too long to answer. Try again.";
+  if (error instanceof TypeError) return "Couldn't reach Real-Debrid. Try again.";
+  if (error instanceof Error && /ENOSPC/.test(error.message)) return "Drive ran out of room.";
+  return "The download stopped. Try again.";
+}
 
 type Info = { status: string; progress?: number; filename?: string; links?: string[] };
 
