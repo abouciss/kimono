@@ -477,3 +477,16 @@ which suits a sandbox with no web.
    mirror.
 3. **One sandbox per chat or per person.** Per chat keeps chats from seeing
    each other's files; per person is lighter on the node. Proposed: per chat.
+
+### Downloads through Real-Debrid
+
+`kimono-debrid <magnet | file.torrent>` downloads a torrent for the chat's
+owner. The sandbox only writes the request (`.kimono/debrid/<id>.json`); Portal
+takes it, hands it to the Real-Debrid account Watch is set up with (the same
+stored key), waits while Real-Debrid fetches it on its own servers, and streams
+each file from its https link into the person's Drive (AI → Downloads). Nothing
+peer-to-peer runs on the server or in the sandbox, and the files never enter the
+sandbox. Progress goes back as `.kimono/debrid/<id>.state`, which the command
+prints as `PROGRESS` lines for a `kimono-progress --run` card
+(`lib/code/debrid.ts`). The agent is told about it only when Watch uses
+Real-Debrid.

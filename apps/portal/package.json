@@ -16,6 +16,7 @@
     "test:watch": "node --experimental-transform-types --import ./scripts/ts-resolve.mjs --test scripts/test-watch.mjs scripts/test-watch-sources.mjs",
     "test:music": "node --experimental-transform-types --import ./scripts/ts-resolve.mjs --test scripts/test-music.mjs && node --experimental-transform-types --import ./scripts/ts-resolve.mjs --conditions=react-server --test scripts/test-music-import.mjs",
     "test:books": "node --experimental-transform-types --import ./scripts/ts-resolve.mjs --conditions=react-server --test scripts/test-books.mjs",
+    "test:ai-debrid": "node --experimental-transform-types --import ./scripts/ts-resolve.mjs --conditions=react-server --test scripts/test-ai-debrid.mjs",
     "test:ai-books": "node --experimental-transform-types --import ./scripts/ts-resolve.mjs --test scripts/test-ai-books.mjs",
     "test:books-convert": "node --experimental-transform-types --import ./scripts/ts-resolve.mjs --test scripts/test-books-convert.mjs",
     "test:friends": "node --experimental-transform-types --import ./scripts/ts-resolve.mjs --test scripts/test-friends.mjs",

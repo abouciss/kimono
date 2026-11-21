@@ -34,6 +34,7 @@ import { markChat, retitle, shotToDrive, syncDrive, treeAhead } from "./drive";
 import { hasHistory, historyNote, syncHistory } from "./history";
 import { applyBookChanges, booksNote, forgetBooksWritten, syncBooks, takeBookMisses } from "./books";
 import { answersOf, answerText, askedId, askNote, isAskCommand, questionsDir, questionsOf } from "./questions";
+import { debridNote, debridReady, isDebridCommand, watchDebrid } from "./debrid";
 import { gitAccountOf, ownProject } from "./forgejo";
 import { suggestTitle } from "./title";
 import { db as driveDb } from "../drive";
@@ -635,7 +636,7 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
     /* An edited message in a chat from before turns kept their place: a new session, told the conversation so far. */
     const earlier = rewound && "before" in rewound && rewound.before ? `(The person went back and changed one of their messages, so this conversation starts again from it. What was said before it:)\n\n${rewound.before}\n\n(Their changed message:)\n\n` : "";
     told = second ? second.told : `${access ? `${access}\n\n` : ""}${news}${earlier}${from}${prompt}`;
-    const input = { prompt: plan && take ? withNote(told, plan.notes[take.n]) : told, ...(second?.session ? { fork: true } : {}), session, attachments: attachments.map((a) => a.path), effort, thinking: thought.thinking, model, context: [...(byOwner ? [aboutNow(who(user).name), contextFor(db(), workspace.owner), notes, history ? historyNote : "", hasBooks ? booksNote : "", hasBooks ? takeBookMisses(workspace.id) : "", mediaNote(lastAllowance(workspace.owner))] : []), askNote, noticeSeen(db(), user.username, "islam") ? "" : islamNoticeNote].filter(Boolean).join("\n\n"), resumeAt: second ? second.at : rewound && "at" in rewound ? rewound.at : null, links: tempLinkBase(portalOrigin(), workspace.id), linkKey: tempLinkKey(workspace.id), ...skillsForTurn(db(), workspace.owner, byOwner) };
+    const input = { prompt: plan && take ? withNote(told, plan.notes[take.n]) : told, ...(second?.session ? { fork: true } : {}), session, attachments: attachments.map((a) => a.path), effort, thinking: thought.thinking, model, context: [...(byOwner ? [aboutNow(who(user).name), contextFor(db(), workspace.owner), notes, history ? historyNote : "", hasBooks ? booksNote : "", hasBooks ? takeBookMisses(workspace.id) : "", await debridReady().then((key) => key ? debridNote : "", () => ""), mediaNote(lastAllowance(workspace.owner))] : []), askNote, noticeSeen(db(), user.username, "islam") ? "" : islamNoticeNote].filter(Boolean).join("\n\n"), resumeAt: second ? second.at : rewound && "at" in rewound ? rewound.at : null, links: tempLinkBase(portalOrigin(), workspace.id), linkKey: tempLinkKey(workspace.id), ...skillsForTurn(db(), workspace.owner, byOwner) };
     const response = await sandbox.turn(config, workspace, input, controller.signal).catch(async (error) => {
       /* The sandbox lost the chat's session (its container was made again): a new
          one is told the conversation so far, so it never starts from nothing. */
@@ -740,6 +741,8 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
           keepToolCall(db(), workspace.id, call);
           if (isAskCommand(call.input)) asking.add(call.id);
           else if (call.output !== undefined && asking.delete(call.id)) await takeQuestions(config, workspace, turn, call.output);
+          /* A download for the owner: Kimono takes its request from the sandbox and saves it to their Drive. */
+          if (byOwner && call.output === undefined && isDebridCommand(call.input)) watchDebrid(db(), config, workspace);
           if (isSkillCommand(call.input)) making.add(call.id);
           else if (call.output !== undefined && making.delete(call.id) && byOwner) await takeSkill(config, workspace, turn, user, call.output);
         }

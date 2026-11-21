@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""kimono-debrid MAGNET
+kimono-debrid FILE.torrent
+
+Downloads a torrent for the person through Real-Debrid: its servers fetch it,
+and Kimono saves the files from its https links straight to their Drive, in
+AI → Downloads. Nothing peer-to-peer runs here, and the files don't come into
+this computer. It waits until they're saved, printing how far along it is, so
+run it under kimono-progress:
+
+  kimono-progress "Downloading <what>" --run "kimono-debrid '<magnet>'"
+"""
+import json, os, re, secrets, sys, time
+
+ROOT = os.environ.get("KIMONO_WORKSPACE", "/workspace")
+DIR = os.path.join(ROOT, ".kimono", "debrid")
+
+args = sys.argv[1:]
+if len(args) != 1 or args[0] in ("-h", "--help"):
+    sys.exit(__doc__.strip())
+what = args[0].strip()
+
+if what.lower().startswith("magnet:?"):
+    if not re.search(r"xt=urn:bt[im]h:", what, re.I):
+        sys.exit("kimono-debrid: that magnet has no info hash")
+    ask = {"magnet": what}
+else:
+    path = os.path.realpath(what)
+    if not os.path.isfile(path):
+        sys.exit(f"kimono-debrid: {what} isn't a file here (give a magnet link or a .torrent file)")
+    if path.startswith("/files/"):
+        path = os.path.join(ROOT, ".kimono", "files", path[len("/files/"):])
+    if not path.startswith(ROOT + "/"):
+        sys.exit("kimono-debrid: the .torrent file has to be under /workspace or /files")
+    if os.path.getsize(path) > 20 * 1024 * 1024:
+        sys.exit("kimono-debrid: that's too big to be a .torrent file")
+    with open(path, "rb") as f:
+        if f.read(1) != b"d":
+            sys.exit("kimono-debrid: that isn't a .torrent file")
+    ask = {"torrent": os.path.relpath(path, ROOT)}
+
+os.makedirs(DIR, exist_ok=True)
+job = f"{int(time.time() * 1000)}-{secrets.token_hex(4)}"
+with open(os.path.join(DIR, f".{job}.json"), "w") as f:
+    json.dump(ask, f)
+os.rename(os.path.join(DIR, f".{job}.json"), os.path.join(DIR, f"{job}.json"))
+
+state_path, said, began = os.path.join(DIR, f"{job}.state"), None, time.time()
+while True:
+    time.sleep(2)
+    try:
+        with open(state_path, encoding="utf-8") as f:
+            state = json.load(f)
+    except (OSError, ValueError):
+        if time.time() - began > 120:
+            if os.path.exists(os.path.join(DIR, f"{job}.json")):
+                os.remove(os.path.join(DIR, f"{job}.json"))
+            sys.exit("kimono-debrid: Kimono didn't take the download (downloads work only in the person's own chats)")
+        continue
+    status, percent = state.get("status") or "Working", state.get("percent")
+    if state.get("state") == "done":
+        os.remove(state_path)
+        print("PROGRESS 100 Saved to Drive", flush=True)
+        print("Saved to their Drive:\n" + "\n".join(f"  {p}" for p in state.get("saved", [])))
+        sys.exit(0)
+    if state.get("state") == "failed":
+        os.remove(state_path)
+        sys.exit(f"kimono-debrid: {status}")
+    line = f"PROGRESS {int(percent) if isinstance(percent, (int, float)) else 0} {status}"
+    if line != said:
+        print(line, flush=True)
+        said = line

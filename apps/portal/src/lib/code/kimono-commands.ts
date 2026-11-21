@@ -37,6 +37,13 @@ const flag = (w: string[], name: string) => { const at = w.indexOf(name); return
 const plain = (w: string[]) => w.filter((x, i) => !x.startsWith("-") && !(i > 0 && w[i - 1].startsWith("--") && !["--full", "--mobile", "--read", "--change", "--voices"].includes(w[i - 1])));
 const clip = (value: string, max = 80) => value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
+/** What a magnet calls itself (its dn), if it says. */
+function magnetName(link: string) {
+  const dn = /[?&]dn=([^&]+)/.exec(link)?.[1];
+  if (!dn) return undefined;
+  try { return clip(decodeURIComponent(dn.replace(/\+/g, " ")), 60); } catch { return undefined; }
+}
+
 function one(name: string, w: string[]): Said | undefined {
   const args = plain(w);
   switch (name) {
@@ -77,6 +84,7 @@ function one(name: string, w: string[]): Said | undefined {
       if (how === "search") return { label: "Looked through your books for", detail: args.slice(1).join(" ") || undefined, doing: "Looking through your books" };
       return { label: "Looked through your books", doing: "Looking through your books" };
     }
+    case "debrid": return { label: "Downloaded to Drive", detail: args[0] && (/^magnet:/i.test(args[0]) ? magnetName(args[0]) : base(args[0])), doing: "Downloading" };
     case "access": return { label: "Asked for access to", detail: flag(w, "--space"), doing: "Asking for access" };
     default: return undefined;
   }

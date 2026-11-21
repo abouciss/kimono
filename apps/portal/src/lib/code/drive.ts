@@ -218,6 +218,33 @@ export async function blobFromSandbox(config: CodeConfig, workspace: Workspace, 
   return { blob, ...kept };
 }
 
+/** Bytes from the web streamed into a new Drive blob, `seen` told how many have come so far. */
+export async function blobFromWeb(body: ReadableStream<Uint8Array>, size: number, seen: (bytes: number) => void): Promise<Stored> {
+  const blob = driveId();
+  const target = blobPath(driveRoot, blob);
+  await mkdir(dirname(target), { recursive: true, mode: 0o700 });
+  const { pass, done } = hashing();
+  let got = 0;
+  const count = new Transform({ transform(chunk: Buffer, _encoding, next) { got += chunk.length; seen(got); next(null, chunk); } });
+  try {
+    await pipeline(Readable.fromWeb(body as import("node:stream/web").ReadableStream), count, pass, createWriteStream(target, { mode: 0o600 }));
+  } catch (error) {
+    await rm(target, { force: true });
+    throw error;
+  }
+  const kept = done();
+  if (Number.isFinite(size) && size > 0 && kept.size !== size) {
+    await rm(target, { force: true });
+    throw new CodeProblem("The file didn't arrive whole.", 502);
+  }
+  return { blob, ...kept };
+}
+
+/** The person's Downloads folder, at the top of their Kimono AI space: made the first time. */
+export function downloadsFolder(db: DatabaseSync, owner: string): string {
+  return folderIn(codeSpace(db, owner).rootId, owner, "Downloads").id;
+}
+
 /** A Drive file streamed into the sandbox at `path`. Returns it and the sha1 of what went in. Throws NoRoom. */
 export async function driveToSandbox(config: CodeConfig, workspace: Workspace, nodeId: string, owner: string, path: string): Promise<{ node: DriveNode; sha1: string }> {
   const node = nodeFor(driveDb(), nodeId, owner, "viewer");
