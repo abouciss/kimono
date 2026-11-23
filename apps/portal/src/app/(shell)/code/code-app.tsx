@@ -1249,7 +1249,18 @@ function fitField(el: HTMLTextAreaElement) {
 
 /** A field that grows with what's written, and is sized again once it's on screen or its width changes. */
 function useFitField(field: React.RefObject<HTMLTextAreaElement | null>, written: string) {
-  useLayoutEffect(() => { if (field.current) fitField(field.current); }, [field, written]);
+  useLayoutEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    fitField(el);
+    /* Past one line the words take the box's whole width, with attach and Send on a line of their own under
+       them: the scroll bar then runs down the box's edge and ends above Send, not beside it. It stays that way
+       until the box is empty, so a word that would fit again on the narrower line doesn't flip it back and forth. */
+    const entry = el.closest(".cd-entry");
+    if (!entry) return;
+    if (!written) { if (entry.classList.contains("is-tall")) { entry.classList.remove("is-tall"); fitField(el); } }
+    else if (el.offsetHeight > 46 && !entry.classList.contains("is-tall")) { entry.classList.add("is-tall"); fitField(el); }
+  }, [field, written]);
   useEffect(() => {
     const el = field.current;
     if (!el) return;

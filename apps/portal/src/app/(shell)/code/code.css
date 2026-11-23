@@ -1731,6 +1731,11 @@ a.cd-spacechip:focus-visible, .cd-drivename:focus-visible { outline: 2px solid v
 .cd .cd-entry .cd-typed-under mark { color: var(--k-app-accent); background: color-mix(in oklch, var(--k-app-accent) 14%, transparent); border-radius: 3px; box-shadow: 0 0 0 2px color-mix(in oklch, var(--k-app-accent) 14%, transparent); text-shadow: .3px 0 currentColor, -.3px 0 currentColor; }
 .cd-entry > .cd-attach, .cd-entry > div:first-of-type { flex: none; }
 .cd-entry-end { flex: none; display: flex; align-items: center; gap: 2px; min-height: 40px; }
+/* More than a line written: the words get the whole width, and attach and Send sit on their own line below,
+   so the scroll bar is at the box's edge, above Send. */
+.cd-entry.is-tall { flex-wrap: wrap; row-gap: 2px; }
+.cd .cd-entry.is-tall > .cd-typed, .cd .cd-entry.is-tall > textarea { order: -1; flex: 0 0 100%; }
+.cd-entry.is-tall > .cd-entry-end { margin-left: auto; }
 .cd .cd-entry .cd-sendstop { margin-left: 4px; }
 .cd-entry-problem { margin: 0 8px; }
 /* What's attached sits clear of the box's round corner and of the words under it. */
