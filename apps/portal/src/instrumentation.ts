@@ -15,9 +15,6 @@ export async function register() {
   /* Notes people left in Outline, when `kimono server import-outline` has put them out. */
   const { importOutlineIfWaiting } = await import("./lib/notes/outline-import-run");
   await importOutlineIfWaiting();
-  /* Hosted repositories follow their branch in Kimono Git (lib/code followSites). */
-  const { followSites } = await import("./lib/code");
-  setInterval(() => { void followSites().catch(() => {}); }, 60 * 1000).unref();
   /* TestFlight follows Kimono's accounts on its own: checked every quarter hour, synced when an hour has passed. */
   const { syncTestflightIfDue } = await import("./lib/testflight");
   setInterval(() => { void syncTestflightIfDue().catch(() => {}); }, 15 * 60 * 1000).unref();

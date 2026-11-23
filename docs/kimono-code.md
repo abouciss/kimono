@@ -192,8 +192,10 @@ its state directory. A sandbox with a live preview sleeps like any other (see
 A Kimono Git repository can be hosted as it is, with no chat behind it: **Host a
 repository** on the new-chat page, or `POST /api/v1/code/sites { owner, name,
 branch? }`. Its workspace sits on the repository's own branch (`hosted`), and
-the Portal compares that branch's head with the deployed commit every minute,
-so a push from anywhere (a laptop's `git push`) is what the link shows.
+Kimono Git tells the Portal of every push (a webhook on the repository, to
+`/api/v1/code/sites/hook/<id>`, signed with the site's own secret), so a push
+from anywhere (a laptop's `git push`) is what the link shows, at once. Kimono
+Git is allowed to call the Portal's own name (`webhook.ALLOWED_HOST_LIST`).
 
 `POST /v1/workspaces/{id}/deploy` on the node fast-forwards the sandbox and
 (re)starts the site, answering `{ url, port, kind, stopped, commit }`. How it

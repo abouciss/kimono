@@ -138,11 +138,16 @@ export async function branches(config: CodeConfig, owner: string, name: string):
   return list.map((branch) => branch.name).filter((branch) => !branch.startsWith("code/"));
 }
 
-/** The commit a branch is at in Kimono Git; null when it can't be read (no such branch, or Kimono Git is away). */
-export async function branchHead(config: CodeConfig, owner: string, name: string, branch: string): Promise<string | null> {
-  const response = await send(config, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/branches/${branch.split("/").map(encodeURIComponent).join("/")}`, { timeout: 10_000 }).catch(() => null);
-  if (!response?.ok) return null;
-  return ((await response.json()) as { commit?: { id?: string } }).commit?.id ?? null;
+/**
+ * Has Kimono Git tell [url] of every push to the repository, signed with [secret]. One hook per address:
+ * asked again, the one there takes the secret.
+ */
+export async function ensurePushHook(config: CodeConfig, owner: string, name: string, url: string, secret: string) {
+  const hooks = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/hooks`;
+  const there = (await get<{ id: number; config?: { url?: string } }[]>(config, hooks)).find((hook) => hook.config?.url === url);
+  const body = JSON.stringify({ type: "forgejo", active: true, events: ["push"], config: { url, content_type: "json", secret } });
+  const response = await send(config, there ? `${hooks}/${there.id}` : hooks, { method: there ? "PATCH" : "POST", body, timeout: 15_000 });
+  if (!response.ok) throw new CodeProblem("Kimono Git couldn't be told to report pushes to this repository.", 502);
 }
 
 /** One repository, as the person may see it: theirs, or shared with them. */

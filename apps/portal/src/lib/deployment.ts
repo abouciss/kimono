@@ -53,12 +53,13 @@ type TemplateContext = {
   oidc?: Record<string, string>;
 };
 
-const tokenPattern = /\{\{(hostname|portal|config\.[A-Z0-9_]+|secret\.[A-Z0-9_]+|service\.[a-z0-9-]+|oidc\.[a-zA-Z]+)\}\}/g;
+const tokenPattern = /\{\{(hostname|portalHost|portal|config\.[A-Z0-9_]+|secret\.[A-Z0-9_]+|service\.[a-z0-9-]+|oidc\.[a-zA-Z]+)\}\}/g;
 
 function resolveTemplate(template: string, context: TemplateContext) {
   return template.replace(tokenPattern, (_, token: string) => {
     if (token === "hostname") return context.hostname;
     if (token === "portal") return context.portal;
+    if (token === "portalHost") return context.portal.replace(/^https?:\/\//, "");
     const [kind, key] = token.split(".");
     if (kind === "config") return context.configuration[key] ?? "";
     if (kind === "secret") return secretReference(context.appId, key);

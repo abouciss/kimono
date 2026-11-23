@@ -5,6 +5,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { apiError, type ApiUser } from "../api-v1";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { getPlatformSettings } from "../settings";
 import { stateDir } from "../state";
 import { codeConfig, missing, projectMissing, type CodeConfig } from "./config";
@@ -15,7 +16,7 @@ import { islamNoticeNote, isSkillCommand, madeSkillId, madeSkillsDir, noticeSeen
 import { bounded } from "./bounded";
 import { applyEdits, artifactOf, Drafts, maxMediaBytes, mediaNames, saveArtifact } from "./artifacts";
 import {
-  abandonRunningTurns, appendEvent, createSite, hostedSites, intoProject, setDeployed, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, allowedShare, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
+  abandonRunningTurns, appendEvent, createSite, hostedSite, intoProject, setDeployed, setHookSecret, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, allowedShare, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
   type StoredEvent, type Workspace,
 } from "./model";
 import { sandbox, type Effort, type NodePreview } from "./node";
@@ -36,7 +37,7 @@ import { applyBookChanges, booksNote, forgetBooksWritten, syncBooks, takeBookMis
 import { hostedNote, isProjectCommand, offeredProject, projectNote } from "./sites";
 import { answersOf, answerText, askedId, askNote, isAskCommand, questionsDir, questionsOf } from "./questions";
 import { debridNote, debridReady, isDebridCommand, watchDebrid } from "./debrid";
-import { branchHead, createRepository, gitAccountOf, ownProject, repositoryFor } from "./forgejo";
+import { createRepository, ensurePushHook, gitAccountOf, ownProject, repositoryFor } from "./forgejo";
 import { suggestTitle } from "./title";
 import { db as driveDb } from "../drive";
 import { notesConfig } from "../notes/config";
@@ -1011,6 +1012,10 @@ export async function hostRepository(config: CodeConfig, user: ApiUser, input: {
   /* Only one they can see in Kimono Git: theirs, or shared with them. */
   const repo = await repositoryFor(config, user, String(input.owner ?? ""), String(input.name ?? ""));
   const site = createSite(db(), user.username, repo, typeof input.branch === "string" && input.branch ? input.branch : repo.defaultBranch);
+  /* Kimono Git tells Kimono of each push, so the site follows the branch the moment it moves. */
+  const secret = hostedSite(db(), site.id)?.secret ?? randomBytes(32).toString("hex");
+  setHookSecret(db(), site.id, secret);
+  await ensurePushHook(config, repo.owner, repo.name, `${portalOrigin()}/api/v1/code/sites/hook/${site.id}`, secret);
   await deploySite(config, site);
   return workspaceFor(db(), site.id, user.username);
 }
@@ -1044,21 +1049,25 @@ export async function deploySite(config: CodeConfig, site: Workspace) {
 const deploying = ((globalThis as { __kimonoDeploying?: Map<string, Promise<void>> }).__kimonoDeploying ??= new Map());
 
 /**
- * Hosted repositories follow their branch: every minute each one's head in Kimono Git is compared with the
- * commit its site took, and a new one is deployed. A commit that failed isn't tried again until the next one.
+ * Kimono Git reports a push to a hosted repository (api/v1/code/sites/hook/<id>): signed with the site's
+ * secret, and to its branch, the site takes the new commit. Answers whether it was for this site.
  */
-export async function followSites() {
+export async function pushedTo(id: string, body: string, signature: string | null): Promise<boolean> {
+  const site = hostedSite(db(), id);
+  if (!site?.secret || !signature) return false;
+  const expected = createHmac("sha256", site.secret).update(body).digest();
+  const given = Buffer.from(signature.trim().replace(/^sha256=/, ""), "hex");
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return false;
+  let ref: unknown;
+  try { ref = (JSON.parse(body) as { ref?: unknown }).ref; } catch { return true; }
+  if (ref !== `refs/heads/${site.workspace.branch}`) return true;
   const config = codeConfig(await getPlatformSettings());
-  if (!config.enabled || missing(config) || projectMissing(config)) return;
-  for (const { workspace, deployed } of hostedSites(db())) {
-    try {
-      const head = await branchHead(config, workspace.repo.owner, workspace.repo.name, workspace.branch);
-      if (!head || head === deployed || failedAt.get(workspace.id) === head || runningTurn(db(), workspace.id)) continue;
-      await deploySite(config, workspace).catch((error) => { failedAt.set(workspace.id, head); throw error; });
-    } catch (error) { console.warn(`Kimono AI couldn't update the site of ${workspace.repo.owner}/${workspace.repo.name}:`, error instanceof Error ? error.message : error); }
-  }
+  if (!config.enabled || missing(config) || projectMissing(config)) return true;
+  /* A push while one is going up waits for it, then goes up itself: the last push is what shows. */
+  const after = deploying.get(id)?.catch(() => {}) ?? Promise.resolve();
+  void after.then(() => deploySite(config, site.workspace)).catch((error: unknown) => console.warn(`Kimono AI couldn't update the site of ${site.workspace.repo.owner}/${site.workspace.repo.name}:`, error instanceof Error ? error.message : error));
+  return true;
 }
-const failedAt = new Map<string, string>();
 
 /* ── access to the person's Drive ── */
 

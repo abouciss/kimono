@@ -295,6 +295,8 @@ export function migrate(db: DatabaseSync) {
   if (!(db.prepare("SELECT 1 FROM pragma_table_info('workspaces') WHERE name = 'hosted'").get())) {
     db.exec("ALTER TABLE workspaces ADD COLUMN hosted INTEGER NOT NULL DEFAULT 0; ALTER TABLE workspaces ADD COLUMN deployed TEXT;");
   }
+  /* The secret Kimono Git signs a hosted repository's push notices with. */
+  if (!(db.prepare("SELECT 1 FROM pragma_table_info('workspaces') WHERE name = 'hook_secret'").get())) db.exec("ALTER TABLE workspaces ADD COLUMN hook_secret TEXT");
   /* Spaces the person chose "Asks first" for (lib/code/access.ts): every other space opens without asking. */
   db.exec("CREATE TABLE IF NOT EXISTS access_asks (username TEXT NOT NULL, space_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (username, space_id))");
   /* A memory written as a page has a title of its own (lib/code/memory.ts). */
@@ -630,9 +632,14 @@ export function createSite(db: DatabaseSync, owner: string, repo: { owner: strin
   return workspaceFor(db, id, owner);
 }
 
-/** Every hosted repository, whoever's, with the commit its site last took. */
-export function hostedSites(db: DatabaseSync): { workspace: Workspace; deployed: string | null }[] {
-  return (db.prepare(`${selectWorkspace} WHERE w.hosted = 1 AND w.archived_at IS NULL`).all() as WorkspaceRow[]).map((row) => ({ workspace: toWorkspace(row), deployed: row.deployed }));
+/** A hosted repository by its id, whoever's, with the secret its push notices are signed with: for Kimono Git's webhook, which is nobody signed in. */
+export function hostedSite(db: DatabaseSync, id: string): { workspace: Workspace; secret: string | null } | null {
+  const row = db.prepare(`${selectWorkspace} WHERE w.id = ? AND w.hosted = 1`).get(id) as (WorkspaceRow & { hook_secret: string | null }) | undefined;
+  return row ? { workspace: toWorkspace(row), secret: row.hook_secret } : null;
+}
+
+export function setHookSecret(db: DatabaseSync, id: string, secret: string) {
+  db.prepare("UPDATE workspaces SET hook_secret = ? WHERE id = ?").run(secret, id);
 }
 
 export function setDeployed(db: DatabaseSync, id: string, commit: string) {
