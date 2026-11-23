@@ -63,6 +63,7 @@ export type CodeEvent =
   /** It offered to make the chat a project; what the person said; a hosted repository's site took a commit (or couldn't). */
   | { kind: "project-offer"; id: string; name: string }
   | { kind: "project-answer"; id: string; made: boolean; repo?: string }
+  | { kind: "deploying" }
   | { kind: "deployed"; commit: string; problem?: string }
   | { kind: "image"; name: string; caption?: string }
   | { kind: "preview"; url: string; port: number; app?: string }

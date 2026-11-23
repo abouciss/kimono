@@ -1016,7 +1016,8 @@ export async function hostRepository(config: CodeConfig, user: ApiUser, input: {
   const secret = hostedSite(db(), site.id)?.secret ?? randomBytes(32).toString("hex");
   setHookSecret(db(), site.id, secret);
   await ensurePushHook(config, repo.owner, repo.name, `${portalOrigin()}/api/v1/code/sites/hook/${site.id}`, secret);
-  await deploySite(config, site);
+  /* Going up can take minutes when it builds: its page says how it went. */
+  void deploySite(config, site).catch(() => {});
   return workspaceFor(db(), site.id, user.username);
 }
 
@@ -1028,6 +1029,7 @@ export async function deploySite(config: CodeConfig, site: Workspace) {
   if (going) return going;
   const work = (async () => {
     try {
+      record(site.id, null, { kind: "deploying" });
       await ensure(config, site, { name: site.owner, email: `${site.owner}@users.kimono` });
       const up = await sandbox.deploy(config, site);
       const before = workspaceFor(db(), site.id, site.owner).preview;
@@ -1036,7 +1038,7 @@ export async function deploySite(config: CodeConfig, site: Workspace) {
       if (!before || before.url !== up.url || before.stopped) record(site.id, null, { kind: "preview", url: up.url, port: up.port, ...(up.kind ? { app: up.kind } : {}) });
       record(site.id, null, { kind: "deployed", commit: up.commit.slice(0, 7) });
     } catch (error) {
-      const problem = error instanceof CodeProblem ? error.message : "The site couldn't be put up.";
+      const problem = (error instanceof CodeProblem ? error.message : "The site couldn't be put up.").slice(0, 2000);
       const last = eventsAfter(db(), site.id, 0, 100_000).at(-1)?.event;
       if (!(last?.kind === "deployed" && last.problem === problem)) record(site.id, null, { kind: "deployed", commit: "", problem });
       throw error;

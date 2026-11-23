@@ -74,6 +74,8 @@ export type CodeEvent =
   | { kind: "project-offer"; id: string; name: string }
   /** What they said: made (the chat is on this repository now), or not now. */
   | { kind: "project-answer"; id: string; made: boolean; repo?: string }
+  /** A hosted repository's site is being put up from its branch (built first, when it builds). */
+  | { kind: "deploying" }
   /** A hosted repository's site took a new commit, or couldn't. */
   | { kind: "deployed"; commit: string; problem?: string }
   /** A skill it made with the person (kimono-skill): saved as theirs, and in the Marketplace when published; problem when it couldn't be. */

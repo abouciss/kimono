@@ -201,6 +201,10 @@ Git is allowed to call the Portal's own name (`webhook.ALLOWED_HOST_LIST`).
 (re)starts the site, answering `{ url, port, kind, stopped, commit }`. How it
 runs, first match:
 
+- a build first, when the repository has one: `"build": "<shell line>"` in
+  `kimono.json`, or else a `package.json` with a `build` script (installed with
+  the lockfile's package manager, then run; `"build": false` skips it). What it
+  leaves is what the rules below look at.
 - `kimono.json` at the root: `{ "static": "<folder>" }`, or
   `{ "command": ["node", "server.js"], "port": 3000, "kind": "Node API" }`
   (the command gets `PORT`; it can also be one shell line).
@@ -208,8 +212,14 @@ runs, first match:
   `_site` or `out`: plain files. Paths with a dotfile in them are never served.
 - a `package.json` with a `start` script: `npm start`.
 
-Sandboxes are offline, so nothing is installed or built from the network:
-push what runs (built files, or a server that needs only what the image has).
+Sandboxes are offline, so a build runs somewhere else: a throwaway container
+on a network of its own (`<network>-builds`) that reaches public addresses
+only (never the node, the LAN, the mesh or another container; chains
+`KIMONO-BUILD` and `KIMONO-BUILD-IN`), with the repository's tracked files and
+no credentials at all. It has ten minutes and the sandbox's CPU and memory;
+its `node_modules` and package cache are kept between builds. The result is
+copied to `/workspace/.kimono/built` in the site's sandbox and served from
+there. A failed build leaves the old site up and says why in the timeline.
 
 A chat becomes a project when the agent runs `kimono-project "<name>"` and the
 person agrees (`POST /api/v1/code/workspaces/{id}/project`): a repository is

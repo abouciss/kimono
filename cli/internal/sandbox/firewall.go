@@ -174,13 +174,13 @@ func RemoveFirewall(ctx context.Context) {
 			out, _ := exec.CommandContext(ctx, bin, "-w", "-S", parent).Output()
 			for _, line := range strings.Split(string(out), "\n") {
 				fields := strings.Fields(line)
-				if len(fields) < 2 || fields[0] != "-A" || !strings.Contains(line, " -j "+forwardChain) && !strings.Contains(line, " -j "+inputChain) {
+				if len(fields) < 2 || fields[0] != "-A" || !strings.Contains(line, " -j "+forwardChain) && !strings.Contains(line, " -j "+inputChain) && !strings.Contains(line, " -j "+buildForwardChain) {
 					continue
 				}
 				_ = exec.CommandContext(ctx, bin, append([]string{"-w", "-D"}, fields[1:]...)...).Run()
 			}
 		}
-		for _, chain := range []string{forwardChain, inputChain} {
+		for _, chain := range []string{forwardChain, inputChain, buildForwardChain, buildInputChain} {
 			_ = exec.CommandContext(ctx, bin, "-w", "-F", chain).Run()
 			_ = exec.CommandContext(ctx, bin, "-w", "-X", chain).Run()
 		}

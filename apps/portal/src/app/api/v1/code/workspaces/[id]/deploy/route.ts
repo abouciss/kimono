@@ -1,5 +1,5 @@
 import { apiJson, apiUser, crossSite, unauthorized } from "@/lib/api-v1";
-import { code, db, deploySite, requireProject, workspaceFor } from "@/lib/code";
+import { code, CodeProblem, db, deploySite, requireProject, workspaceFor } from "@/lib/code";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -13,7 +13,9 @@ export async function POST(request: Request, { params }: Context) {
   return code(user, async (config) => {
     const workspace = workspaceFor(db(), id, user.username);
     requireProject(user, workspace);
-    await deploySite(config, workspace);
+    if (!workspace.hosted) throw new CodeProblem("This isn't a hosted repository.", 400);
+    /* It can take minutes when the site builds: the timeline says how it went. */
+    void deploySite(config, workspace).catch(() => {});
     return apiJson(workspaceFor(db(), id, user.username));
   });
 }

@@ -1843,7 +1843,7 @@ function Start({ blocked, admin, folder, repoAsked, onStarted }: { blocked: stri
     <h2 className="cd-hello">{onProject ? "What should we build?" : "What can I do for you?"}</h2>
     <>
       {naming ? <NewProject placeholder="Family recipes" onCreate={makeProject} onClose={() => setNaming(false)} /> : null}
-      {hosting ? <HostRepository onHosted={async (made) => { setHosting(false); await onStarted(made); goTo({ w: made.id, tab: "app" }); }} onClose={() => setHosting(false)} /> : null}
+      {hosting ? <HostRepository onHosted={async (made) => { setHosting(false); await onStarted(made); }} onClose={() => setHosting(false)} /> : null}
       {onProject && !blocked ? <div className="cd-new-pickers">
         <Picker label="Project" placeholder={repos ? "None yet" : "Loading…"} value={repo} onChange={setRepo} disabled={!repos}
           action={{ label: "New project", onAction: () => setNaming(true) }}
@@ -2364,6 +2364,7 @@ type Item =
   | { type: "project-offer"; seq: number; event: Extract<CodeEvent, { kind: "project-offer" }>; answer?: Extract<CodeEvent, { kind: "project-answer" }> }
   | { type: "project-made"; seq: number; repo: string }
   | { type: "deployed"; seq: number; event: Extract<CodeEvent, { kind: "deployed" }> }
+  | { type: "deploying"; seq: number }
   | { type: "slept"; seq: number; for: string }
   | { type: "disk"; seq: number; event: Extract<CodeEvent, { kind: "disk" }> }
   | { type: "compacted"; seq: number; before?: number }
@@ -2392,6 +2393,7 @@ function itemsOf(events: StoredEvent[]): Item[] {
   const replied = new Map<string, Extract<CodeEvent, { kind: "question-answer" }>>();
   const projectAnswers = new Map<string, Extract<CodeEvent, { kind: "project-answer" }>>();
   const offered = new Set<string>();
+  const lastDeployed = events.findLast((e) => e.event.kind === "deployed")?.seq ?? 0;
   for (const { event } of events) {
     if (event.kind === "access-answer") answers.set(event.id, event);
     if (event.kind === "project-answer") projectAnswers.set(event.id, event);
@@ -2439,6 +2441,8 @@ function itemsOf(events: StoredEvent[]): Item[] {
       /* Made without being offered (from the chat's own menu): said where it happened. */
       case "project-answer": if (event.made && event.repo && !offered.has(event.id)) into.push({ type: "project-made", seq, repo: event.repo }); break;
       case "deployed": into.push({ type: "deployed", seq, event }); break;
+      /* Only while it's still going up: once it says how it went, that line is enough. */
+      case "deploying": if (seq > lastDeployed) into.push({ type: "deploying", seq }); break;
       case "image": if (last?.type === "shots") last.shots.push(event); else into.push({ type: "shots", seq, shots: [event] }); break;
       case "preview": into.push({ type: "preview", seq, event }); break;
       case "preview-stopped": into.push({ type: "preview-stopped", seq }); break;
@@ -2602,6 +2606,7 @@ const Chat = memo(function Chat({ workspace, events, drafts, running, blocked, t
         case "compacted": return <p key={item.seq} className="cd-note cd-compacted"><Icon name="diff" />Compacted the conversation{item.before ? <span className="cd-mono"> · it held {kTokens(item.before)} tokens</span> : null}</p>;
         case "project-offer": return <ProjectOffer key={item.seq} workspace={workspace} event={item.event} answer={item.answer} />;
         case "project-made": return <p key={item.seq} className="cd-note"><Icon name="code" /><span>Made the project <b>{item.repo}</b></span></p>;
+        case "deploying": return <p key={item.seq} className="cd-note"><Icon name="rocket" /><span>Putting the site up…</span></p>;
         case "deployed": return item.event.problem
           ? <p key={item.seq} className="cd-note is-failed"><span>{item.event.problem}</span></p>
           : <p key={item.seq} className="cd-note"><Icon name="rocket" /><span>Site updated <span className="cd-mono">· {item.event.commit}</span></span></p>;

@@ -508,6 +508,7 @@ func (s *Server) remove(ctx context.Context, id string) error {
 	s.mu.Unlock()
 	s.clearPreview(id)
 	s.forget(id)
+	s.removeBuild(ctx, id)
 	name := containerName(id)
 	if _, err := s.docker.run(ctx, nil, "rm", "-f", "-v", name); err != nil && !strings.Contains(strings.ToLower(err.Error()), "no such") {
 		return err

@@ -161,7 +161,7 @@ export const sandbox = {
   pausePreview: (config: CodeConfig, workspace: Workspace) => call(config, `${at(workspace)}/preview/stop`, { method: "POST", timeout: 30_000 }).then(json<NodePreview>),
 
   /** Brings a hosted repository's sandbox to what Kimono Git has and (re)starts its site as the repository says. */
-  deploy: (config: CodeConfig, workspace: Workspace) => call(config, `${at(workspace)}/deploy`, { method: "POST", timeout: 4 * 60_000 }).then(json<NodePreview & { commit: string }>),
+  deploy: (config: CodeConfig, workspace: Workspace) => call(config, `${at(workspace)}/deploy`, { method: "POST", timeout: 16 * 60_000 }).then(json<NodePreview & { commit: string }>),
 
   changes: (config: CodeConfig, workspace: Workspace) => call(config, `${at(workspace)}/changes`).then(json<Changes>),
 
