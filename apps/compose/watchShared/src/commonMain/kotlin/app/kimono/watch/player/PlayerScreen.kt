@@ -4,6 +4,7 @@ package app.kimono.watch.player
 
 import app.kimono.watch.phone.languageName
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
@@ -341,6 +342,7 @@ fun PlayerScreen(
     val playFocus = remember { FocusRequester() }
     val scrubFocus = remember { FocusRequester() }
     var holdStart by remember { mutableLongStateOf(0L) }
+    var playFocused by remember { mutableStateOf(false) }
     val post = state.post
     val end = post == Post.End
 
@@ -380,8 +382,9 @@ fun PlayerScreen(
                     true
                 }
                 Key.DirectionLeft, Key.DirectionRight -> {
-                    /* Hidden controls: tap to seek ten seconds, hold to scrub. */
-                    if (!tv || ctl || post != Post.None || state.loading) return@onPreviewKeyEvent false
+                    /* Hidden controls, or on the play button: tap to seek ten seconds, hold to scrub. */
+                    if (!tv || (ctl && !playFocused) || sheet != null || post != Post.None || state.loading) return@onPreviewKeyEvent false
+                    if (ctl) show(hold = down)
                     val right = code == Key.DirectionRight
                     if (down) {
                         if (!repeat) { holdStart = nowMs(); seekBy(if (right) 10.0 else -10.0); rip(right) }
@@ -497,7 +500,7 @@ fun PlayerScreen(
                 Text(androidx.compose.ui.text.buildAnnotatedString {
                     pushStyle(androidx.compose.ui.text.SpanStyle(color = Night.fg, fontWeight = FontWeight.Bold)); append(name); pop()
                     if (!state.isFilm && ep != null) append("  ${state.label} · ${ep.name}")
-                }, style = ui(15, color = Night.fg2), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }, style = ui(if (tv) 20 else 15, color = Night.fg2), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
             end = {
                 Row(Modifier.alpha(if (state.loading) 0f else 1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -522,20 +525,17 @@ fun PlayerScreen(
         }
         if (!state.loading && chrome > 0.01f) {
             /* Bottom: the scrubber, then the buttons. */
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().alpha(chrome).padding(start = 20.dp, end = 20.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                LaunchedEffect(focusScrub) { if (focusScrub > 0) { delay(30); runCatching { scrubFocus.requestFocus() } } }
-                Scrubber(position, duration, buffered, scrub, state, engine, tv, scrubFocus,
-                    onScrub = { scrub = it; show(hold = true) }, onCommit = { scrub?.let { seekTo(it) }; scrub = null; show() })
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (tv) Arrangement.spacedBy(6.dp) else Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
-                    if (tv) {
-                        PlayBtn(playing, { toggle(); show() }, focus = playFocus)
-                        SeekBtn(false, small = true) { seekBy(-10.0); show() }
-                        SeekBtn(true, small = true) { seekBy(10.0); show() }
-                        Text(androidx.compose.ui.text.buildAnnotatedString {
-                            pushStyle(androidx.compose.ui.text.SpanStyle(color = Night.fg, fontWeight = FontWeight.Bold)); append(name); pop()
-                            if (!state.isFilm && ep != null) append("   ${state.label} “${ep.name}”")
-                        }, style = ui(15, color = Night.fg2), modifier = Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().alpha(chrome).padding(start = if (tv) 48.dp else 20.dp, end = if (tv) 48.dp else 20.dp, bottom = if (tv) 32.dp else 14.dp), verticalArrangement = Arrangement.spacedBy(if (tv) 14.dp else 4.dp)) {
+                LaunchedEffect(focusScrub) { if (focusScrub > 0) { delay(30); runCatching { (if (tv) playFocus else scrubFocus).requestFocus() } } }
+                /* TV: play sits at the start of the track; on it, left and right seek (hold to scrub) and OK pauses. */
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    if (tv) TvPlayBtn(playing, scrub != null, { toggle(); show() }, playFocus, onFocus = { playFocused = it })
+                    Box(Modifier.weight(1f)) {
+                        Scrubber(position, duration, buffered, scrub, state, engine, tv, scrubFocus, lit = tv && playFocused,
+                            onScrub = { scrub = it; show(hold = true) }, onCommit = { scrub?.let { seekTo(it) }; scrub = null; show() })
                     }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (tv) Arrangement.spacedBy(10.dp, Alignment.End) else Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth().padding(top = if (tv) 6.dp else 0.dp)) {
                     if (!state.isFilm) LabBtn(Ic.eps, "Episodes", tv) { sheet = if (sheet == Sheet.Episodes) null else Sheet.Episodes; show() }
                     LabBtn(Ic.cc, "Audio & subtitles", tv) { sheet = if (sheet == Sheet.Tracks) null else Sheet.Tracks; show() }
                     LabBtn(Ic.gear, "Settings", tv) { sheet = if (sheet == Sheet.Settings) null else Sheet.Settings; show() }
@@ -668,6 +668,19 @@ private fun PlayBtn(playing: Boolean, onClick: () -> Unit, size: Dp = 48.dp, ico
     }
 }
 
+/** TV: the play button at the head of the track, a seal that fills with suo when the D-pad is on it (left and right then move along the track). */
+@Composable
+private fun TvPlayBtn(playing: Boolean, scrubbing: Boolean, onClick: () -> Unit, focus: FocusRequester, onFocus: (Boolean) -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
+    LaunchedEffect(focused) { onFocus(focused) }
+    val t by animateFloatAsState(if (playing && !scrubbing) 0f else 1f, spring(dampingRatio = 0.8f, stiffness = 500f), label = "tvPlayMorph")
+    val bg by androidx.compose.animation.animateColorAsState(if (focused) Night.suo else Color(0x1FFFFFFF), tween(160), label = "tvPlayBg")
+    Box(Modifier.size(68.dp).focusRequester(focus).clip(RoundedCornerShape(18.dp)).background(bg).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source), contentAlignment = Alignment.Center) {
+        PlayGlyph(t, Color.White, Modifier.size(40.dp))
+    }
+}
+
 /* Pause bars and the play triangle's two halves, as matching quads on the 24-unit icon grid. */
 private val pauseQuads = listOf(floatArrayOf(6f, 5f, 10f, 5f, 10f, 19f, 6f, 19f), floatArrayOf(14f, 5f, 18f, 5f, 18f, 19f, 14f, 19f))
 private val playQuads = listOf(floatArrayOf(8f, 5f, 13.5f, 8.5f, 13.5f, 15.5f, 8f, 19f), floatArrayOf(13.5f, 8.5f, 19f, 12f, 19f, 12f, 13.5f, 15.5f))
@@ -754,11 +767,24 @@ private fun SeekBtn(forward: Boolean, small: Boolean = false, spins: Int = 0, on
     }
 }
 
-/** A labelled control (phone), or an icon (TV, as on wide screens in the demo). */
+/** A labelled control (phone), or on TV a seal: the glyph alone, and its name inked in beside it when the D-pad lands on it. */
 @Composable
 private fun LabBtn(icon: ImageVector, label: String, tv: Boolean, dot: Boolean = false, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
+    if (tv) {
+        val bg by androidx.compose.animation.animateColorAsState(if (focused) Night.suo else Color(0x1FFFFFFF), tween(160), label = "sealBg")
+        Row(Modifier.height(56.dp).clip(RoundedCornerShape(14.dp)).background(bg).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source)
+            .animateContentSize(spring(dampingRatio = 0.8f, stiffness = 600f)).padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box {
+                I(icon, 28.dp, Color.White)
+                if (dot) Box(Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-2).dp).size(10.dp).clip(CircleShape).background(if (focused) Color.White else Night.suo).border(2.dp, Color.Black, CircleShape))
+            }
+            if (focused) Text(label, style = ui(17, FontWeight.Bold, Color.White), maxLines = 1)
+        }
+        return
+    }
     Box {
         Row(Modifier.height(48.dp).clickableScaleClipped(RoundedCornerShape(10.dp), onClick, focusScale = 1.08f).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box {
@@ -772,13 +798,13 @@ private fun LabBtn(icon: ImageVector, label: String, tv: Boolean, dot: Boolean =
 
 /** The track with buffered, played, the intro and credits marked, the knob, and a thumbnail while scrubbing. */
 @Composable
-private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub: Double?, state: app.kimono.watch.ui.PlayerState, engine: PlaybackEngine, tv: Boolean, focus: FocusRequester, onScrub: (Double) -> Unit, onCommit: () -> Unit) {
+private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub: Double?, state: app.kimono.watch.ui.PlayerState, engine: PlaybackEngine, tv: Boolean, focus: FocusRequester, lit: Boolean = false, onScrub: (Double) -> Unit, onCommit: () -> Unit) {
     val d = duration.coerceAtLeast(1.0)
     var width by remember { mutableIntStateOf(1) }
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
     val shown = scrub ?: position
-    val active = scrub != null || focused
+    val active = scrub != null || focused || lit
     val thick by animateDpAsState(if (active) 7.dp else 4.dp, tween(150), label = "t")
     val knob by animateFloatAsState(if (active) 1.25f else 0.85f, tween(150), label = "k")
     val markers = state.answer?.markers
@@ -793,7 +819,7 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
     LaunchedEffect(scrub) { live.value = scrub }
     Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.weight(1f).height(28.dp).onSizeChanged { width = it.width }
-            .focusRequester(focus).focusable(interactionSource = source)
+            .then(if (tv) Modifier else Modifier.focusRequester(focus).focusable(interactionSource = source))
             .onPreviewKeyEvent { e ->
                 val code = e.key
                 if (code != Key.DirectionLeft && code != Key.DirectionRight && code != Key.DirectionCenter && code != Key.Enter) return@onPreviewKeyEvent false

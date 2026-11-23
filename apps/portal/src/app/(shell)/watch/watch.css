@@ -789,6 +789,8 @@
 .kw .kw-menu-link:hover{background:rgba(255,255,255,.07)}
 .kw .kw-opt.kw-more{margin-top:10px;justify-content:space-between;color:var(--fg-2);font-weight:700}
 .kw .kw-opt.kw-more .kw-ic{opacity:1;width:20px;height:20px}
+.kw .kw-opt.kw-more em{margin-left:auto;margin-right:6px;font-style:normal;font-weight:400;color:var(--fg-3)}
+.kw .kw-quality .kw-opt.kw-more{margin-top:2px}
 .kw .kw-cols .kw-more.kw-span{grid-column:1/-1}
 @media (max-width:640px){
   .kw .kw-set-row{flex-direction:column;align-items:stretch;gap:10px}

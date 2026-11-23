@@ -27,7 +27,7 @@ export type PlayerHandle = {
   party: () => string | null;
 };
 type Post = "next" | "ask" | "end" | null;
-type Sheet = "cc" | "speed" | "quality" | "version" | "eps" | "party" | "react" | null;
+type Sheet = "cc" | "settings" | "speed" | "quality" | "version" | "eps" | "party" | "react" | null;
 type Skip = { label: string; to: number; left: number; gone: boolean } | null;
 /** Seconds Skip intro / Skip recap stays up by itself; after that only with the controls. */
 const SKIP_SHOWN = 10;
@@ -933,11 +933,9 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
           <input type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} aria-label="Volume" onChange={(event) => { const v = video.current; if (!v) return; v.volume = Number(event.target.value); v.muted = v.volume === 0; setVolume(v.volume); setMuted(v.muted); }} />
         </div>
         <div className="kw-name">{t ? <><b>{t.name}</b>{!movie && ep && episode ? <>&nbsp; {epLabel} “{episode.name}”</> : null}</> : null}</div>
-        <button className="kw-pbtn kw-lab" aria-label="Playback speed" onClick={() => openSheet("speed")}><Icon name="speed" /><span>Speed</span></button>
-        {play?.quality && play.quality.options.length > 1 ? <button className="kw-pbtn kw-lab" aria-label="Quality" onClick={() => openSheet("quality")}><Icon name="hd" /><span>Quality</span></button> : null}
-        {play && play.versions.length > 1 ? <button className="kw-pbtn kw-lab" aria-label="Version" onClick={() => openSheet("version")}><Icon name="list" /><span>Version</span></button> : null}
         {!movie ? <button className="kw-pbtn kw-lab" aria-label="Episodes" onClick={() => openSheet("eps")}><Icon name="eps" /><span>Episodes</span></button> : null}
         <button className="kw-pbtn kw-lab" aria-label="Audio and subtitles" onClick={() => openSheet("cc")}><Icon name="cc" /><span>Audio &amp; subtitles</span></button>
+        <button className="kw-pbtn kw-lab" aria-label="Settings" aria-expanded={sheet === "settings" || sheet === "speed" || sheet === "quality" || sheet === "version"} onClick={() => { if (sheet === "speed" || sheet === "quality" || sheet === "version") { setSheet(null); showCtl(); } else openSheet("settings"); }}><Icon name="gear" /><span>Settings</span></button>
         {party ? <>
           <button className="kw-pbtn kw-lab" aria-label="React" onClick={() => openSheet("react")}><Icon name="mood" /><span>React</span></button>
           <button className={cx("kw-pbtn kw-lab", unread > 0 && "kw-dot")} aria-label="Chat" onClick={() => { setChatOpen(!chatOpen); setUnread(0); setSheet(null); showCtl(true); }}><Icon name="chat" /><span>Chat</span></button>
@@ -969,6 +967,12 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
             </>}
         </div>
         <button className="kw-opt kw-more kw-span" onClick={() => { exit(); watch.openSettings(); }}>Your defaults<Icon name="right" /></button>
+      </div> : null}
+      {sheet === "settings" ? <div className="kw-quality"><h4>Settings</h4>
+        <button className="kw-opt kw-more" onClick={() => setSheet("speed")}>Playback speed<em>{(party ? party.timeline.rate : speed) === 1 ? "Normal" : `${party ? party.timeline.rate : speed}x`}</em><Icon name="right" /></button>
+        {play?.quality && play.quality.options.length > 1 ? <button className="kw-opt kw-more" onClick={() => setSheet("quality")}>Quality<em>{play.quality.options.find((q) => q.value === play.quality!.current)?.label}</em><Icon name="right" /></button> : null}
+        {play && play.versions.length > 1 ? <button className="kw-opt kw-more" onClick={() => setSheet("version")}>Version<em>{play.version.label}</em><Icon name="right" /></button> : null}
+        <button className="kw-opt kw-more" onClick={() => { exit(); watch.openSettings(); }}>Your defaults<Icon name="right" /></button>
       </div> : null}
       {sheet === "speed" ? <><h4>Playback speed</h4><div className="kw-speeds">{speeds.map((x) => <button key={x} className={cx((party ? party.timeline.rate : speed) === x && "kw-sel")} onClick={() => {
         const link = live.current.link;
