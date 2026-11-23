@@ -193,6 +193,9 @@ import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import app.kimono.ui.replyInTextMenu
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
@@ -2667,14 +2670,28 @@ internal fun splitQuote(text: String): Pair<String?, String> {
 }
 
 /**
- * Selected words in an answer get Kimono's own small menu (Copy, Reply) in place
- * of the system's, which can't take another item. Reply copies them, as Copy
- * does, and takes them from the clipboard as what the next message answers.
+ * Selected words in an answer get Copy and Reply. Where Kimono draws that menu
+ * (iOS, which can't take another item in the system's) it sits just above the
+ * words; Android's own menu gets Reply as one more item. Reply copies the
+ * words, as Copy does, and takes them from the clipboard as what the next
+ * message answers.
  */
 @Composable
 private fun AnswerSelection(content: @Composable () -> Unit) {
     var shown by remember { mutableStateOf<Pair<Rect, () -> Unit>?>(null) }
     @Suppress("DEPRECATION") val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    /* the copy lands on the clipboard a moment later on some phones: wait for it to change, briefly */
+    val reply: (() -> Unit) -> Unit = { copy ->
+        val before = clipboard.getText()?.text
+        copy()
+        scope.launch {
+            var words = clipboard.getText()?.text
+            var waited = 0
+            while (words == before && waited < 400) { delay(40); waited += 40; words = clipboard.getText()?.text }
+            words?.trim()?.takeIf { it.isNotEmpty() }?.let { replyQuote = it.take(2000) }
+        }
+    }
     val toolbar = remember {
         object : TextToolbar {
             override var status = TextToolbarStatus.Hidden
@@ -2687,27 +2704,33 @@ private fun AnswerSelection(content: @Composable () -> Unit) {
             override fun hide() { status = TextToolbarStatus.Hidden; shown = null }
         }
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalTextToolbar provides toolbar) { content() }
-    val (rect, copy) = shown ?: return
-    val above = remember(rect) {
-        object : PopupPositionProvider {
-            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
-                val x = (rect.center.x - popupContentSize.width / 2f).toInt().coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-                val y = (rect.top - popupContentSize.height - 16).toInt().let { if (it < 0) (rect.bottom + 16).toInt() else it }
-                return IntOffset(x, y)
+    /* where the answer sits in the same space the selection's rect is given in, so the menu lines up whatever the window's insets */
+    var at by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    Box(Modifier.replyInTextMenu(reply).onGloballyPositioned { at = it.positionInRoot() }) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalTextToolbar provides toolbar) { content() }
+        val (rect, copy) = shown ?: return@Box
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val gap = with(density) { 8.dp.roundToPx() }
+        val handles = with(density) { 30.dp.roundToPx() }
+        val above = remember(rect, at, gap, handles) {
+            object : PopupPositionProvider {
+                override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+                    val words = rect.translate(anchorBounds.left - at.x, anchorBounds.top - at.y)
+                    val x = (words.center.x - popupContentSize.width / 2f).toInt().coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+                    val over = words.top.toInt() - popupContentSize.height - gap
+                    /* no room above (the title bar's there): under the words, clear of the handles */
+                    val y = if (over >= windowSize.height / 8) over else (words.bottom.toInt() + handles).coerceAtMost(windowSize.height - popupContentSize.height)
+                    return IntOffset(x, y)
+                }
             }
         }
-    }
-    Popup(popupPositionProvider = above, onDismissRequest = { toolbar.hide() }) {
-        Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, shadowElevation = 6.dp) {
-            Row {
-                TextButton(onClick = { copy(); toolbar.hide() }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inverseOnSurface)) { Text("Copy") }
-                TextButton(onClick = {
-                    copy()
-                    clipboard.getText()?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { replyQuote = it.take(2000) }
-                    toolbar.hide()
-                }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inverseOnSurface)) {
-                    Icon(kimonoIcon("reply"), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Reply")
+        Popup(popupPositionProvider = above, onDismissRequest = { toolbar.hide() }) {
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, shadowElevation = 6.dp) {
+                Row {
+                    TextButton(onClick = { copy(); toolbar.hide() }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inverseOnSurface)) { Text("Copy") }
+                    TextButton(onClick = { reply(copy); toolbar.hide() }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.inverseOnSurface)) {
+                        Icon(kimonoIcon("reply"), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Reply")
+                    }
                 }
             }
         }
