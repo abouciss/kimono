@@ -469,7 +469,7 @@ fun PlayerScreen(
 
         var stalled by remember { mutableStateOf(false) }
         LaunchedEffect(buffering) { stalled = false; if (buffering) { delay(600); stalled = true } }
-        if (stalled && buffering && !state.loading && post == Post.None) InkLoader(Modifier.align(Alignment.Center).zIndex(2f), size = 48.dp)
+        if (stalled && buffering && !state.loading && post == Post.None) InkLoader(Modifier.align(Alignment.Center).zIndex(2f), size = 48.dp, color = Night.blush)
         /* Over the play button and the rest of the controls (zIndex), not under them. */
         /* A few seconds into a stall: a word only when it's the server's side. */
         var slow by remember { mutableStateOf<String?>(null) }

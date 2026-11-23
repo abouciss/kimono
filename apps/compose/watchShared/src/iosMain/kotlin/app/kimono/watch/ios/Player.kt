@@ -129,7 +129,7 @@ internal class PlayerSession(private val host: IosWatchHost, private val service
                 val v = vm
                 if (!on || v == null) {
                     /* Kimono's loader while a party is started or joined. */
-                    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) { InkLoader(size = 56.dp) }
+                    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) { InkLoader(size = 56.dp, color = app.kimono.watch.theme.Night.blush) }
                 } else {
                     Playing(v)
                 }
