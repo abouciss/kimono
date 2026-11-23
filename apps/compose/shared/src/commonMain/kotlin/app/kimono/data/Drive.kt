@@ -463,6 +463,9 @@ class Drive(private val session: Session) {
     suspend fun crests(): CrestCatalogue = catalogue
         ?: runCatching { json.decodeFromString<CrestCatalogue>(session.fetch(CRESTS)) }.getOrElse { problem -> known<CrestCatalogue>(CRESTS) ?: throw problem }.also { catalogue = it }
 
+    /** A file's content to play as it streams (a video), instead of downloaded first. */
+    fun stream(node: DriveNode): Stream = session.stream("/api/v1/drive/nodes/${node.id}/content")
+
     /**
      * Downloads a file into [directory], reporting bytes as they arrive. A copy
      * already downloaded at the same content version is used as it is. What

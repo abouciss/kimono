@@ -275,6 +275,9 @@ class Session(private val platform: Platform, private val http: HttpClient) {
         throw KimonoProblem("You've been signed out. Sign in again.")
     }
 
+    /** [path] under /api/v1 as something a player reads itself, signed in on each request. */
+    fun stream(path: String): Stream = Stream("${kept?.server.orEmpty()}$path") { bearer() }
+
     /** Calls /api/v1 as the signed-in person. Throws a KimonoProblem a person can read. */
     suspend fun call(path: String, method: HttpMethod = HttpMethod.Get, configure: HttpRequestBuilder.() -> Unit = {}): String =
         respond(path, method, configure) { response ->

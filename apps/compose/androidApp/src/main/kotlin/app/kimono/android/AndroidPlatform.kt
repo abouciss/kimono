@@ -262,6 +262,11 @@ class AndroidPlatform(private val context: Context) : Platform {
         KimonoDocuments.rootsChanged(context)
     }
 
+    override val playsVideo: Boolean get() = true
+
+    @androidx.compose.runtime.Composable
+    override fun VideoPlayer(stream: app.kimono.data.Stream, modifier: androidx.compose.ui.Modifier, onFailed: (String) -> Unit) = KimonoVideo(stream, modifier, onFailed)
+
     /** A WebView, its JavaScript bridge as KimonoNative; links leave for the browser unless [keepLinks]. */
     @androidx.compose.runtime.Composable
     override fun WebFrame(url: String, modifier: androidx.compose.ui.Modifier, control: app.kimono.data.WebFrameControl?, keepLinks: Boolean, onMessage: (String) -> Unit, onLoaded: () -> Unit) {

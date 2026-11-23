@@ -115,10 +115,22 @@ interface Platform {
      */
     @androidx.compose.runtime.Composable
     fun WebFrame(url: String, modifier: androidx.compose.ui.Modifier, control: WebFrameControl?, keepLinks: Boolean, onMessage: (String) -> Unit, onLoaded: () -> Unit) {}
+    /** Whether [VideoPlayer] plays here; where it doesn't, videos open in the phone's own viewer as before. */
+    val playsVideo: Boolean get() = false
+    /**
+     * A video streamed from Kimono and played in place, with its controls: [stream] is where it
+     * is and the sign-in for each read, so seeking asks only for the part wanted. [onFailed] gets a
+     * line a person can read when the phone can't play it.
+     */
+    @androidx.compose.runtime.Composable
+    fun VideoPlayer(stream: Stream, modifier: androidx.compose.ui.Modifier, onFailed: (String) -> Unit) {}
     /** A short silent clip at [url], looping with no controls (a how-to); nothing where the phone has no player for it. */
     @androidx.compose.runtime.Composable
     fun LoopingVideo(url: String, modifier: androidx.compose.ui.Modifier) {}
 }
+
+/** A file on the server to read as it plays: its full address, and a fresh sign-in token for each request. */
+class Stream(val url: String, val token: suspend () -> String)
 
 /** A position on Earth, in degrees. */
 class Position(val lat: Double, val lon: Double)

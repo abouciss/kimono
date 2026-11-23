@@ -809,9 +809,14 @@ class Code(private val session: Session, private val platform: Platform? = null)
 
     suspend fun file(id: String, path: String): ByteArray = bytes("${ws(id)}/file?path=${path.encodeURLParameter()}")
 
-    suspend fun attachment(id: String, a: CodeAttachment): ByteArray =
-        if (a.node != null) bytes("${ws(id)}/attachments/drive/${a.node.encodeURLParameter()}?type=${a.type.encodeURLParameter()}")
-        else bytes("${ws(id)}/attachments/${a.path.removePrefix("/attachments/").encodeURLParameter()}?type=${a.type.encodeURLParameter()}")
+    private fun attachmentPath(id: String, a: CodeAttachment) =
+        if (a.node != null) "${ws(id)}/attachments/drive/${a.node.encodeURLParameter()}?type=${a.type.encodeURLParameter()}"
+        else "${ws(id)}/attachments/${a.path.removePrefix("/attachments/").encodeURLParameter()}?type=${a.type.encodeURLParameter()}"
+
+    suspend fun attachment(id: String, a: CodeAttachment): ByteArray = bytes(attachmentPath(id, a))
+
+    /** An attachment to play as it streams (a video), instead of fetched whole. */
+    fun attachmentStream(id: String, a: CodeAttachment): Stream = session.stream(attachmentPath(id, a))
 
     /** Copies Drive files into the chat, for the next message. Each comes back as an attachment. */
     suspend fun fromDrive(id: String, nodes: List<String>): List<CodeAttachment> =

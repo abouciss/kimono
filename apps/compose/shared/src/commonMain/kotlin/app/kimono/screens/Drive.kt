@@ -63,6 +63,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import app.kimono.ui.VideoViewer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.border
@@ -251,6 +252,7 @@ fun FolderScreen(model: DriveModel, platform: Platform, folderId: String, me: St
     var opening by remember { mutableStateOf<Pair<DriveNode, Long>?>(null) }
     /* A text or code file Kimono shows itself: the file, where it was saved, and its opening. */
     var reading by remember { mutableStateOf<Triple<DriveNode, String, String>?>(null) }
+    var watching by remember { mutableStateOf<DriveNode?>(null) }
     val knownSpace = remember { folder?.let { f -> model.drive.knownSpaces()?.firstOrNull { it.id == f.folder.spaceId } } }
     var canEdit by remember { mutableStateOf(knownSpace?.role != "viewer") }
     /* The space's crest stays beside the name, however deep in it you go. */
@@ -276,16 +278,17 @@ fun FolderScreen(model: DriveModel, platform: Platform, folderId: String, me: St
     fun act(done: String? = null, work: suspend () -> Unit) = scope.launch {
         try { work(); load(); done?.let { snackbar.showSnackbar(it) } } catch (p: KimonoProblem) { load(); snackbar.showSnackbar(p.message ?: "That didn't work.") }
     }
-    fun openFile(node: DriveNode): kotlinx.coroutines.Job = scope.launch {
+    fun openFile(node: DriveNode, elsewhere: Boolean = false): kotlinx.coroutines.Job = scope.launch {
+        if (!elsewhere && platform.playsVideo && isVideo(node)) { watching = node; return@launch }
         opening = node to 0L
         try {
             val path = model.drive.download(node, platform.cacheDir()) { opening = node to it }
             val text = if (readsAsText(node.name, node.mime)) readText(path) else null
-            if (text != null) reading = Triple(node, path, text) else platform.openFile(path, node.mime)
+            if (text != null && !elsewhere) reading = Triple(node, path, text) else platform.openFile(path, node.mime)
         } catch (p: KimonoProblem) {
             opening = null
             /* What arrived is kept, so trying again carries on from there. */
-            if (snackbar.showSnackbar(p.message ?: "That file couldn't be opened.", actionLabel = "Try again") == SnackbarResult.ActionPerformed) openFile(node)
+            if (snackbar.showSnackbar(p.message ?: "That file couldn't be opened.", actionLabel = "Try again") == SnackbarResult.ActionPerformed) openFile(node, elsewhere)
         }
         opening = null
     }
@@ -423,6 +426,10 @@ fun FolderScreen(model: DriveModel, platform: Platform, folderId: String, me: St
         /* Reload before closing: the dialog's work stops when it goes. */
         load()
         naming = false
+    }
+    watching?.let { node ->
+        val stream = remember(node.id) { model.drive.stream(node) }
+        VideoViewer(platform, node.name, stream, onOpenElsewhere = { watching = null; openFile(node, elsewhere = true) }, onClose = { watching = null })
     }
     reading?.let { (node, path, text) ->
         TextReader(node, text, onOpenElsewhere = { platform.openFile(path, node.mime) }, onClose = { reading = null })
@@ -668,6 +675,11 @@ private fun MovePicker(model: DriveModel, platform: Platform, moving: List<Drive
 private const val NOTES_TINT = "#b56d78"
 private const val CODE_TINT = "#3f6b6a"
 
+private val videoNames = setOf("mp4", "mov", "m4v", "3gp", "mkv", "webm")
+/** A video, by its type or else its name: these play in Kimono where the phone has a player. */
+private fun isVideo(node: DriveNode) = !node.isFolder &&
+    (node.mime?.startsWith("video/") == true || node.name.substringAfterLast('.', "").lowercase() in videoNames)
+
 private fun iconFor(node: DriveNode) = when {
     node.isFolder && node.purpose == "notebook" -> "notes"
     node.isFolder && node.purpose == "chat" -> "chat"
@@ -867,9 +879,11 @@ fun SharedWithYouScreen(model: DriveModel, platform: Platform, me: String?, open
     var sharing by remember { mutableStateOf<DriveNode?>(null) }
     var leaving by remember { mutableStateOf<DriveNode?>(null) }
     var opening by remember { mutableStateOf<DriveNode?>(null) }
+    var watching by remember { mutableStateOf<DriveNode?>(null) }
     suspend fun load() { try { items = model.drive.sharedWithYou(); problem = null } catch (p: KimonoProblem) { problem = p.message } }
     LaunchedEffect(Unit) { load() }
-    fun openFile(node: DriveNode) = scope.launch {
+    fun openFile(node: DriveNode, elsewhere: Boolean = false) = scope.launch {
+        if (!elsewhere && platform.playsVideo && isVideo(node)) { watching = node; return@launch }
         opening = node
         try { platform.openFile(model.drive.download(node, platform.cacheDir()) {}, node.mime) } catch (p: KimonoProblem) { snackbar.showSnackbar(p.message ?: "That file couldn't be opened.") }
         opening = null
@@ -920,5 +934,9 @@ fun SharedWithYouScreen(model: DriveModel, platform: Platform, me: String?, open
                 })
             }
         }
+    }
+    watching?.let { node ->
+        val stream = remember(node.id) { model.drive.stream(node) }
+        VideoViewer(platform, node.name, stream, onOpenElsewhere = { watching = null; openFile(node, elsewhere = true) }, onClose = { watching = null })
     }
 }

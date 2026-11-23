@@ -1082,6 +1082,16 @@ internal fun cacheFile(platform: Platform, folder: String, name: String, bytes: 
 /** A file it sent or someone attached, opened: pictures here; anything else in the phone's own viewer, which can save or share it. */
 @Composable
 private fun OpenAttachment(code: Code, platform: Platform, w: CodeWorkspace, a: CodeAttachment, close: () -> Unit) {
+    /* A video plays here as it streams; fetching it whole is only for handing it to another app. */
+    if (a.isVideo && platform.playsVideo) {
+        var handing by remember(a.path) { mutableStateOf(false) }
+        val stream = remember(a.path) { code.attachmentStream(w.id, a) }
+        if (!handing) {
+            app.kimono.ui.VideoViewer(platform, a.name, stream, onOpenElsewhere = { handing = true }, onClose = close)
+            return
+        }
+        /* Asked for another app: fetched whole and handed over, below. */
+    }
     val result by produceState<Result<ByteArray>?>(null, a.path) { value = runCatching { code.attachment(w.id, a) } }
     val bytes = result
     LaunchedEffect(bytes) {

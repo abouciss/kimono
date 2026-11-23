@@ -52,4 +52,7 @@ dependencies {
     implementation(libs.ktor.okhttp)
     implementation(libs.compose.ui)
     implementation(libs.material3)
+    /* Videos from chats and Drive play here, streamed, instead of in another app. */
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
 }
