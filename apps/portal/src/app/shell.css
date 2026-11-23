@@ -415,5 +415,5 @@ html, body, .app-frame { overflow-x: clip; }
 .ink-scrim { z-index: 75; }
 .sheet.ink-sheet { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); }
 .ink-sheet > .ink-sheet-head, .ink-sheet > .ink-sheet-actions, .ink-sheet > .handle { flex: none; }
-.ink-sheet > .ink-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -10px; padding-right: 10px; scrollbar-width: thin; }
+.ink-sheet > .ink-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -10px; padding-right: 10px; }
 @media (max-width: 720px) { .ink-sheet { max-height: calc(100dvh - 12px); } }

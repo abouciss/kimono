@@ -150,7 +150,7 @@ button.cd-media-tile:focus-visible { outline: 2px solid var(--k-primary); outlin
 .cd-md ul, .cd-md ol { padding-left: 22px; }
 .cd-md li + li { margin-top: 3px; }
 /* LaTeX: a display equation on its own line, scrolling sideways when it is wider than the chat. */
-.cd-math { overflow-x: auto; overflow-y: hidden; padding: 4px 0; scrollbar-width: thin; }
+.cd-math { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
 .cd-math .katex-display { margin: 0; }
 .cd-md .katex { font-size: 1.08em; }
 .cd-math-inline .katex { white-space: nowrap; }
@@ -193,7 +193,7 @@ li[data-state="failed"] .cd-toolmark { color: color-mix(in srgb, var(--k-suo-dee
 .cd-composer { position: relative; display: grid; gap: 8px; margin: 0 auto 18px; width: min(780px, calc(100% - 2 * var(--cd-gutter))); padding: 10px 12px; border: 2px solid var(--k-hair-deep); border-radius: var(--k-r-s); background: var(--k-lift); }
 .cd-composer:focus-within { border-color: var(--k-app-accent); }
 .cd-composer.is-start { width: 100%; margin: 0; padding: 14px 16px 12px; border-width: 2px; }
-.cd-composer textarea { width: 100%; min-height: 26px; resize: none; overflow-y: auto; scrollbar-width: thin; border: 0; outline: 0; padding: 4px 2px; background: transparent; font: 400 14.5px/1.55 var(--k-sans); color: var(--k-ink); }
+.cd-composer textarea { width: 100%; min-height: 26px; resize: none; overflow-y: auto; border: 0; outline: 0; padding: 4px 2px; background: transparent; font: 400 14.5px/1.55 var(--k-sans); color: var(--k-ink); }
 .cd-composer.is-start textarea { min-height: 96px; font-size: 15.5px; }
 .cd-composer textarea::placeholder { color: var(--k-faint); }
 .cd-composer-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -1741,9 +1741,9 @@ a.cd-spacechip:focus-visible, .cd-drivename:focus-visible { outline: 2px solid v
 /* What's attached sits clear of the box's round corner and of the words under it. */
 .cd .cd-composer .cd-pending, .cd .cd-hello-box .cd-pending { padding: 8px 8px 4px; }
 /* Long words scroll under the app's own inked bar (.k-inkbar), not the browser's grey one. */
-.cd .cd-entry textarea.k-inkbar { scrollbar-width: auto; overscroll-behavior: contain; }
-.cd .cd-entry textarea.k-inkbar::-webkit-scrollbar { width: 12px; }
-.cd .cd-entry textarea.k-inkbar::-webkit-scrollbar-thumb { min-height: 32px; }
+.cd .cd-entry textarea { overscroll-behavior: contain; }
+.cd .cd-entry textarea::-webkit-scrollbar { width: 12px; }
+.cd .cd-entry textarea::-webkit-scrollbar-thumb { min-height: 32px; }
 /* the new chat's choices, under its box */
 .cd-hello-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 10px; padding: 0 6px; }
 
