@@ -1,5 +1,5 @@
 import { portalOrigin } from "@/lib/account";
-import { readReleases } from "@/lib/app-releases";
+import { companionAndroid, readReleases } from "@/lib/app-releases";
 import { updateFor } from "@/lib/app-updates";
 import { syncTestflightIfDue } from "@/lib/testflight";
 
@@ -7,6 +7,7 @@ import { syncTestflightIfDue } from "@/lib/testflight";
  * Whether this phone's Kimono app should update: `?platform=android|ios&build=N`.
  * Open to phones that aren't signed in, so an update that's needed reaches
  * them before anything else does. It says only what's published.
+ * `&app=watch`: Kimono Watch on a TV, which installs its own updates.
  */
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
@@ -14,6 +15,14 @@ export async function GET(request: Request) {
   const build = Number(query.get("build"));
   if ((platform !== "android" && platform !== "ios") || !Number.isInteger(build) || build < 0) {
     return Response.json({ error: "Say which platform and build." }, { status: 400 });
+  }
+  if (query.get("app") === "watch") {
+    if (platform !== "android") return Response.json({ error: "Kimono Watch updates itself on Android only." }, { status: 400 });
+    const found = await companionAndroid("watch");
+    const available = !!found && found.build !== undefined && found.build > build;
+    return Response.json(available ? {
+      available, required: false, version: found.version, build: found.build, notes: "", size: found.size ?? null, sha256: found.sha256, url: found.url,
+    } : { available: false, required: false }, { headers: { "Cache-Control": "no-store" } });
   }
   /* iPhones ask here: a good moment to bring TestFlight in step, without making them wait for it. */
   if (platform === "ios") void syncTestflightIfDue().catch(() => {});

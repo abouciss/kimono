@@ -157,20 +157,25 @@ function fetchPackage(source: string, path: string, sha256: string): Promise<voi
  * each release: kimono-{name}-android.json beside its .apk. The package the
  * running version came with, for an app definition's mobileApp.
  */
-const companions = new Map<string, { at: number; version: string; found: { url: string; version: string; sha256: string } | null }>();
-export async function companionAndroid(name: string): Promise<{ url: string; version: string; sha256: string } | null> {
+type Companion = { url: string; version: string; sha256: string; build?: number; size?: number };
+const companions = new Map<string, { at: number; version: string; found: Companion | null }>();
+export async function companionAndroid(name: string): Promise<Companion | null> {
   const version = runningVersion();
   if (!version || !/^[a-z][a-z0-9-]*$/.test(name) || process.env.KIMONO_UPDATE_CHECK === "off") return null;
   const last = companions.get(name);
   if (last && last.version === version && Date.now() - last.at < (last.found ? 6 * 60 : 5) * 60 * 1000) return last.found;
-  let found: { url: string; version: string; sha256: string } | null = null;
+  let found: Companion | null = null;
   try {
     const base = `https://github.com/${repository}/releases/download/v${version}`;
     const response = await fetch(`${base}/kimono-${name}-android.json`, { headers: { "User-Agent": "kimono-portal" }, cache: "no-store", signal: AbortSignal.timeout(5000) });
     if (response.ok) {
-      const about = await response.json() as { version?: unknown; file?: unknown; sha256?: unknown };
+      const about = await response.json() as { version?: unknown; build?: unknown; size?: unknown; file?: unknown; sha256?: unknown };
       if (typeof about.version === "string" && /^\d+\.\d+\.\d+$/.test(about.version) && typeof about.file === "string" && /^[\w.-]+\.apk$/.test(about.file)
-        && typeof about.sha256 === "string" && /^[0-9a-f]{64}$/.test(about.sha256)) found = { url: `${base}/${about.file}`, version: about.version, sha256: about.sha256 };
+        && typeof about.sha256 === "string" && /^[0-9a-f]{64}$/.test(about.sha256)) found = {
+          url: `${base}/${about.file}`, version: about.version, sha256: about.sha256,
+          build: typeof about.build === "number" && Number.isInteger(about.build) ? about.build : undefined,
+          size: typeof about.size === "number" ? about.size : undefined,
+        };
     }
   } catch (error) {
     console.warn(`Could not look up this release's ${name} app:`, error instanceof Error ? error.message : error);

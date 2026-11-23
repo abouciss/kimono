@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             WatchTheme {
                 WatchRoot(watch.services, resumed.intValue, connect.value, if (watch.tv) AndroidTvShell else null, launcher)
+                if (watch.tv) app.kimono.watch.tv.TvUpdatePrompt()
             }
         }
     }
