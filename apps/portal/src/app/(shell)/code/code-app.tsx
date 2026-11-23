@@ -1875,7 +1875,7 @@ function Start({ blocked, admin, folder, repoAsked, onStarted }: { blocked: stri
           <input ref={picker} type="file" multiple hidden onChange={(event) => { hold([...(event.target.files ?? [])]); event.target.value = ""; }} />
           <AttachMenu disabled={Boolean(blocked)} onDevice={() => picker.current?.click()} onDrive={drivePresent ? () => setChoosing(true) : undefined} />
           {slash.menu}
-          {slash.wrap(<textarea ref={field} value={prompt} rows={1} aria-label="Message" maxLength={maxMessage} disabled={Boolean(blocked)} placeholder={onProject ? "Describe what you want" : "Ask anything"}
+          {slash.wrap(<textarea ref={field} className="k-inkbar" value={prompt} rows={1} aria-label="Message" maxLength={maxMessage} disabled={Boolean(blocked)} placeholder={onProject ? "Describe what you want" : "Ask anything"}
             onChange={(event) => { setPrompt(event.target.value); warmNew(event.target.value); }} onScroll={slash.follow}
             onPaste={(event) => { const pasted = [...event.clipboardData.files]; if (pasted.length) { event.preventDefault(); hold(pasted); return; }
               const long = pastedText(event, files.map((f) => f.name)); if (long) { event.preventDefault(); hold([long]); } }}
@@ -3780,7 +3780,7 @@ function Composer({ workspace, running, blocked, context }: { workspace: Workspa
       <input ref={picker} type="file" multiple hidden onChange={(event) => { add([...(event.target.files ?? [])]); event.target.value = ""; }} />
       <AttachMenu disabled={Boolean(blocked)} onDevice={() => picker.current?.click()} onDrive={workspace.drive ? () => setChoosing(true) : undefined} />
       {slash.menu}
-      {slash.wrap(<textarea ref={field} value={text} rows={1} aria-label="Message" maxLength={maxMessage} onScroll={slash.follow}
+      {slash.wrap(<textarea ref={field} className="k-inkbar" value={text} rows={1} aria-label="Message" maxLength={maxMessage} onScroll={slash.follow}
         placeholder={blocked ? blocked : "Ask for a change, or reply"}
         disabled={Boolean(blocked)}
         onChange={(event) => { setText(event.target.value); sayTyping(event.target.value); }}

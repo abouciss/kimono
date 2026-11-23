@@ -1737,7 +1737,12 @@ a.cd-spacechip:focus-visible, .cd-drivename:focus-visible { outline: 2px solid v
 .cd-entry-end { flex: none; display: flex; align-items: center; gap: 2px; min-height: 40px; }
 .cd .cd-entry .cd-sendstop { margin-left: 4px; }
 .cd-entry-problem { margin: 0 8px; }
-.cd .cd-composer .cd-pending, .cd .cd-hello-box .cd-pending { padding: 4px 4px 0; }
+/* What's attached sits clear of the box's round corner and of the words under it. */
+.cd .cd-composer .cd-pending, .cd .cd-hello-box .cd-pending { padding: 8px 8px 4px; }
+/* Long words scroll under the app's own inked bar (.k-inkbar), not the browser's grey one. */
+.cd .cd-entry textarea.k-inkbar { scrollbar-width: auto; overscroll-behavior: contain; }
+.cd .cd-entry textarea.k-inkbar::-webkit-scrollbar { width: 12px; }
+.cd .cd-entry textarea.k-inkbar::-webkit-scrollbar-thumb { min-height: 32px; }
 /* the new chat's choices, under its box */
 .cd-hello-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 10px; padding: 0 6px; }
 
