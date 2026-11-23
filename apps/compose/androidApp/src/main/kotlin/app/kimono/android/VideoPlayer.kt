@@ -98,6 +98,8 @@ private fun sayingOf(error: PlaybackException): String = when (error.errorCode) 
     PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
     PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
     PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+    /* A decoder that claims the format and then chokes on it. */
+    PlaybackException.ERROR_CODE_DECODING_FAILED,
     PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
     PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
     PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED -> "This phone can't play this video."
