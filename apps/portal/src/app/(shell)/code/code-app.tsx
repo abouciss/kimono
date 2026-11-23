@@ -1237,14 +1237,20 @@ function pastedText(event: ClipboardEvent<HTMLTextAreaElement>, taken: string[])
   return new File([said], named(), { type: "text/plain" });
 }
 
-/** Sizes a writing field to what's in it, up to a third of the screen. */
+/** Sizes a writing field to what's in it, up to a third of the screen, and never so tall that Send leaves the screen. */
 function fitField(el: HTMLTextAreaElement) {
   el.style.height = "auto";
   /* Not laid out yet (a page still coming in): measured as nothing, it would be pinned shut. Left as it is until it is. */
   if (!el.scrollHeight) { el.style.height = ""; return; }
-  const max = window.innerHeight / 3;
-  el.style.height = `${Math.min(el.scrollHeight, max)}px`;
-  el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
+  const full = el.scrollHeight;
+  let tall = Math.min(full, window.innerHeight / 3);
+  el.style.height = `${tall}px`;
+  /* On a short window, with a picture attached, the box would run past the bottom and take Send with it:
+     the words give up the difference, down to three lines, and scroll. */
+  const box = el.closest(".cd-hello-box, .cd-composer");
+  const past = box ? box.getBoundingClientRect().bottom + 16 - window.innerHeight : 0;
+  if (past > 0 && tall > 66) { tall = Math.max(66, tall - past); el.style.height = `${tall}px`; }
+  el.style.overflowY = full > tall + 1 ? "auto" : "hidden";
 }
 
 /** A field that grows with what's written, and is sized again once it's on screen or its width changes. */
@@ -1270,7 +1276,9 @@ function useFitField(field: React.RefObject<HTMLTextAreaElement | null>, written
       if (now !== width) { width = now; fitField(el); }
     });
     observer.observe(el);
-    return () => observer.disconnect();
+    const again = () => fitField(el);
+    window.addEventListener("resize", again);
+    return () => { observer.disconnect(); window.removeEventListener("resize", again); };
   }, [field]);
 }
 
