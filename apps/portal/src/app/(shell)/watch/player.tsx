@@ -876,7 +876,7 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
     {(["l", "r"] as const).map((side) => <div key={`${side}${rip[side]}`} className={cx("kw-ripple", `kw-${side}`, rip[side] > 0 && "kw-go")}>
       <div><Icon name={side === "l" ? "rw" : "ff"} />10 seconds</div>
     </div>)}
-    <div className={cx("kw-spin", sk && "kw-on")}>{sk ? <Spinner color={watch.accent} label="Buffering" /> : null}</div>
+    <div className={cx("kw-spin", sk && "kw-on")}>{sk ? <Spinner color="var(--blush)" label="Buffering" /> : null}</div>
     <div className={cx("kw-slow", sk && slow === "server" && "kw-on")} role="status">{slow === "server" ? "The server is slow right now" : ""}</div>
     <div className={cx("kw-pload", (loading || problem) && "kw-on")}>
       {problem ? <div className="kw-oops"><p>{problem}</p><div className="kw-btns" style={{ justifyContent: "center" }}>
