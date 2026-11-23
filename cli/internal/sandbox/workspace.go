@@ -211,7 +211,8 @@ func (s *Server) ensure(ctx context.Context, id string, request ensureRequest) (
 	if err != nil {
 		return nil, "", err
 	}
-	if label := s.repoLabel(ctx, id); state != "" && label != "" && label != request.Repo.Owner+"/"+request.Repo.Name && !strings.HasSuffix(label, "/"+request.Repo.Name) {
+	// A chat's sandbox (labelled with no repository) may take one on: the chat became a project.
+	if label := s.repoLabel(ctx, id); state != "" && label != "" && label != "/" && label != request.Repo.Owner+"/"+request.Repo.Name && !strings.HasSuffix(label, "/"+request.Repo.Name) {
 		return nil, "", problem(409, "This workspace already belongs to another repository.")
 	}
 	s.mu.Lock()
@@ -360,7 +361,9 @@ current=$(git symbolic-ref --quiet --short HEAD || true)
 if [ "$current" != "$branch" ]; then
   if git show-ref --verify --quiet "refs/heads/$branch"; then git checkout --quiet "$branch"
   elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then git checkout --quiet -b "$branch" --track "origin/$branch"
-  elif git show-ref --verify --quiet "refs/remotes/origin/$base"; then git checkout --quiet --no-track -b "$branch" "origin/$base"
+  elif git show-ref --verify --quiet "refs/remotes/origin/$base"; then
+    # A chat that became a project may hold a file the repository has too: its own stays, on the new branch.
+    git checkout --quiet --no-track -b "$branch" "origin/$base" 2>/dev/null || { git symbolic-ref HEAD "refs/heads/$branch"; git reset --quiet "origin/$base"; git checkout-index --all 2>/dev/null || true; }
   # An empty repository: the first commit starts the branch.
   else git symbolic-ref HEAD "refs/heads/$branch"; fi
 fi`

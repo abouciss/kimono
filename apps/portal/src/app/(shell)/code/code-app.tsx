@@ -1744,8 +1744,8 @@ function Start({ blocked, admin, folder, repoAsked, onStarted }: { blocked: stri
   promptNow.current = prompt;
   const [problem, setProblem] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [naming, setNaming] = useState<string | null>(null);
-  const [making, setMaking] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [hosting, setHosting] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashMenu(prompt, setPrompt, field);
   /* Files for the first message: held here until the chat exists, then sent with it. */
@@ -1760,17 +1760,11 @@ function Start({ blocked, admin, folder, repoAsked, onStarted }: { blocked: stri
   useFileDrop(blocked ? null : { label: "Drop to attach", onDrop: (data) => hold(filesIn(data)) });
   const project = (on: boolean) => { setOnProject(on); try { localStorage.setItem("kimono-ai-project", on ? "1" : "0"); } catch { /* not remembered */ } };
 
-  async function makeProject() {
-    if (!naming?.trim() || making) return;
-    setMaking(true);
-    setProblem(null);
-    try {
-      const made = await code.createRepository(naming);
-      setRepos((list) => [made, ...(list ?? [])]);
-      setRepo(`${made.owner}/${made.name}`);
-      setNaming(null);
-      field.current?.focus();
-    } catch (error) { setProblem(problemText(error)); } finally { setMaking(false); }
+  async function makeProject(name: string) {
+    const made = await code.createRepository(name);
+    setRepos((list) => [made, ...(list ?? [])]);
+    setRepo(`${made.owner}/${made.name}`);
+    requestAnimationFrame(() => field.current?.focus());
   }
 
   useEffect(() => {
@@ -1781,6 +1775,8 @@ function Start({ blocked, admin, folder, repoAsked, onStarted }: { blocked: stri
       try { remembered = localStorage.getItem("kimono-code-repo") ?? ""; } catch { /* private window */ }
       const first = list.find((r) => `${r.owner}/${r.name}` === repoAsked) ?? list.find((r) => `${r.owner}/${r.name}` === remembered) ?? list[0];
       if (first) setRepo(`${first.owner}/${first.name}`);
+      /* Nothing to build on yet: the first project is named straight away. */
+      else setNaming(true);
     }, (error) => setProblem(problemText(error)));
   }, [blocked, onProject, repoAsked]);
 
@@ -1846,18 +1842,11 @@ function Start({ blocked, admin, folder, repoAsked, onStarted }: { blocked: stri
     </div>
     <h2 className="cd-hello">{onProject ? "What should we build?" : "What can I do for you?"}</h2>
     <>
-      {onProject && !blocked ? naming !== null || (repos && !repos.length) ? <div className="cd-naming">
-        <label className="cd-task">
-          <span>New project</span>
-          <input autoFocus value={naming ?? ""} placeholder="Family recipes" maxLength={60}
-            onChange={(event) => setNaming(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void makeProject(); } if (event.key === "Escape" && repos?.length) setNaming(null); }} />
-        </label>
-        <Seal type="button" onClick={() => void makeProject()} busy={making} disabled={!naming?.trim()}>Make project</Seal>
-        {repos?.length ? <Seal type="button" tone="quiet" onClick={() => setNaming(null)}>Cancel</Seal> : null}
-      </div> : <div className="cd-new-pickers">
+      {naming ? <NewProject placeholder="Family recipes" onCreate={makeProject} onClose={() => setNaming(false)} /> : null}
+      {hosting ? <HostRepository onHosted={async (made) => { setHosting(false); await onStarted(made); goTo({ w: made.id, tab: "app" }); }} onClose={() => setHosting(false)} /> : null}
+      {onProject && !blocked ? <div className="cd-new-pickers">
         <Picker label="Project" placeholder={repos ? "None yet" : "Loading…"} value={repo} onChange={setRepo} disabled={!repos}
-          action={{ label: "New project", onAction: () => setNaming("") }}
+          action={{ label: "New project", onAction: () => setNaming(true) }}
           options={(repos ?? []).map((r) => ({ value: `${r.owner}/${r.name}`, label: r.name, detail: r.description || r.owner, note: r.owner }))} />
         <Picker label="Starting from" value={base} onChange={setBase} disabled={!chosen} mono
           options={branches.map((b) => ({ value: b, label: b, detail: b === chosen?.defaultBranch ? "The main version" : undefined }))} />
@@ -1889,6 +1878,7 @@ function Start({ blocked, admin, folder, repoAsked, onStarted }: { blocked: stri
       </div>
       <div className="cd-hello-tools">
         {admin && !blocked ? <button type="button" className={cx("cd-chip", onProject && "is-on")} aria-pressed={onProject} onClick={() => project(!onProject)}><Icon name="code" />Build a website</button> : null}
+        {admin && !blocked ? <button type="button" className="cd-chip" onClick={() => setHosting(true)}><Icon name="rocket" />Host a repository</button> : null}
         {folder && !onProject ? <span className="cd-chip is-on cd-in-chip"><Icon name="folder" />{folder.name}<button type="button" aria-label={`Not in ${folder.name}`} title="Not in a project" onClick={() => goTo({ new: "1" })}><Icon name="close" /></button></span> : null}
         <span className="cd-grow" />
         <span className="cd-tuning">{hasDrive ? <AccessPicker /> : null}<ModelPicker /><EffortPicker /></span>
@@ -2041,6 +2031,11 @@ function WorkspaceView({ projects, workspace, others, tab: asked, path, blocked,
   const running = workspace.turn?.state === "running";
   const [publishing, setPublishing] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  /* The panel beside the chat (its app, changes, other apps) can be put away; this device remembers. */
+  const [sideHidden, setSideHidden] = useState(() => { try { return localStorage.getItem("kimono-ai:side-hidden") === "1"; } catch { return false; } });
+  const toggleSide = () => setSideHidden((was) => { try { localStorage.setItem("kimono-ai:side-hidden", was ? "0" : "1"); } catch { /* not remembered */ } return !was; });
+  const [deployingNow, setDeployingNow] = useState(false);
+  const deploy = () => { setDeployingNow(true); setProblem(null); code.deploy(workspace.id).then(onChange, (error) => setProblem(problemText(error))).finally(() => setDeployingNow(false)); };
   const go = (to: Partial<Record<"tab" | "path", string | null>>) => goTo({ w: workspace.id, tab: to.tab === "chat" ? null : to.tab ?? tab, path: to.path ?? null });
   // A new tab, or a new task, lifts its view into place.
   const segs = useRef<HTMLDivElement>(null);
@@ -2056,7 +2051,7 @@ function WorkspaceView({ projects, workspace, others, tab: asked, path, blocked,
   const crossTo = useCrossTo();
   /* As on the phone: the title and repo, the few things you reach for (the running app, the
      pull request, Drive, delete) as quiet links and icons, one strong seal to publish, then the tabs. */
-  return <ChatAccess.Provider value={chatAccess}><ArtifactsContext.Provider value={artifacts}><div className={cx("cd-ws-grid", !isApp && "is-chat", tab === "chat" && beside && "has-beside")}>
+  return <ChatAccess.Provider value={chatAccess}><ArtifactsContext.Provider value={artifacts}><div className={cx("cd-ws-grid", !isApp && "is-chat", isApp && sideHidden && "no-side", tab === "chat" && beside && "has-beside")}>
     <div className="cd-sheet cd-ws">
       <header className="cd-ws-head">
         {guest || peek ? null : <>
@@ -2084,9 +2079,11 @@ function WorkspaceView({ projects, workspace, others, tab: asked, path, blocked,
               {workspace.pullRequest ? <button type="button" className="cd-linkbutton" onClick={() => openOutside(workspace.pullRequest!.url)}><Icon name="pr" />Pull request #{workspace.pullRequest.number}</button> : null}
               <button type="button" className="cd-roundbutton" aria-label="Open in Kimono Git" title="Open in Kimono Git" onClick={() => openOutside(`/api/v1/code/workspaces/${workspace.id}/git`)}><Icon name="branch" /></button>
               {workspace.drive ? <button type="button" className="cd-roundbutton" aria-label="Open in Drive" title="Open in Drive" onClick={() => crossTo("kakejiku", `/drive?space=${workspace.drive!.spaceId}&folder=${workspace.drive!.folderId}`)}><Icon name="folder" /></button> : null}
-              <Seal type="button" compact tone={workspace.pullRequest ? "quiet" : "primary"} busy={publishing} disabled={running || Boolean(blocked)} onClick={() => void publish()}>
+              {workspace.hosted
+                ? <Seal type="button" compact tone="quiet" busy={deployingNow} disabled={running || Boolean(blocked)} onClick={deploy}>Update site</Seal>
+                : <Seal type="button" compact tone={workspace.pullRequest ? "quiet" : "primary"} busy={publishing} disabled={running || Boolean(blocked)} onClick={() => void publish()}>
                 {workspace.pullRequest ? "Push changes" : "Open pull request"}
-              </Seal>
+              </Seal>}
             </div>}
       </header>
       {isApp ? <div className="cd-segs" ref={segs}>
@@ -2097,6 +2094,8 @@ function WorkspaceView({ projects, workspace, others, tab: asked, path, blocked,
         </div>
         {running ? <span className="cd-status running" role="status"><i aria-hidden="true" />Working {elapsed(now - workspace.turn!.startedAt)}</span>
           : !connected ? <span className="cd-status">Reconnecting…</span> : null}
+        <span className="cd-grow" />
+        <button type="button" className={cx("cd-roundbutton cd-side-toggle", sideHidden && "is-off")} aria-pressed={!sideHidden} onClick={toggleSide} aria-label={sideHidden ? "Show the side panel" : "Hide the side panel"} title={sideHidden ? "Show the side panel" : "Hide the side panel"}><Icon name="panel" /></button>
       </div> : <div ref={segs} hidden />}
       {problem ? <p className="cd-problem cd-ws-problem" role="alert">{problem}</p> : null}
       {tab === "chat" ? <Chat workspace={workspace} events={events} drafts={drafts} running={running} blocked={blocked} typing={othersTyping} />
@@ -2105,7 +2104,7 @@ function WorkspaceView({ projects, workspace, others, tab: asked, path, blocked,
             : <ChangesView workspace={workspace} running={running} lastSeq={events.at(-1)?.seq ?? 0} />}
     </div>
     {tab === "chat" && beside ? <aside className="cd-beside" aria-label="Artifact"><ArtifactCard name={beside} mode="beside" /></aside>
-      : isApp ? <Scroller fit as="aside" className="cd-deploy" viewClassName="cd-deploy-view" aria-label="This chat's work"><SidePanel workspace={workspace} others={others} tab={tab} running={running} lastSeq={events.at(-1)?.seq ?? 0} /></Scroller> : null}
+      : isApp && !sideHidden ? <Scroller fit as="aside" className="cd-deploy" viewClassName="cd-deploy-view" aria-label="This chat's work"><SidePanel workspace={workspace} others={others} tab={tab} running={running} lastSeq={events.at(-1)?.seq ?? 0} /></Scroller> : null}
     {full ? <div className="cd-artifact-full" role="dialog" aria-modal="true" aria-label="Artifact"><ArtifactCard name={full} mode="full" /></div> : null}
     {sharing ? <ShareChat workspace={workspace} onClose={() => setSharing(false)} /> : null}
   </div></ArtifactsContext.Provider></ChatAccess.Provider>;
@@ -2362,6 +2361,9 @@ type Item =
   | { type: "shots"; seq: number; shots: { name: string; caption?: string }[] }
   | { type: "preview"; seq: number; event: Extract<CodeEvent, { kind: "preview" }> }
   | { type: "preview-stopped"; seq: number }
+  | { type: "project-offer"; seq: number; event: Extract<CodeEvent, { kind: "project-offer" }>; answer?: Extract<CodeEvent, { kind: "project-answer" }> }
+  | { type: "project-made"; seq: number; repo: string }
+  | { type: "deployed"; seq: number; event: Extract<CodeEvent, { kind: "deployed" }> }
   | { type: "slept"; seq: number; for: string }
   | { type: "disk"; seq: number; event: Extract<CodeEvent, { kind: "disk" }> }
   | { type: "compacted"; seq: number; before?: number }
@@ -2388,8 +2390,11 @@ function itemsOf(events: StoredEvent[]): Item[] {
   const answers = new Map<string, Extract<CodeEvent, { kind: "access-answer" }>>();
   let said: string[] = [];
   const replied = new Map<string, Extract<CodeEvent, { kind: "question-answer" }>>();
+  const projectAnswers = new Map<string, Extract<CodeEvent, { kind: "project-answer" }>>();
+  const offered = new Set<string>();
   for (const { event } of events) {
     if (event.kind === "access-answer") answers.set(event.id, event);
+    if (event.kind === "project-answer") projectAnswers.set(event.id, event);
     if (event.kind === "question-answer") replied.set(event.id, event);
   }
   /* Where items go: the timeline, or the take under way. */
@@ -2430,6 +2435,10 @@ function itemsOf(events: StoredEvent[]): Item[] {
         break;
       }
       case "published": into.push({ type: "published", seq, event }); break;
+      case "project-offer": offered.add(event.id); into.push({ type: "project-offer", seq, event, answer: projectAnswers.get(event.id) }); break;
+      /* Made without being offered (from the chat's own menu): said where it happened. */
+      case "project-answer": if (event.made && event.repo && !offered.has(event.id)) into.push({ type: "project-made", seq, repo: event.repo }); break;
+      case "deployed": into.push({ type: "deployed", seq, event }); break;
       case "image": if (last?.type === "shots") last.shots.push(event); else into.push({ type: "shots", seq, shots: [event] }); break;
       case "preview": into.push({ type: "preview", seq, event }); break;
       case "preview-stopped": into.push({ type: "preview-stopped", seq }); break;
@@ -2446,6 +2455,27 @@ function itemsOf(events: StoredEvent[]): Item[] {
     }
   }
   return items;
+}
+
+/** Its offer to make the chat a project: Make project names it in a dialog; answered, a quiet line says what happened. */
+function ProjectOffer({ workspace, event, answer }: { workspace: Workspace; event: Extract<CodeEvent, { kind: "project-offer" }>; answer?: Extract<CodeEvent, { kind: "project-answer" }> }) {
+  const owns = useOwns();
+  const [naming, setNaming] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  if (answer) return <p className="cd-note"><Icon name="code" /><span>{answer.made ? <>Made the project <b>{answer.repo ?? event.name}</b></> : "Kept as a chat"}</span></p>;
+  /* Already a project some other way: nothing left to ask. */
+  if (workspace.kind === "project" || !owns) return null;
+  const reload = () => window.dispatchEvent(new Event("kimono-ai-reload"));
+  return <div className="cd-offer">
+    <InkBlot className="cd-dep-icon" tint={inkTint.quiet} seed="project"><Icon name="code" /></InkBlot>
+    <span className="cd-offer-words"><b>Make a project and move this chat?</b><small>{event.name}</small></span>
+    <span className="cd-offer-acts">
+      <Seal type="button" compact tone="quiet" onClick={() => { setProblem(null); code.intoProject(workspace.id, { offer: event.id, decline: true }).then(reload, (error) => setProblem(problemText(error))); }}>Not now</Seal>
+      <Seal type="button" compact onClick={() => setNaming(true)}>Make project</Seal>
+    </span>
+    {problem ? <p className="cd-problem" role="alert">{problem}</p> : null}
+    {naming ? <NewProject title="Make a project" start={event.name} doing="Make project" onCreate={(name) => code.intoProject(workspace.id, { offer: event.id, name }).then(reload)} onClose={() => setNaming(false)} /> : null}
+  </div>;
 }
 
 /* Memoised: the page around it ticks every second while a turn runs, and the chat needn't. */
@@ -2570,6 +2600,11 @@ const Chat = memo(function Chat({ workspace, events, drafts, running, blocked, t
         /* Still waiting, the questions are in the writing bar; answered, a quiet line says what it asked. */
         case "question": return item.answer ? <p key={item.seq} className="cd-note cd-asked"><Icon name="chat" /><span>Asked {item.event.questions.length > 1 ? item.event.questions.map((q) => q.header ?? q.question).join(" · ") : item.event.questions[0].question}{item.answer.skipped ? " · skipped" : ""}</span></p> : null;
         case "compacted": return <p key={item.seq} className="cd-note cd-compacted"><Icon name="diff" />Compacted the conversation{item.before ? <span className="cd-mono"> · it held {kTokens(item.before)} tokens</span> : null}</p>;
+        case "project-offer": return <ProjectOffer key={item.seq} workspace={workspace} event={item.event} answer={item.answer} />;
+        case "project-made": return <p key={item.seq} className="cd-note"><Icon name="code" /><span>Made the project <b>{item.repo}</b></span></p>;
+        case "deployed": return item.event.problem
+          ? <p key={item.seq} className="cd-note is-failed"><span>{item.event.problem}</span></p>
+          : <p key={item.seq} className="cd-note"><Icon name="rocket" /><span>Site updated <span className="cd-mono">· {item.event.commit}</span></span></p>;
         case "published": return <p key={item.seq} className="cd-note"><Icon name="pr" />Opened <button type="button" className="cd-textbutton" onClick={() => openOutside(item.event.url)}>pull request #{item.event.number}</button></p>;
         case "connect": return <ConnectCard key={item.seq} app={item.app} url={item.url} />;
         case "artifact": return keptPages && !keptPages[item.name]
@@ -3385,10 +3420,43 @@ function RateDialog({ rating, onRate, onClose }: { rating: 1 | -1; onRate: (rati
   </dialog>;
 }
 
-/** Names a new project, in a dialog of its own. */
-function NewProject({ onCreate, onClose }: { onCreate: (name: string) => Promise<unknown>; onClose: () => void }) {
+/** Hosts a repository from Kimono Git as it is: choose it, and its site goes up and follows what's pushed. */
+function HostRepository({ onHosted, onClose }: { onHosted: (made: Workspace) => Promise<unknown>; onClose: () => void }) {
   const box = useRef<HTMLDialogElement>(null);
-  const [name, setName] = useState("");
+  const [repos, setRepos] = useState<Repository[] | null>(null);
+  const [repo, setRepo] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  useEffect(() => { box.current?.showModal(); }, []);
+  useEffect(() => { code.repositories().then((list) => { setRepos(list); if (list[0]) setRepo(`${list[0].owner}/${list[0].name}`); }, (error) => setProblem(problemText(error))); }, []);
+  const chosen = repos?.find((r) => `${r.owner}/${r.name}` === repo);
+  const host = () => {
+    if (!chosen || saving) return;
+    setSaving(true); setProblem(null);
+    code.host(chosen.owner, chosen.name).then(onHosted).catch((error) => { setSaving(false); setProblem(problemText(error)); });
+  };
+  return <dialog ref={box} className="cd-share cd-report cd-newproject cd-host" aria-labelledby="cd-host-title" onClose={onClose} onClick={(event) => { if (event.target === box.current) box.current?.close(); }}>
+    <form method="dialog" onSubmit={(event) => { event.preventDefault(); host(); }}>
+      <header><h2 id="cd-host-title">Host a repository</h2></header>
+      <div className="cd-share-body">
+        <Picker label="Repository" placeholder={repos ? "None yet" : "Loading…"} value={repo} onChange={setRepo} disabled={!repos?.length}
+          options={(repos ?? []).map((r) => ({ value: `${r.owner}/${r.name}`, label: r.name, detail: r.description || r.owner, note: r.owner }))} />
+        <p className="cd-quiet">Its site goes up at a link and follows what&rsquo;s pushed to {chosen ? <span className="cd-mono">{chosen.defaultBranch}</span> : "it"}.</p>
+      </div>
+      <footer>
+        {problem ? <p className="cd-problem" role="alert">{problem}</p> : null}
+        <span className="cd-grow" />
+        <Seal type="button" compact tone="quiet" onClick={() => box.current?.close()}>Cancel</Seal>
+        <Seal type="submit" compact disabled={!chosen || saving}>{saving ? "Putting it up" : "Host"}</Seal>
+      </footer>
+    </form>
+  </dialog>;
+}
+
+/** Names a new project, in a dialog of its own. */
+function NewProject({ onCreate, onClose, title = "New project", start = "", placeholder = "Name", doing = "Create" }: { onCreate: (name: string) => Promise<unknown>; onClose: () => void; title?: string; start?: string; placeholder?: string; doing?: string }) {
+  const box = useRef<HTMLDialogElement>(null);
+  const [name, setName] = useState(start);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => { box.current?.showModal(); }, []);
@@ -3399,15 +3467,15 @@ function NewProject({ onCreate, onClose }: { onCreate: (name: string) => Promise
   };
   return <dialog ref={box} className="cd-share cd-report cd-newproject" aria-labelledby="cd-newproject-title" onClose={onClose} onClick={(event) => { if (event.target === box.current) box.current?.close(); }}>
     <form method="dialog" onSubmit={(event) => { event.preventDefault(); create(); }}>
-      <header><h2 id="cd-newproject-title">New project</h2></header>
+      <header><h2 id="cd-newproject-title">{title}</h2></header>
       <div className="cd-share-body">
-        <input autoFocus value={name} maxLength={60} placeholder="Name" aria-label="Project name" onChange={(event) => setName(event.target.value)} />
+        <input autoFocus value={name} maxLength={60} placeholder={placeholder} aria-label="Project name" onFocus={(event) => event.target.select()} onChange={(event) => setName(event.target.value)} />
       </div>
       <footer>
         {problem ? <p className="cd-problem" role="alert">{problem}</p> : null}
         <span className="cd-grow" />
         <Seal type="button" compact tone="quiet" onClick={() => box.current?.close()}>Cancel</Seal>
-        <Seal type="submit" compact disabled={!name.trim() || saving}>{saving ? "Creating" : "Create"}</Seal>
+        <Seal type="submit" compact disabled={!name.trim() || saving}>{saving ? "Working" : doing}</Seal>
       </footer>
     </form>
   </dialog>;

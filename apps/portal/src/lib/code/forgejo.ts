@@ -138,6 +138,20 @@ export async function branches(config: CodeConfig, owner: string, name: string):
   return list.map((branch) => branch.name).filter((branch) => !branch.startsWith("code/"));
 }
 
+/** The commit a branch is at in Kimono Git; null when it can't be read (no such branch, or Kimono Git is away). */
+export async function branchHead(config: CodeConfig, owner: string, name: string, branch: string): Promise<string | null> {
+  const response = await send(config, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/branches/${branch.split("/").map(encodeURIComponent).join("/")}`, { timeout: 10_000 }).catch(() => null);
+  if (!response?.ok) return null;
+  return ((await response.json()) as { commit?: { id?: string } }).commit?.id ?? null;
+}
+
+/** One repository, as the person may see it: theirs, or shared with them. */
+export async function repositoryFor(config: CodeConfig, person: GitPerson, owner: string, name: string): Promise<Repository> {
+  const login = await gitAccountOf(config, person);
+  const repo = await get<ForgejoRepo>(config, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`, login ?? undefined);
+  return { owner: repo.owner.login, name: repo.name, description: repo.description || "", defaultBranch: repo.default_branch || "main", updatedAt: Date.parse(repo.updated_at) || 0, private: repo.private };
+}
+
 /** Where a project chat is in Kimono Git: its branch once pushed there, the repository's home until then. */
 export async function repositoryPage(config: CodeConfig, owner: string, name: string, branch: string): Promise<string> {
   const home = `${config.gitAddress}/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;

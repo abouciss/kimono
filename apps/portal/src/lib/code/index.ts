@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { apiError, type ApiUser } from "../api-v1";
 import { getPlatformSettings } from "../settings";
 import { stateDir } from "../state";
-import { codeConfig, missing, type CodeConfig } from "./config";
+import { codeConfig, missing, projectMissing, type CodeConfig } from "./config";
 import { finish, toolHint, translate, type ArtifactCall, type Attachment, type CodeEvent, type SentFile, type TurnResult } from "./events";
 import { typeOf } from "../drive/storage";
 import { backfillRatingFiles, backfillRatings, keepPick, kimonoVersion, type Versions } from "./feedback";
@@ -15,7 +15,7 @@ import { islamNoticeNote, isSkillCommand, madeSkillId, madeSkillsDir, noticeSeen
 import { bounded } from "./bounded";
 import { applyEdits, artifactOf, Drafts, maxMediaBytes, mediaNames, saveArtifact } from "./artifacts";
 import {
-  abandonRunningTurns, appendEvent, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, allowedShare, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
+  abandonRunningTurns, appendEvent, createSite, hostedSites, intoProject, setDeployed, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, allowedShare, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
   type StoredEvent, type Workspace,
 } from "./model";
 import { sandbox, type Effort, type NodePreview } from "./node";
@@ -33,9 +33,10 @@ export { efforts, type Effort } from "./node";
 import { markChat, retitle, shotToDrive, syncDrive, treeAhead } from "./drive";
 import { hasHistory, historyNote, syncHistory } from "./history";
 import { applyBookChanges, booksNote, forgetBooksWritten, syncBooks, takeBookMisses } from "./books";
+import { hostedNote, isProjectCommand, offeredProject, projectNote } from "./sites";
 import { answersOf, answerText, askedId, askNote, isAskCommand, questionsDir, questionsOf } from "./questions";
 import { debridNote, debridReady, isDebridCommand, watchDebrid } from "./debrid";
-import { gitAccountOf, ownProject } from "./forgejo";
+import { branchHead, createRepository, gitAccountOf, ownProject, repositoryFor } from "./forgejo";
 import { suggestTitle } from "./title";
 import { db as driveDb } from "../drive";
 import { notesConfig } from "../notes/config";
@@ -636,7 +637,7 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
     /* An edited message in a chat from before turns kept their place: a new session, told the conversation so far. */
     const earlier = rewound && "before" in rewound && rewound.before ? `(The person went back and changed one of their messages, so this conversation starts again from it. What was said before it:)\n\n${rewound.before}\n\n(Their changed message:)\n\n` : "";
     told = second ? second.told : `${access ? `${access}\n\n` : ""}${news}${earlier}${from}${prompt}`;
-    const input = { prompt: plan && take ? withNote(told, plan.notes[take.n]) : told, ...(second?.session ? { fork: true } : {}), session, attachments: attachments.map((a) => a.path), effort, thinking: thought.thinking, model, context: [...(byOwner ? [aboutNow(who(user).name), contextFor(db(), workspace.owner), notes, history ? historyNote : "", hasBooks ? booksNote : "", hasBooks ? takeBookMisses(workspace.id) : "", await debridReady().then((key) => key ? debridNote : "", () => ""), mediaNote(lastAllowance(workspace.owner))] : []), askNote, noticeSeen(db(), user.username, "islam") ? "" : islamNoticeNote].filter(Boolean).join("\n\n"), resumeAt: second ? second.at : rewound && "at" in rewound ? rewound.at : null, links: tempLinkBase(portalOrigin(), workspace.id), linkKey: tempLinkKey(workspace.id), ...skillsForTurn(db(), workspace.owner, byOwner) };
+    const input = { prompt: plan && take ? withNote(told, plan.notes[take.n]) : told, ...(second?.session ? { fork: true } : {}), session, attachments: attachments.map((a) => a.path), effort, thinking: thought.thinking, model, context: [...(byOwner ? [aboutNow(who(user).name), contextFor(db(), workspace.owner), notes, history ? historyNote : "", hasBooks ? booksNote : "", hasBooks ? takeBookMisses(workspace.id) : "", await debridReady().then((key) => key ? debridNote : "", () => ""), mediaNote(lastAllowance(workspace.owner))] : []), askNote, byOwner && isAdmin(user) && workspace.kind === "chat" && !projectMissing(config) ? projectNote : "", workspace.hosted ? hostedNote : "", noticeSeen(db(), user.username, "islam") ? "" : islamNoticeNote].filter(Boolean).join("\n\n"), resumeAt: second ? second.at : rewound && "at" in rewound ? rewound.at : null, links: tempLinkBase(portalOrigin(), workspace.id), linkKey: tempLinkKey(workspace.id), ...skillsForTurn(db(), workspace.owner, byOwner) };
     const response = await sandbox.turn(config, workspace, input, controller.signal).catch(async (error) => {
       /* The sandbox lost the chat's session (its container was made again): a new
          one is told the conversation so far, so it never starts from nothing. */
@@ -739,6 +740,8 @@ async function run(config: CodeConfig, workspace: Workspace, user: ApiUser, turn
         for (const thought of translated.thinking ?? []) keepThinking(db(), workspace.id, thought);
         for (const call of translated.calls ?? []) {
           keepToolCall(db(), workspace.id, call);
+          /* kimono-project: it offered to make the chat a project. Only an administrator's own chat can become one. */
+          if (call.output !== undefined && isProjectCommand(call.input)) { const name = offeredProject(call.output); if (name && byOwner && isAdmin(user) && workspace.kind === "chat") record(workspace.id, turn, { kind: "project-offer", id: call.id, name }); }
           if (isAskCommand(call.input)) asking.add(call.id);
           else if (call.output !== undefined && asking.delete(call.id)) await takeQuestions(config, workspace, turn, call.output);
           /* A download for the owner: Kimono takes its request from the sandbox and saves it to their Drive. */
@@ -968,6 +971,94 @@ export function answerQuestions(config: CodeConfig, workspace: Workspace, user: 
   ask(config, workspace, user, answerText(asked.questions, answers), []);
   return recorded;
 }
+
+/* ── a chat becomes a project; a repository hosted as it is (lib/code/sites.ts) ── */
+
+/**
+ * The person agrees to make their chat a project (answering its offer, or of their own accord), or says not now:
+ * `{ offer?, name?, decline? }`. A repository is made in their Kimono Git, the chat's sandbox takes it with the
+ * files already there, and the agent carries on, now able to publish.
+ */
+export async function chatIntoProject(config: CodeConfig, workspace: Workspace, user: ApiUser, body: { offer?: unknown; name?: unknown; decline?: unknown }) {
+  if (!isAdmin(user)) throw new CodeProblem("Projects are for administrators.", 403);
+  if (workspace.kind !== "chat") throw new CodeProblem("This chat is a project already.", 409);
+  const events = eventsAfter(db(), workspace.id, 0, 100_000);
+  const offer = typeof body.offer === "string" ? events.findLast((e) => e.event.kind === "project-offer" && e.event.id === body.offer)?.event as Extract<CodeEvent, { kind: "project-offer" }> | undefined : undefined;
+  if (body.offer && !offer) throw new CodeProblem("That offer isn't here.", 404);
+  if (offer && events.some((e) => e.event.kind === "project-answer" && e.event.id === offer.id)) throw new CodeProblem("That was answered already.", 409);
+  const id = offer?.id ?? newId();
+  if (body.decline === true) return record(workspace.id, null, { kind: "project-answer", id, made: false });
+  const blocked = projectMissing(config);
+  if (blocked) throw new CodeProblem(blocked, 409);
+  if (runningTurn(db(), workspace.id)) throw new CodeProblem("Wait for it to finish first.", 409);
+  checkShare(config, user);
+  const name = String(body.name ?? offer?.name ?? "").trim();
+  const repo = await createRepository(config, user, name);
+  intoProject(db(), workspace.id, repo, repo.defaultBranch);
+  const made = workspaceFor(db(), workspace.id, workspace.owner);
+  const recorded = record(workspace.id, null, { kind: "project-answer", id, made: true, repo: repo.name });
+  awake.at.delete(workspace.id);
+  const next = startTurn(db(), workspace.id);
+  void run(config, made, user, next, `(They agreed: this chat is now the project "${name}". /workspace, with everything you made, is on a new branch of its own repository in Kimono Git, so you can commit, and publish with kimono-serve. Carry on with what they asked for.)`, []);
+  return recorded;
+}
+
+/** Hosts a repository as it is: a workspace on its branch, and its site put up from what's there. */
+export async function hostRepository(config: CodeConfig, user: ApiUser, input: { owner?: unknown; name?: unknown; branch?: unknown }) {
+  requireProject(user);
+  const blocked = projectMissing(config);
+  if (blocked) throw new CodeProblem(blocked, 409);
+  /* Only one they can see in Kimono Git: theirs, or shared with them. */
+  const repo = await repositoryFor(config, user, String(input.owner ?? ""), String(input.name ?? ""));
+  const site = createSite(db(), user.username, repo, typeof input.branch === "string" && input.branch ? input.branch : repo.defaultBranch);
+  await deploySite(config, site);
+  return workspaceFor(db(), site.id, user.username);
+}
+
+/** Brings a hosted repository's site to the branch's latest commit. Says so in its timeline; a failure is said there too. */
+export async function deploySite(config: CodeConfig, site: Workspace) {
+  if (!site.hosted) throw new CodeProblem("This isn't a hosted repository.", 400);
+  if (runningTurn(db(), site.id)) throw new CodeProblem("Wait for it to finish first.", 409);
+  const going = deploying.get(site.id);
+  if (going) return going;
+  const work = (async () => {
+    try {
+      await ensure(config, site, { name: site.owner, email: `${site.owner}@users.kimono` });
+      const up = await sandbox.deploy(config, site);
+      const before = workspaceFor(db(), site.id, site.owner).preview;
+      setPreview(db(), site.id, up);
+      setDeployed(db(), site.id, up.commit);
+      if (!before || before.url !== up.url || before.stopped) record(site.id, null, { kind: "preview", url: up.url, port: up.port, ...(up.kind ? { app: up.kind } : {}) });
+      record(site.id, null, { kind: "deployed", commit: up.commit.slice(0, 7) });
+    } catch (error) {
+      const problem = error instanceof CodeProblem ? error.message : "The site couldn't be put up.";
+      const last = eventsAfter(db(), site.id, 0, 100_000).at(-1)?.event;
+      if (!(last?.kind === "deployed" && last.problem === problem)) record(site.id, null, { kind: "deployed", commit: "", problem });
+      throw error;
+    } finally { deploying.delete(site.id); }
+  })();
+  deploying.set(site.id, work);
+  return work;
+}
+
+const deploying = ((globalThis as { __kimonoDeploying?: Map<string, Promise<void>> }).__kimonoDeploying ??= new Map());
+
+/**
+ * Hosted repositories follow their branch: every minute each one's head in Kimono Git is compared with the
+ * commit its site took, and a new one is deployed. A commit that failed isn't tried again until the next one.
+ */
+export async function followSites() {
+  const config = codeConfig(await getPlatformSettings());
+  if (!config.enabled || missing(config) || projectMissing(config)) return;
+  for (const { workspace, deployed } of hostedSites(db())) {
+    try {
+      const head = await branchHead(config, workspace.repo.owner, workspace.repo.name, workspace.branch);
+      if (!head || head === deployed || failedAt.get(workspace.id) === head || runningTurn(db(), workspace.id)) continue;
+      await deploySite(config, workspace).catch((error) => { failedAt.set(workspace.id, head); throw error; });
+    } catch (error) { console.warn(`Kimono AI couldn't update the site of ${workspace.repo.owner}/${workspace.repo.name}:`, error instanceof Error ? error.message : error); }
+  }
+}
+const failedAt = new Map<string, string>();
 
 /* ── access to the person's Drive ── */
 

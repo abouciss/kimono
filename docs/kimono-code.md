@@ -187,6 +187,33 @@ answering for its name. Previews survive a node restart: the node keeps them in
 its state directory. A sandbox with a live preview sleeps like any other (see
 "Sleep" below); opening its link wakes it.
 
+## Hosting a repository
+
+A Kimono Git repository can be hosted as it is, with no chat behind it: **Host a
+repository** on the new-chat page, or `POST /api/v1/code/sites { owner, name,
+branch? }`. Its workspace sits on the repository's own branch (`hosted`), and
+the Portal compares that branch's head with the deployed commit every minute,
+so a push from anywhere (a laptop's `git push`) is what the link shows.
+
+`POST /v1/workspaces/{id}/deploy` on the node fast-forwards the sandbox and
+(re)starts the site, answering `{ url, port, kind, stopped, commit }`. How it
+runs, first match:
+
+- `kimono.json` at the root: `{ "static": "<folder>" }`, or
+  `{ "command": ["node", "server.js"], "port": 3000, "kind": "Node API" }`
+  (the command gets `PORT`; it can also be one shell line).
+- an `index.html` at the root or in `public`, `dist`, `build`, `site`, `docs`,
+  `_site` or `out`: plain files. Paths with a dotfile in them are never served.
+- a `package.json` with a `start` script: `npm start`.
+
+Sandboxes are offline, so nothing is installed or built from the network:
+push what runs (built files, or a server that needs only what the image has).
+
+A chat becomes a project when the agent runs `kimono-project "<name>"` and the
+person agrees (`POST /api/v1/code/workspaces/{id}/project`): a repository is
+made, the chat's sandbox takes it on a branch of its own with its files, and
+the agent carries on, now able to publish.
+
 ## Limits
 
 A node is shared with the Portal and the rest of the house, so each sandbox

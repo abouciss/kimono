@@ -1,0 +1,17 @@
+#!/bin/bash
+# kimono-project "<name>"
+# Offers to turn this chat into a project: a repository of its own in Kimono
+# Git, where a website or app can be built and published at a link. The person
+# is asked; if they agree the chat moves there, with its files, and their next
+# message says so. End your turn after running it.
+set -u
+if [ "${KIMONO_CHAT:-}" != 1 ]; then
+  echo "kimono-project: this chat is a project already. Publish with kimono-serve." >&2
+  exit 1
+fi
+name=$(printf '%s' "$*" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+case $name in
+  ''|-h|--help) echo 'usage: kimono-project "<a short name for the project, e.g. Family recipes>"' >&2; exit 2 ;;
+esac
+if [ "${#name}" -gt 60 ]; then echo "kimono-project: keep the name under 60 characters" >&2; exit 2; fi
+echo "Asked the person whether to make this chat a project. End your turn now; their answer comes as their next message. (project offer: $name)"

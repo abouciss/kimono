@@ -28,6 +28,8 @@ export type Workspace = {
   /** The project (a folder of chats) it's in, if any. */
   folder: { id: string; name: string } | null;
   repo: { owner: string; name: string }; base: string; branch: string;
+  /** A repository hosted as it is: its site follows the branch, whoever pushes to it. */
+  hosted: boolean;
   session: string | null;
   pullRequest: { url: string; number: number } | null;
   /** The app the agent published, open to anyone with the link while it's up: what kind it is, and whether its owner stopped it. */
@@ -288,6 +290,11 @@ export function migrate(db: DatabaseSync) {
       COMMIT;
     `);
   }
+  /* A repository hosted as it is, with no chat behind it: its workspace sits on the repository's own branch, and
+     deployed is the commit its site last took. */
+  if (!(db.prepare("SELECT 1 FROM pragma_table_info('workspaces') WHERE name = 'hosted'").get())) {
+    db.exec("ALTER TABLE workspaces ADD COLUMN hosted INTEGER NOT NULL DEFAULT 0; ALTER TABLE workspaces ADD COLUMN deployed TEXT;");
+  }
   /* Spaces the person chose "Asks first" for (lib/code/access.ts): every other space opens without asking. */
   db.exec("CREATE TABLE IF NOT EXISTS access_asks (username TEXT NOT NULL, space_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (username, space_id))");
   /* A memory written as a page has a title of its own (lib/code/memory.ts). */
@@ -531,7 +538,7 @@ export const extraCredits = (db: DatabaseSync, username: string, now = Date.now(
 
 type WorkspaceRow = {
   id: string; owner: string; title: string; repo_owner: string; repo_name: string; base: string; branch: string;
-  session: string | null; pr_url: string | null; pr_number: number | null; preview_url: string | null; preview_port: number | null; preview_name: string | null; preview_kind: string | null; preview_stopped: number; drive_folder: string | null; drive_space: string | null; project_id: string | null; project_name: string | null; archived_at: number | null; last_model: string | null; created_at: number; updated_at: number; last_seq: number;
+  session: string | null; pr_url: string | null; pr_number: number | null; preview_url: string | null; preview_port: number | null; preview_name: string | null; preview_kind: string | null; preview_stopped: number; drive_folder: string | null; drive_space: string | null; hosted: number; deployed: string | null; project_id: string | null; project_name: string | null; archived_at: number | null; last_model: string | null; created_at: number; updated_at: number; last_seq: number;
   turn_id: string | null; turn_state: TurnState | null; turn_started: number | null; turn_ended: number | null;
   named: number; first_ended: number | null;
 };
@@ -547,6 +554,7 @@ function toWorkspace(row: WorkspaceRow): Workspace {
     kind: row.repo_name ? "project" : "chat",
     folder: row.project_id && row.project_name ? { id: row.project_id, name: row.project_name } : null,
     repo: { owner: row.repo_owner, name: row.repo_name }, base: row.base, branch: row.branch,
+    hosted: row.hosted === 1,
     session: row.session,
     pullRequest: row.pr_url && row.pr_number ? { url: row.pr_url, number: row.pr_number } : null,
     preview: row.preview_url && row.preview_port ? { url: row.preview_url, port: row.preview_port, kind: row.preview_kind ?? null, stopped: row.preview_stopped === 1 } : null,
@@ -596,6 +604,39 @@ export function createWorkspace(db: DatabaseSync, owner: string, input: { repoOw
   db.prepare(`INSERT INTO workspaces (id, owner, title, repo_owner, repo_name, base, branch, project_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(id, owner.toLowerCase(), title, repoOwner, repoName, project ? base : "", project ? branchFor(title) : "", folder, now, now);
   return workspaceFor(db, id, owner);
+}
+
+/** A chat becomes a project: it takes the repository, and a branch of its own from [base]. Its files and what was said stay. */
+export function intoProject(db: DatabaseSync, id: string, repo: { owner: string; name: string }, base: string) {
+  if (!namePattern.test(repo.owner) || !namePattern.test(repo.name) || !branchPattern.test(base)) throw new CodeProblem("Choose a repository.");
+  const title = (db.prepare("SELECT title FROM workspaces WHERE id = ?").get(id) as { title: string } | undefined)?.title ?? "";
+  db.prepare("UPDATE workspaces SET repo_owner = ?, repo_name = ?, base = ?, branch = ?, updated_at = ? WHERE id = ? AND repo_name = ''")
+    .run(repo.owner, repo.name, base, branchFor(title), Date.now(), id);
+}
+
+/**
+ * A repository hosted as it is: a workspace on the repository's own branch, with no chat started in it.
+ * One per repository and branch; asking again answers with the one there.
+ */
+export function createSite(db: DatabaseSync, owner: string, repo: { owner: string; name: string }, branch: string, now = Date.now()): Workspace {
+  if (!namePattern.test(repo.owner) || !namePattern.test(repo.name)) throw new CodeProblem("Choose a repository.");
+  if (!branchPattern.test(branch)) throw new CodeProblem("Choose a branch.");
+  const there = db.prepare("SELECT id FROM workspaces WHERE owner = ? AND hosted = 1 AND lower(repo_owner) = ? AND lower(repo_name) = ? AND branch = ?")
+    .get(owner.toLowerCase(), repo.owner.toLowerCase(), repo.name.toLowerCase(), branch) as { id: string } | undefined;
+  if (there) return workspaceFor(db, there.id, owner);
+  const id = newId();
+  db.prepare("INSERT INTO workspaces (id, owner, title, repo_owner, repo_name, base, branch, hosted, named, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)")
+    .run(id, owner.toLowerCase(), repo.name, repo.owner, repo.name, branch, branch, now, now);
+  return workspaceFor(db, id, owner);
+}
+
+/** Every hosted repository, whoever's, with the commit its site last took. */
+export function hostedSites(db: DatabaseSync): { workspace: Workspace; deployed: string | null }[] {
+  return (db.prepare(`${selectWorkspace} WHERE w.hosted = 1 AND w.archived_at IS NULL`).all() as WorkspaceRow[]).map((row) => ({ workspace: toWorkspace(row), deployed: row.deployed }));
+}
+
+export function setDeployed(db: DatabaseSync, id: string, commit: string) {
+  db.prepare("UPDATE workspaces SET deployed = ? WHERE id = ?").run(commit, id);
 }
 
 /** One workspace, if it is yours. */

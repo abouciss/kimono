@@ -367,10 +367,6 @@ button.cd-filechip { cursor: pointer; font: inherit; font-size: 13px; font-weigh
 .cd-picker-action { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; border: 0; border-top: 1px solid var(--k-hair); background: var(--k-ground); font: 700 15px/1 var(--k-sans); color: var(--k-ink); text-align: left; cursor: pointer; }
 .cd-picker-action:hover, .cd-picker-action:focus-visible { background: var(--k-hover); color: var(--k-plum); outline: none; }
 .cd-picker-action svg.i { width: 18px; height: 18px; color: var(--k-app-text, color-mix(in srgb, var(--k-app-accent) var(--k-app-ink), var(--k-night-ink))); }
-.cd-naming { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
-.cd-naming .cd-task { flex: 1 1 260px; }
-.cd-naming input { min-height: 52px; padding: 0 16px; border: 2px solid var(--k-hair); border-radius: var(--k-r-s); background: var(--k-lift); font: 500 17px/1 var(--k-sans); color: var(--k-ink); outline: none; }
-.cd-naming input:focus { border-color: var(--k-app-accent); }
 
 /* ── Drive: the way in from the composer ── */
 .cd-fromdrive { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 8px; text-decoration: none; font-size: 13.5px; font-weight: 500; color: var(--k-ink-soft); }
@@ -929,7 +925,7 @@ details[open] > summary > .chev { transform: rotate(225deg); margin-top: 3px; }
 .cd-chip:hover { background: var(--k-container-high); }
 .cd-chip.is-on { border-color: transparent; background: var(--k-secondary-container); color: var(--k-on-secondary-container); }
 .cd-chip svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-.cd-start .cd-new-pickers, .cd-start .cd-naming { padding: 0 4px; }
+.cd-start .cd-new-pickers { padding: 0 4px; }
 @media (max-width: 720px) { .cd-start { margin-top: 6vh; } .cd-hello { font-size: 28px; } }
 
 /* asking for files: a clean tonal card; its seals and quiet buttons below the words */
@@ -2194,3 +2190,20 @@ form.cd-quiz-other input::placeholder { color: var(--k-faint); }
 h1 .cd-naming { width: 7em; height: .5em; }
 @keyframes cd-naming { from { background-position: 100% 0; } to { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .cd-naming { animation: none; } }
+
+/* The panel beside a project's chat, put away: the chat takes the width. */
+.cd-ws-grid.no-side { grid-template-columns: minmax(0, 1fr); }
+.cd-side-toggle svg.i { transform: scaleX(-1); }
+.cd-side-toggle.is-off { color: var(--k-faint); }
+@media (max-width: 1240px) { .cd-side-toggle { display: none; } }
+
+/* Its offer to make the chat a project: one row, the two answers at its end. */
+.cd-offer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 14px; padding: 14px 16px; border-radius: var(--k-r-m); background: var(--k-container); }
+.cd-offer-words { display: grid; gap: 2px; flex: 1 1 220px; min-width: 0; }
+.cd-offer-words b { font: 600 15px/1.3 var(--k-sans); color: var(--k-on-surface); }
+.cd-offer-words small { font: 500 13px/1.3 var(--k-sans); color: var(--k-on-surface-variant); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-offer-acts { display: flex; gap: 8px; margin-left: auto; }
+.cd-offer .cd-problem { flex-basis: 100%; margin: 0; }
+.cd-host .cd-share-body { display: grid; gap: 12px; overflow: visible; }
+.cd-host .cd-quiet { margin: 0; font-size: 13px; }
+.cd-host { overflow: visible; }

@@ -70,6 +70,12 @@ export type CodeEvent =
   | { kind: "question"; id: string; questions: Question[] }
   /** How the person answered them: what they picked or wrote for each, in order, or that they skipped them. */
   | { kind: "question-answer"; id: string; skipped?: boolean; answers?: QuestionAnswer[] }
+  /** It offered to make the chat a project (kimono-project), so what it builds can be published: the person says yes or no. */
+  | { kind: "project-offer"; id: string; name: string }
+  /** What they said: made (the chat is on this repository now), or not now. */
+  | { kind: "project-answer"; id: string; made: boolean; repo?: string }
+  /** A hosted repository's site took a new commit, or couldn't. */
+  | { kind: "deployed"; commit: string; problem?: string }
   /** A skill it made with the person (kimono-skill): saved as theirs, and in the Marketplace when published; problem when it couldn't be. */
   | { kind: "skill-made"; skill?: string; name: string; command?: string; published: boolean; updated?: boolean; problem?: string }
   /** How the person answered an access request. */

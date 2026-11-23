@@ -18,6 +18,8 @@ export type Workspace = {
   /** The project (a folder of chats) it's in, if any. */
   folder: { id: string; name: string } | null;
   id: string; title: string; repo: { owner: string; name: string }; base: string; branch: string;
+  /** A repository hosted as it is: its site follows the branch. */
+  hosted?: boolean;
   pullRequest: { url: string; number: number } | null;
   preview: { url: string; port: number; kind: string | null; stopped: boolean } | null;
   previewName?: string | null;
@@ -58,6 +60,10 @@ export type CodeEvent =
   | { kind: "done"; ok: boolean; cancelled?: boolean; error?: string; costUsd?: number; durationMs?: number; model?: "fable" | "opus" | "sonnet" | "haiku"; context?: { used: number; window?: number } }
   | { kind: "compacted"; before?: number }
   | { kind: "published"; url: string; number: number }
+  /** It offered to make the chat a project; what the person said; a hosted repository's site took a commit (or couldn't). */
+  | { kind: "project-offer"; id: string; name: string }
+  | { kind: "project-answer"; id: string; made: boolean; repo?: string }
+  | { kind: "deployed"; commit: string; problem?: string }
   | { kind: "image"; name: string; caption?: string }
   | { kind: "preview"; url: string; port: number; app?: string }
   | { kind: "preview-stopped" }
@@ -261,6 +267,11 @@ export const code = {
   files: (id: string, path: string) => call<{ path: string; entries: Entry[] }>(`${ws(id)}/files?path=${encodeURIComponent(path)}`),
   changes: (id: string) => call<Changes>(`${ws(id)}/changes`),
   publish: (id: string, title: string) => call<Workspace>(`${ws(id)}/publish`, json("POST", { title })),
+  /** Makes the chat a project (answering the agent's offer when there is one), or turns the offer down. */
+  intoProject: (id: string, input: { name?: string; offer?: string; decline?: boolean }) => call<Workspace>(`${ws(id)}/project`, json("POST", input)),
+  /** Hosts a Kimono Git repository as it is; its site follows what's pushed to it. */
+  host: (owner: string, name: string) => call<Workspace>("/sites", json("POST", { owner, name })),
+  deploy: (id: string) => call<Workspace>(`${ws(id)}/deploy`, { method: "POST" }),
   createRepository: (name: string) => call<Repository>("/repos", json("POST", { name })),
   repositories: () => call<{ repositories: Repository[] }>("/repos").then((r) => r.repositories),
   branches: (owner: string, name: string) => call<{ branches: string[] }>(`/branches?owner=${encodeURIComponent(owner)}&name=${encodeURIComponent(name)}`).then((r) => r.branches),

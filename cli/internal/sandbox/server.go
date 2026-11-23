@@ -197,6 +197,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/workspaces/{id}/preview/logs", s.workspaceCall(s.handlePreviewLogs))
 	mux.HandleFunc("POST /v1/workspaces/{id}/preview/restart", s.workspaceCall(s.handleRestartPreview))
 	mux.HandleFunc("POST /v1/workspaces/{id}/preview/stop", s.workspaceCall(s.handlePausePreview))
+	mux.HandleFunc("POST /v1/workspaces/{id}/deploy", s.workspaceCall(s.handleDeploy))
 	return s.authorized(mux)
 }
 

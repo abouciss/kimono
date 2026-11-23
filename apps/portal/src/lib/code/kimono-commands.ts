@@ -85,6 +85,7 @@ function one(name: string, w: string[]): Said | undefined {
       return { label: "Looked through your books", doing: "Looking through your books" };
     }
     case "debrid": return { label: "Downloaded to Drive", detail: args[0] && (/^magnet:/i.test(args[0]) ? magnetName(args[0]) : base(args[0])), doing: "Downloading" };
+    case "project": return { label: "Offered to make this a project", detail: args.join(" ") || undefined, doing: "Offering a project" };
     case "access": return { label: "Asked for access to", detail: flag(w, "--space"), doing: "Asking for access" };
     default: return undefined;
   }
