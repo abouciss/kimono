@@ -331,7 +331,7 @@ function Watching({ w, d }: { w: Widget; d: BoardData }) {
       </span>
       {screen === "tv" || screen === "computer" ? <i className="wg-device-foot" /> : null}
     </span></span>
-    {w.size !== "s" ? <span className="wg-words"><small className={`wg-kicker${live ? " wg-on-now" : ""}`}>{live ? <><span className="wg-live-bars" aria-hidden="true"><i /><i /><i /></span>Watching now{on}</> : "Watching"}</small><b>{t.title}</b>
+    {w.size !== "s" ? <span className="wg-words"><small className={`wg-kicker${live ? " wg-on-now" : ""}`}>{live ? <><span className="wg-live-bars" aria-hidden="true"><i /><i /><i /></span>Watching now{on}</> : t.at ? `Last watched ${ago(new Date(t.at).toISOString())}` : "Last watched"}</small><b>{t.title}</b>
       {where ? <em>{where}{episode && of && !marks ? ` of ${of}` : ""}</em> : null}
       {/* Kimono's own ink line for how far into it: flat until it's on, then it runs. */}
       {part ? <span className="wg-progress"><InkWave className="wg-wave" value={part} label="Watched" still={!live} pace={.5} /><small>{Math.round(part * 100)}%</small></span> : null}
