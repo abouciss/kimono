@@ -326,7 +326,7 @@ fun PlayerScreen(
     /* The controls hide after a few seconds of nothing, unless paused or a sheet is open. */
     LaunchedEffect(poke, playing, sheet, scrub) {
         if (poke < 0 || !playing || sheet != null || scrub != null) return@LaunchedEffect
-        delay(3200)
+        delay(if (tv) 5000 else 3200)
         ctl = false
     }
     /* Phone: a sheet or the chat left alone for a few seconds while it plays closes, and the picture is back on its own (not while typing). */
@@ -383,6 +383,8 @@ fun PlayerScreen(
                 }
                 Key.DirectionLeft, Key.DirectionRight -> {
                     /* Hidden controls, or on the play button: tap to seek ten seconds, hold to scrub. */
+                    /* Moving along the buttons counts as someone still there. */
+                    if (tv && ctl && !playFocused && down) show()
                     if (!tv || (ctl && !playFocused) || sheet != null || post != Post.None || state.loading) return@onPreviewKeyEvent false
                     if (ctl) show(hold = down)
                     val right = code == Key.DirectionRight
@@ -807,7 +809,7 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
     val focused by source.collectIsFocusedAsState()
     val shown = scrub ?: position
     val active = scrub != null || focused || lit
-    val thick by animateDpAsState(if (active) 7.dp else 4.dp, tween(150), label = "t")
+    val thick by animateDpAsState(if (tv) (if (active) 8.dp else 6.dp) else if (active) 7.dp else 4.dp, tween(150), label = "t")
     val knob by animateFloatAsState(if (active) 1.25f else 0.85f, tween(150), label = "k")
     val markers = state.answer?.markers
     val thumbs = remember(state.answer?.url) { state.answer?.url?.let { engine.thumbnails(it) } }
@@ -819,7 +821,7 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
     /* Read live in the key handler: several presses can land before the next frame. */
     val live = remember { mutableStateOf<Double?>(null) }
     LaunchedEffect(scrub) { live.value = scrub }
-    Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.weight(1f).height(28.dp).onSizeChanged { width = it.width }
             .then(if (tv) Modifier else Modifier.focusRequester(focus).focusable(interactionSource = source))
             .onPreviewKeyEvent { e ->
@@ -855,21 +857,14 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
                     onCommit()
                 }
             }, contentAlignment = Alignment.CenterStart) {
-            Box(Modifier.fillMaxWidth().height(thick).clip(RoundedCornerShape(2.dp)).background(Color(0x40FFFFFF)).drawBehind {
-                drawRect(Color(0x59FFFFFF), size = size.copy(width = size.width * (buffered / d).toFloat().coerceIn(0f, 1f)))
-                drawRect(Night.suo, size = size.copy(width = size.width * (shown / d).toFloat().coerceIn(0f, 1f)))
-                /* The intro and credits, cut into the track. */
-                fun seg(a: Double, b: Double) {
-                    val x0 = (a / d * size.width).toFloat(); val x1 = (b / d * size.width).toFloat()
-                    drawRect(Color.Black, Offset(x0, 0f), androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
-                    drawRect(Color.Black, Offset(x1 - 2.dp.toPx(), 0f), androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
-                }
-                markers?.intro?.takeIf { it.size == 2 }?.let { seg(it[0], it[1]) }
-                markers?.recap?.takeIf { it.size == 2 }?.let { seg(it[0], it[1]) }
-                markers?.credits?.let { seg(it, d) }
+            /* One rounded track: what's left, what's loaded, what's played. The intro and credits are named while scrubbing, not cut into it. */
+            Box(Modifier.fillMaxWidth().height(thick).clip(CircleShape).background(Color(0x33FFFFFF)).drawBehind {
+                val r = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
+                drawRoundRect(Color(0x4DFFFFFF), size = size.copy(width = size.width * (buffered / d).toFloat().coerceIn(0f, 1f)), cornerRadius = r)
+                drawRoundRect(Night.suo, size = size.copy(width = (size.width * (shown / d).toFloat().coerceIn(0f, 1f)).coerceAtLeast(size.height)), cornerRadius = r)
             })
             val px = with(LocalDensity.current) { (width * (shown / d)).toFloat().toDp() }
-            Box(Modifier.offset(x = px - 8.dp).size(16.dp).graphicsLayerScale(knob).clip(CircleShape).background(Night.suo))
+            Box(Modifier.offset(x = px - 8.dp).size(16.dp).graphicsLayerScale(knob).clip(CircleShape).background(Color.White))
             if (scrub != null) {
                 val half = 96.dp
                 val maxX = with(LocalDensity.current) { width.toDp() }
@@ -889,7 +884,7 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
                 }
             }
         }
-        Text("-" + clock(duration - shown), style = ui(14, color = Night.fg), modifier = Modifier.widthIn(min = 52.dp), textAlign = TextAlign.End)
+        Text("-" + clock(duration - shown), style = ui(if (tv) 16 else 14, FontWeight.Medium, Night.fg), textAlign = TextAlign.End)
     }
 }
 
