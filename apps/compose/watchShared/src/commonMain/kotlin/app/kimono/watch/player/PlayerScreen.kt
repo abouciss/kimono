@@ -593,7 +593,7 @@ fun PlayerScreen(
                 }
             }
             /* Skipping is the whole of it: the controls stay as they were. */
-            SkipButton(s.label, left, { seekTo(s.to) }, Modifier.focusRequester(focus))
+            OfferButton(s.label, Ic.next, left, { seekTo(s.to) }, Modifier.focusRequester(focus))
             LaunchedEffect(Unit) { if (tv && !ctl) runCatching { focus.requestFocus() } }
         }
 
@@ -901,26 +901,26 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
 }
 
 /**
- * Skip intro / Skip recap: it comes up whole in the selected look (white, dark ink), and from its end
- * the unselected look (dark, white ink) takes it back as its time runs out, so it reads as an offer
- * going away, never as a bar filling up to skip on its own.
+ * A button that's partly lit: [lit] of it, from the start, in the selected look (white, dark ink), the
+ * rest in the unselected look (dark, white ink). Skip intro starts whole and drains from its end, an
+ * offer going away; Next episode starts dark and fills, because it really will play on its own.
  */
 @Composable
-private fun SkipButton(label: String, left: Float, onClick: () -> Unit, modifier: Modifier) {
+private fun OfferButton(label: String, icon: ImageVector?, lit: Float, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
     val shape = RoundedCornerShape(10.dp)
     @Composable
     fun Face(bg: Color, ink: Color, m: Modifier) {
         Row(m.height(44.dp).background(bg).padding(start = 14.dp, end = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            I(Ic.next, 20.dp, ink)
+            if (icon != null) I(icon, 20.dp, ink)
             Text(label, style = ui(15, FontWeight.Bold, ink), maxLines = 1)
         }
     }
     Box(modifier.clip(shape).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source)
         .then(if (focused) Modifier.border(2.dp, Night.suo, shape) else Modifier)) {
         Face(Color(0xCC14100E), Color.White, Modifier)
-        Face(Color.White, Night.surface, Modifier.drawWithContent { clipRect(right = size.width * left) { this@drawWithContent.drawContent() } })
+        Face(Color.White, Night.surface, Modifier.drawWithContent { clipRect(right = size.width * lit) { this@drawWithContent.drawContent() } })
     }
 }
 
@@ -1161,8 +1161,9 @@ private fun NextUp(vm: PlayerViewModel, post: Post.Next, buffering: Boolean, ctl
             if (post.skipped > 0) Text("Skipping ${post.skipped} filler episode${if (post.skipped > 1) "s" else ""}", style = ui(13, FontWeight.Bold, Night.fg2))
             /* Which one's next, named as the title page names it. */
             vm.state.value.answer?.next?.let { n -> Text(n.label ?: vm.state.value.page?.label(n.season, n.episode) ?: "", style = ui(14, FontWeight.Bold, Night.fg2)) }
-            PaperButton("Watch credits", null, { party?.watchCredits(); vm.watchCredits() }, tonal = true, height = 52.dp)
-            PaperButton("Next episode", Ic.next, { val to = countdown?.to; if (party != null && to != null) party.episode(to.season, to.episode) else if (party != null) party.next() else vm.playNext() }, Modifier.focusRequester(focus), height = 52.dp, fill = fill.value)
+            OfferButton("Watch credits", null, 0f, { party?.watchCredits(); vm.watchCredits() })
+            /* Fills toward the selected look as it counts down: it will play on its own. */
+            OfferButton("Next episode", Ic.next, fill.value, { val to = countdown?.to; if (party != null && to != null) party.episode(to.season, to.episode) else if (party != null) party.next() else vm.playNext() }, Modifier.focusRequester(focus))
         }
     }
     LaunchedEffect(Unit) { delay(400); runCatching { focus.requestFocus() } }
