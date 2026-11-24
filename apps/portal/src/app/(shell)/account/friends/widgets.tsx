@@ -217,7 +217,7 @@ function WidgetView({ w, d, onEditLinks }: { w: Widget; d: BoardData; onEditLink
     case "listening": return <Turntable w={w} d={d} />;
     case "song": case "album": return <Favourite w={w} />;
     case "reading": return <Reading w={w} d={d} />;
-    case "watching": return <Watching d={d} />;
+    case "watching": return <Watching w={w} d={d} />;
     case "artists": return <Artists w={w} d={d} />;
     case "stats": return <Stats w={w} d={d} />;
     case "note": return <Note w={w} />;
@@ -301,34 +301,24 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
-/** What's on: a cinema's marquee. The title in loose letters on the lit board (a few hang crooked), the episode in red, the poster in its case, and bulbs lit as far as they've watched. */
-function Watching({ d }: { d: BoardData }) {
+/** What's on: its case with the poster on the front, leaning toward the pointer; the title, the episode and how far beside it, as Reading does. */
+function Watching({ w, d }: { w: Widget; d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
-  if (!t) return <div className="wg-card wg-mq is-empty"><Empty icon="film" text="Nothing on right now" /></div>;
-  const pct = t.progress ? Math.round(t.progress * 100) : 0;
-  const bulbs = 14;
-  /* Nothing to measure (a film just put on): every bulb runs. */
-  const lit = pct ? Math.max(1, Math.round((pct / 100) * bulbs)) : bulbs;
-  const fs = t.title.length <= 12 ? 30 : t.title.length <= 20 ? 24 : t.title.length <= 36 ? 19 : 15;
-  let n = 0;
-  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-mq" title={t.title}>
-    {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
-    <span className="wg-mq-case" aria-hidden="true">{t.cover ? <img src={t.cover} alt="" /> : <LineIcon name="film" />}</span>
-    <span className="wg-mq-sign">
-      <small className="wg-mq-now">Now showing</small>
-      <span className="wg-mq-board">
-        <b className="wg-mq-title" aria-label={t.title} style={{ "--fs": `${fs}px` } as React.CSSProperties}>{t.title.split(/\s+/).filter(Boolean).map((word, i) => <span key={i} aria-hidden="true">{[...word].map((c, j) => {
-          /* About one letter in seven was put up in a hurry. */
-          const k = (c.charCodeAt(0) * 7 + n++ * 13) % 7;
-          return <i key={j} style={k ? undefined : { "--r": `${n % 2 ? 2.4 : -2.8}deg`, "--y": `${n % 3 ? 1 : -1}px` } as React.CSSProperties}>{c}</i>;
-        })}</span>)}</b>
-        {t.subtitle ? <span className="wg-mq-ep">{t.subtitle.replace(/\s*:\s*/g, " · ")}</span> : null}
-      </span>
-      <span className="wg-mq-bulbs" role="img" aria-label={pct ? `${pct}% watched` : "Watching"}>
-        <span>{Array.from({ length: bulbs }, (_, i) => <i key={i} className={i < lit ? "is-on" : undefined} style={{ "--i": i } as React.CSSProperties} />)}</span>
-        {pct ? <small>{pct}%</small> : null}
-      </span>
-    </span>
+  if (!t) return <div className="wg-card"><Empty icon="film" text="Nothing on right now" /></div>;
+  const tilt = (e: React.PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - .5) * -14}deg`);
+    e.currentTarget.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - .5) * 26}deg`);
+  };
+  const rest = (e: React.PointerEvent<HTMLElement>) => { e.currentTarget.style.removeProperty("--rx"); e.currentTarget.style.removeProperty("--ry"); };
+  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-watch" title={t.title} onPointerMove={tilt} onPointerLeave={rest}>
+    <span className="wg-case-wrap" aria-hidden="true"><span className="wg-case">
+      <span className="wg-case-spine" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
+      <span className="wg-case-front">{t.cover ? <img src={t.cover} alt="" /> : <LineIcon name="film" />}</span>
+    </span></span>
+    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Watching</small><b>{t.title}</b>{t.subtitle ? <em>{t.subtitle.replace(/\s*:\s*/g, " · ")}</em> : null}
+      {t.progress ? <span className="wg-progress"><InkMeter className="wg-wave" value={t.progress} label="Watched" /><small>{Math.round(t.progress * 100)}%</small></span> : null}</span> : null}
   </Crossing>;
 }
 
@@ -704,7 +694,7 @@ function previewData(d: BoardData): BoardData {
   const read = titles.map(([title, author], i) => ({ key: `demo:${i}`, title, author, cover: null, rating: i % 3 === 0 ? "love" as const : null, at: now - i * 86400_000 * 9 }));
   const posters = d.sections.flatMap((s) => (s.app === "watch" ? s.items : [])).filter((i) => i.cover);
   const watched = d.sections.some((s) => s.app === "watch" && s.kind === "watched" && s.items.length) ? [] : [{ app: "watch", kind: "watched", title: "Watched", items: posters.length ? Array.from({ length: 4 }, (_, i) => ({ ...posters[i % posters.length], itemId: `demo${i}` })) : [] }];
-  /* The marquee needs something on it to be seen. */
+  /* Something on, so the case is seen. */
   const watching = d.sections.some((s) => s.app === "watch" && s.kind === "watching" && s.items.length) ? [] : [{ app: "watch", kind: "watching", title: "Watching", items: [{ ...(posters[0] ?? {}), itemId: "demo-on", title: posters[0]?.title ?? "Your show", subtitle: "S1:E3", cover: posters[0]?.cover ?? null, progress: .4 }] }];
   return {
     ...d,

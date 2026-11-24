@@ -508,44 +508,17 @@ a.wg-fav:hover .wg-fav-art { transform: rotate(-2deg) translateY(-2px); }
 
 @media (prefers-reduced-motion: reduce) { .wg-fav-wash { animation: none; } }
 
-/* ── Watching: the marquee over a cinema's doors at night. The title in loose black letters on the lit board (a few hang crooked), the episode in red under it, the poster in its case, and a row of bulbs lit as far as they've watched. ── */
-.wg-mq { --mq-letters: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", var(--k-sans); align-items: stretch; gap: 14px; padding: 12px 14px 12px 12px; background: #2a1417; color: #f4ead6; text-align: left; }
-a.wg-mq:hover { background: #2a1417; }
-.wg-mq.is-empty { align-items: center; background: var(--k-container-low); color: var(--k-on-surface-variant); }
-.wg-mq-case { position: relative; flex: none; display: grid; place-items: center; height: 100%; aspect-ratio: 2 / 3; overflow: hidden; border: 3px solid #0d0908; border-radius: 3px; background: #2a221d; color: rgba(255, 255, 255, .5); box-shadow: 0 0 0 1.5px #b98f4a; }
-.wg-mq-case img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; transition: transform 1.2s var(--k-ease-settle); }
-a.wg-mq:hover .wg-mq-case img { transform: scale(1.05); }
-.wg-mq-case .line-icon { width: 28px; height: 28px; }
-.wg-mq-sign { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
-.wg-mq-now { display: flex; align-items: center; gap: 8px; font: 800 11px/14px var(--k-sans); letter-spacing: .22em; text-transform: uppercase; color: #ff7a66; animation: wg-mq-neon 7s infinite; }
-.wg-mq-now::before, .wg-mq-now::after { content: "★"; font-size: 9px; letter-spacing: 0; }
-@keyframes wg-mq-neon { 0%, 91%, 94%, 100% { opacity: 1; } 92.5% { opacity: .4; } }
-/* The lit board: cream, with the rails the letters hang on. */
-.wg-mq-board { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: center; gap: 3px; min-height: 0; padding: 6px 10px; overflow: hidden; border-radius: 4px; background: #f4ead6 repeating-linear-gradient(0deg, transparent 0 8px, rgba(43, 29, 23, .09) 8px 9px); box-shadow: inset 0 0 0 2px #0d0908, 0 0 22px -4px rgba(255, 214, 150, .4); }
-.wg-mq-title { display: flex; flex-wrap: wrap; justify-content: center; column-gap: .42em; min-height: 0; overflow: hidden; font: 800 calc(var(--fs, 24px) * var(--mq, 1))/1.08 var(--mq-letters); text-transform: uppercase; color: #1c1412; }
-.wg-mq-title span { display: inline-flex; }
-.wg-mq-title i { min-width: .56em; padding: 0 .03em; font-style: normal; text-align: center; transform: rotate(var(--r, 0deg)) translateY(var(--y, 0)); transition: transform .5s var(--k-spring); }
-/* Looked at, someone straightens the letters. */
-a.wg-mq:hover .wg-mq-title i { transform: none; }
-.wg-mq-ep { flex: none; font: 800 13px/16px var(--mq-letters); letter-spacing: .2em; text-transform: uppercase; color: #c2382c; }
-.wg-mq-bulbs { display: flex; align-items: center; gap: 10px; height: 12px; }
-.wg-mq-bulbs span { display: flex; flex: 1; justify-content: space-between; padding: 0 3px; }
-.wg-mq-bulbs i { width: 7px; height: 7px; border-radius: 50%; background: #4a3a33; }
-.wg-mq-bulbs i.is-on { background: #ffd98a; box-shadow: 0 0 6px 1px rgba(255, 205, 120, .6); animation: wg-mq-chase 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.12s); }
-a.wg-mq:hover .wg-mq-bulbs i.is-on { animation-duration: .7s; }
-@keyframes wg-mq-chase { 50% { opacity: .45; } }
-.wg-mq-bulbs small { font: 700 11.5px/1 var(--k-sans); color: rgba(244, 234, 214, .75); font-variant-numeric: tabular-nums; }
-/* Large: the same, taller, so the whole poster shows in its case and the board has room for a long title. */
-.wg-l .wg-mq { --mq: 1.35; flex-direction: row; gap: 16px; padding: 14px 16px 14px 14px; text-align: left; }
-.wg-l .wg-mq-sign { gap: 8px; }
-.wg-l .wg-mq-ep { font-size: 15px; line-height: 20px; }
-/* Small: the poster case, and one line of the board under it. */
-.wg-s .wg-mq { flex-direction: column; justify-content: flex-start; gap: 7px; padding: 10px; text-align: left; }
-.wg-s .wg-mq-case { width: 100%; height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
-.wg-s .wg-mq-sign { flex: none; gap: 5px; }
-.wg-s .wg-mq-now, .wg-s .wg-mq-bulbs small, .wg-s .wg-mq-ep { display: none; }
-.wg-s .wg-mq-board { flex: none; padding: 4px 6px; align-items: stretch; }
-.wg-s .wg-mq-title { flex-wrap: nowrap; justify-content: flex-start; font-size: 13px; }
-.wg-s .wg-mq-bulbs { height: 8px; }
-.wg-s .wg-mq-bulbs i { width: 5px; height: 5px; }
-@media (prefers-reduced-motion: reduce) { .wg-mq-now, .wg-mq-bulbs i.is-on { animation: none; } }
+/* ── Watching: the film's case, as it would sit on a shelf beside the book and the record. Its poster on the front, a spine with some depth, and it leans toward your pointer; what it is and how far are said plainly beside it, as Reading does. ── */
+.wg-watch { gap: 22px; overflow: visible; }
+.wg-case-wrap { flex: none; padding: 0 8px; perspective: 700px; }
+.wg-case { --w: 86px; --d: calc(var(--w) * .13); position: relative; display: block; width: var(--w); aspect-ratio: 2 / 3; transform-style: preserve-3d; transform: translateY(var(--lift, 0px)) rotateX(var(--rx, 0deg)) rotateY(calc(24deg + var(--ry, 0deg))); transition: transform .5s var(--k-spring); }
+a.wg-watch:hover .wg-case { --lift: -4px; }
+.wg-case-front { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; border-radius: 2px 4px 4px 2px; background: #2a221d; color: rgba(255, 255, 255, .5); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), 0 16px 26px -14px rgba(0, 0, 0, .7); }
+.wg-case-front img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The hinge a case has down its left edge. */
+.wg-case-front::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5%; background: rgba(0, 0, 0, .22); box-shadow: 1px 0 0 rgba(255, 255, 255, .14); }
+.wg-case-front .line-icon { width: 28px; height: 28px; }
+.wg-case-spine { position: absolute; left: 0; top: 0; width: var(--d); height: 100%; border-radius: 2px 0 0 2px; background: #171311; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); transform-origin: left center; transform: rotateY(90deg); }
+.wg-l .wg-case { --w: 118px; }
+.wg-l .wg-watch .wg-progress { width: 170px; }
+.wg-s .wg-case { --w: 72px; }
