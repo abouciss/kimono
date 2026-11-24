@@ -192,6 +192,8 @@ fun SettingsScreen(session: Session, platform: Platform, me: AccountProfile?, op
                 GroupLabel("Kimono")
                 KimonoGroup(listOf(GroupItem("Manage apps", icon = "apps") { open("manage") }))
             }
+            GroupLabel("Opening")
+            OpenOnHomeRow(platform)
             GroupLabel("Appearance")
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 lookPages.forEach { (key, page) ->
@@ -338,6 +340,30 @@ private fun NotificationsRow(platform: Platform) {
         supportingContent = { Text("When an update is ready") },
         trailingContent = { on?.let { now -> androidx.compose.material3.Switch(now, { set(it) }) } },
     ) { Text("Notifications", style = MaterialTheme.typography.bodyLarge) }
+}
+
+/** Open on Home: after Kimono has been closed, it starts on Home rather than where you were. Kept on this phone. */
+@Composable
+private fun OpenOnHomeRow(platform: Platform) {
+    val scope = rememberCoroutineScope()
+    var on by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(Unit) { on = platform.readKept(app.kimono.OpenOnHome.KEY) != "off" }
+    SegmentedListItem(
+        onClick = {},
+        shapes = ListItemDefaults.segmentedShapes(0, 1),
+        colors = segmentColors(),
+        modifier = Modifier.padding(horizontal = 16.dp),
+        leadingContent = { InkBlot("open-on-home") { Icon(kimonoIcon("home"), null, tint = Kata.plum, modifier = Modifier.size(20.dp)) } },
+        supportingContent = { Text("After Kimono has been closed, start on Home rather than where you were") },
+        trailingContent = {
+            on?.let { now ->
+                androidx.compose.material3.Switch(now, { next ->
+                    on = next
+                    scope.launch { platform.keep(app.kimono.OpenOnHome.KEY, if (next) "on" else "off") }
+                })
+            }
+        },
+    ) { Text("Open on Home", style = MaterialTheme.typography.bodyLarge) }
 }
 
 @Composable
