@@ -508,20 +508,29 @@ a.wg-fav:hover .wg-fav-art { transform: rotate(-2deg) translateY(-2px); }
 .wg-device { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; transform: translateY(var(--lift, 0px)) rotateX(var(--rx, 2deg)) rotateY(var(--ry, 12deg)); transition: transform .5s var(--k-spring); }
 a.wg-watch:hover .wg-device { --lift: -3px; }
 .wg-screen { --bezel: 3px; position: relative; display: grid; place-items: center; flex: 1 1 0; width: 100%; min-height: 0; overflow: hidden; border-radius: 8px; background: #0b0908; color: rgba(255, 255, 255, .5); box-shadow: 0 0 0 var(--bezel) #0b0908, 0 0 0 calc(var(--bezel) + 1px) color-mix(in srgb, var(--k-on-surface) 16%, transparent), 0 18px 26px -14px rgba(0, 0, 0, .7); }
-/* What it stands on: a TV's neck and foot, a laptop's deck. */
-.wg-device-foot { --metal: color-mix(in srgb, var(--k-on-surface) 26%, #0b0908); position: relative; flex: none; background: var(--metal); }
-.is-tv .wg-screen { --bezel: 2px; border-radius: 4px; }
-.is-tv .wg-device-foot { width: 36%; height: 3px; margin-top: 10px; border-radius: 2px; }
-.is-tv .wg-device-foot::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 14%; height: 8px; translate: -50% 0; background: var(--metal); }
-.is-computer .wg-screen { border-radius: 6px 6px 2px 2px; }
-.is-computer .wg-device-foot { width: 114%; height: 7px; margin-top: 4px; border-radius: 2px 2px 9px 9px; }
-.is-computer .wg-device-foot::before { content: ""; position: absolute; left: 50%; top: 0; width: 16%; height: 2.5px; translate: -50% 0; border-radius: 0 0 3px 3px; background: #0b0908; opacity: .55; }
-.wg-screen-wrap.is-computer { margin-left: 12px; margin-right: 6px; }
-/* A phone, held sideways: a deeper bezel, rounder corners, the camera on its short edge. */
-.wg-screen-wrap.is-phone { height: 62%; aspect-ratio: 19.5 / 9; }
-.is-phone .wg-screen { --bezel: 5px; border-radius: 13px; }
-.is-phone .wg-screen::after { content: ""; position: absolute; left: 3.5%; top: 50%; width: 6px; height: 6px; translate: 0 -50%; border-radius: 50%; background: #0b0908; }
-.is-phone .wg-screen-bar { left: 11%; }
+/* What it stands on: a TV's neck and foot, a laptop's keyboard. Each is drawn so it can't be taken for another. */
+.wg-device-foot { --metal: color-mix(in srgb, var(--k-on-surface) 34%, #0b0908); position: relative; flex: none; background: var(--metal); }
+/* A TV: wide, a hair of bezel, square corners, a standby light, and a proper pedestal. */
+.wg-screen-wrap.is-tv { aspect-ratio: 16 / 10.4; }
+.is-tv .wg-screen { --bezel: 2px; border-radius: 3px; }
+.is-tv .wg-screen::after { content: ""; position: absolute; right: 4%; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #ff5a4f; }
+.is-tv .wg-device-foot { width: 46%; height: 5px; margin-top: 13px; border-radius: 3px 3px 1px 1px; }
+.is-tv .wg-device-foot::before { content: ""; position: absolute; left: 50%; bottom: 100%; width: 18%; height: 11px; translate: -50% 0; background: var(--metal); clip-path: polygon(22% 0, 78% 0, 100% 100%, 0 100%); }
+/* A laptop: the lid, and the keyboard deck coming toward you with its keys and trackpad. */
+.wg-screen-wrap.is-computer { aspect-ratio: 16 / 11.4; margin-left: 14px; margin-right: 8px; }
+.is-computer .wg-screen { border-radius: 7px 7px 0 0; }
+.is-computer .wg-device-foot { width: 124%; height: 24%; margin-top: 4px; border-radius: 0 0 8px 8px; clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
+  background: var(--metal) repeating-linear-gradient(90deg, transparent 0 5.2%, rgba(11, 9, 8, .5) 5.2% 6%) 50% 14% / 74% 46% no-repeat; }
+.is-computer .wg-device-foot::before { content: ""; position: absolute; left: 50%; bottom: 10%; width: 22%; height: 30%; translate: -50% 0; border-radius: 2px; background: rgba(11, 9, 8, .38); }
+.is-computer .wg-device-foot::after { content: ""; position: absolute; left: 13%; right: 13%; top: 14%; height: 46%; background: repeating-linear-gradient(0deg, transparent 0 28%, var(--metal) 28% 36%); }
+/* A phone, held sideways in a hand: small, fat round corners, the island, its buttons along the top edge. */
+.wg-screen-wrap.is-phone { height: 58%; aspect-ratio: 19.5 / 9; margin-left: 10px; }
+.is-phone .wg-device { rotate: -5deg; }
+.is-phone .wg-screen { --bezel: 6px; border-radius: 15px; overflow: visible; }
+.is-phone .wg-screen img { border-radius: 15px; }
+.is-phone .wg-screen::after { content: ""; position: absolute; left: 3%; top: 50%; width: 6px; height: 26%; translate: 0 -50%; border-radius: 4px; background: #0b0908; }
+.is-phone .wg-screen::before { content: ""; position: absolute; left: 20%; top: -9px; width: 26%; height: 3px; border-radius: 2px 2px 0 0; background: linear-gradient(90deg, var(--btn) 0 34%, transparent 34% 46%, var(--btn) 46%); --btn: color-mix(in srgb, var(--k-on-surface) 34%, #0b0908); }
+.is-phone .wg-screen-bar { left: 12%; }
 .wg-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 /* No still to show: the poster, from where its faces usually are. */
 .wg-screen.is-poster img { object-position: center 28%; }
@@ -535,12 +544,13 @@ a.wg-watch:hover .wg-device { --lift: -3px; }
 .wg-eps i.is-now::after { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--part, 0) * 100%); background: var(--fr-color, var(--k-suo)); }
 .wg-s .wg-watch { padding: 14px; }
 .wg-s .wg-screen-wrap { width: 100%; height: auto; max-width: none; margin: 0; }
-.wg-s .wg-screen-wrap.is-computer { width: 86%; }
-.wg-s .wg-screen-wrap.is-phone { height: auto; }
+.wg-s .wg-screen-wrap.is-computer { width: 78%; margin: 0; }
+.wg-s .wg-screen-wrap.is-phone { width: 92%; height: auto; margin: 0; }
+.wg-s .wg-screen-wrap.is-tv { width: 94%; }
 .wg-l .wg-watch { align-items: flex-start; justify-content: flex-end; gap: 16px; padding: 18px; text-align: left; }
 .wg-l .wg-screen-wrap { flex: 1 1 0; min-height: 0; width: auto; height: auto; max-width: 100%; margin: 4px 0 0 4px; }
-.wg-l .wg-screen-wrap.is-computer { margin-left: 26px; max-width: 80%; }
-.wg-l .wg-screen-wrap.is-phone { flex: none; width: 82%; height: auto; margin: auto 0 auto 6px; }
+.wg-l .wg-screen-wrap.is-computer { margin-left: 34px; max-width: 74%; }
+.wg-l .wg-screen-wrap.is-phone { flex: none; width: 80%; height: auto; margin: auto 0 auto 12px; }
 .wg-l .wg-watch .wg-words { justify-items: start; width: 100%; }
 .wg-l .wg-eps { max-width: 300px; }
 .wg-l .wg-eps i { max-width: 20px; height: 6px; }

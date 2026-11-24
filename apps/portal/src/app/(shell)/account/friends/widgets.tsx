@@ -329,7 +329,7 @@ function Watching({ w, d }: { w: Widget; d: BoardData }) {
       </span>
       {screen === "tv" || screen === "computer" ? <i className="wg-device-foot" /> : null}
     </span></span>
-    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Watching</small><b>{t.title}</b>
+    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{screen === "tv" ? "Watching on the TV" : screen === "computer" ? "Watching on a computer" : screen === "phone" ? "Watching on a phone" : "Watching"}</small><b>{t.title}</b>
       {where ? <em>{where}{episode && of && !marks ? ` of ${of}` : ""}</em> : part ? <em>{Math.round(part * 100)}% in</em> : null}
       {marks ? <span className="wg-eps" role="img" aria-label={`Episode ${episode} of ${of}`}>{Array.from({ length: marks }, (_, i) => <i key={i} className={i + 1 < episode! ? "is-done" : i + 1 === episode ? "is-now" : undefined} style={i + 1 === episode ? { "--part": part } as React.CSSProperties : undefined} />)}</span> : null}
     </span> : null}
