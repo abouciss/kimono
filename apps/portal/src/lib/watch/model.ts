@@ -157,6 +157,7 @@ export function migrate(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS show_layout (username TEXT NOT NULL, title_id TEXT NOT NULL, episodes TEXT NOT NULL, PRIMARY KEY (username, title_id));
     CREATE TABLE IF NOT EXISTS tracks (username TEXT NOT NULL, title_id TEXT NOT NULL, audio TEXT NOT NULL, subtitles TEXT NOT NULL, PRIMARY KEY (username, title_id));
     CREATE TABLE IF NOT EXISTS device_prefs (username TEXT NOT NULL, device_id TEXT NOT NULL, quality TEXT NOT NULL, PRIMARY KEY (username, device_id));
+    CREATE TABLE IF NOT EXISTS played_on (username TEXT NOT NULL, title_id TEXT NOT NULL, screen TEXT NOT NULL, PRIMARY KEY (username, title_id));
   `);
   /* When each rating was made, so friends see what was liked lately first (older ones have none). */
   if (!(db.prepare("PRAGMA table_info(ratings)").all() as { name: string }[]).some((c) => c.name === "rated_at")) db.exec("ALTER TABLE ratings ADD COLUMN rated_at INTEGER");
@@ -300,6 +301,29 @@ export function saveProgress(db: DatabaseSync, username: string, p: Omit<Progres
   db.prepare(`INSERT INTO progress (username, title_id, season, episode, position, duration, updated_at) VALUES (?,?,?,?,?,?,?)
     ON CONFLICT(username, title_id, season, episode) DO UPDATE SET position=excluded.position, duration=excluded.duration, updated_at=excluded.updated_at`)
     .run(username, p.titleId, p.season, p.episode, Math.min(p.position, p.duration), p.duration, now);
+}
+
+/** The kind of screen something was last put on: a profile draws what's on as that. */
+export type ScreenKind = "phone" | "computer" | "tv";
+/**
+ * From what the player says it is, and for a browser its own name for itself: the phone and TV apps are what they are;
+ * a browser is a TV's, a phone's, or a computer's. A tablet is none of them, and is left out.
+ */
+export function screenKind(client: unknown, userAgent: string): ScreenKind | null {
+  if (client === "android-tv") return "tv";
+  if (client === "android" || client === "ios") return /iPad|Tablet/i.test(userAgent) ? null : "phone";
+  if (/SmartTV|Smart-TV|Tizen|Web0S|webOS|AppleTV|GoogleTV|Android TV|BRAVIA|CrKey|AFT[A-Z]/i.test(userAgent)) return "tv";
+  if (/iPad|Tablet|Android(?!.*Mobile)/i.test(userAgent)) return null;
+  if (/Mobi|iPhone|Android/i.test(userAgent)) return "phone";
+  return userAgent ? "computer" : null;
+}
+export function notePlayedOn(db: DatabaseSync, username: string, titleId: string, screen: ScreenKind | null) {
+  if (!screen) db.prepare("DELETE FROM played_on WHERE lower(username) = ? AND title_id = ?").run(username.toLowerCase(), titleId);
+  else db.prepare("INSERT INTO played_on (username, title_id, screen) VALUES (?,?,?) ON CONFLICT(username, title_id) DO UPDATE SET screen=excluded.screen").run(username.toLowerCase(), titleId, screen);
+}
+export function playedOn(db: DatabaseSync, username: string, titleId: string): ScreenKind | null {
+  const row = db.prepare("SELECT screen FROM played_on WHERE lower(username) = ? AND title_id = ?").get(username.toLowerCase(), titleId) as { screen: string } | undefined;
+  return row && (row.screen === "phone" || row.screen === "computer" || row.screen === "tv") ? row.screen : null;
 }
 
 /** Forgets where someone got to in a title, every episode of it: it leaves Continue watching and what friends see, and starts from the beginning. */

@@ -9,6 +9,7 @@ import { changeFriend as changeKimonoFriend, findPeople as findKimonoPeople, fri
 import type { Rating } from "../friends/model";
 import { FriendsProblem, type LinkState } from "../friends/model";
 import { aired } from "./labels";
+import { playedOn } from "./model";
 import { inviteTo, labelsFor, partyWith, people, type Person } from "./together-live";
 import { watchConfig } from "./config";
 import { getPlatformSettings } from "../settings";
@@ -273,10 +274,10 @@ export async function watchSections(viewer: string, username: string, origin: st
   const hidden = hiddenOf(db, u);
   const item = (t: Title) => ({ app: "watch", itemId: t.id, title: t.name, subtitle: t.year ? String(t.year) : null, cover: cardOf(t, origin).poster, href: `/watch?t=${encodeURIComponent(t.id)}` });
   /* `at`: when each was rated or listed. */
-  type Spot = { part: number; episode?: number; of?: number };
+  type Spot = { part: number; episode?: number; of?: number; screen?: "phone" | "computer" | "tv" };
   type Extra = { at?: number | null; rating?: Rating | null; progress?: number | null; subtitle?: string | null; spot?: Spot | null };
   const row = (kind: string, title: string, ids: string[], extra: (id: string) => Extra = () => ({})): Section =>
-    ({ app: "watch", appName: "Watch", kind, title, items: getTitles(db, ids.filter((id) => !hidden.has(id)).slice(0, 24)).map((t) => { const x = extra(t.id); return { ...item(t), at: x.at ?? null, rating: x.rating ?? null, progress: x.progress ?? null, subtitle: x.subtitle ?? item(t).subtitle, ...(x.spot ? { wide: cardOf(t, origin).backdrop, spot: x.spot } : {}) }; }) });
+    ({ app: "watch", appName: "Watch", kind, title, items: getTitles(db, ids.filter((id) => !hidden.has(id)).slice(0, 24)).map((t) => { const x = extra(t.id); return { ...item(t), at: x.at ?? null, rating: x.rating ?? null, progress: x.progress ?? null, subtitle: x.subtitle ?? item(t).subtitle, ...(x.spot ? { wide: cardOf(t, origin).backdrop, spot: { ...x.spot, ...(playedOn(db, u, t.id) ? { screen: playedOn(db, u, t.id)! } : {}) } } : {}) }; }) });
   const rows: Section[] = [];
   /* Going invisible on Kimono is the profile's to apply (lib/friends profileFor), so their own profile still shows it all.
      Watching: a film part-way, or a series with aired episodes still to go, with how far (a series counts its episodes).

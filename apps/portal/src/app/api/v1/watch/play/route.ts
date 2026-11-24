@@ -1,5 +1,6 @@
 import { apiJson, apiUser, crossSite, readJson, unauthorized } from "@/lib/api-v1";
-import { play, portalOrigin, watch } from "@/lib/watch";
+import { play, portalOrigin, watch, watchDb } from "@/lib/watch";
+import { notePlayedOn, screenKind } from "@/lib/watch/model";
 
 /**
  * Starts playback: `{ titleId, season?, episode?, version?, device }`, device
@@ -13,5 +14,12 @@ export async function POST(request: Request) {
   if (!user) return unauthorized();
   const read = await readJson(request);
   if ("response" in read) return read.response;
-  return watch(async (cfg) => apiJson(await play(cfg, user.username, portalOrigin(request), (read.body ?? {}) as Record<string, unknown>)));
+  const body = (read.body ?? {}) as Record<string, unknown>;
+  return watch(async (cfg) => {
+    const playing = await play(cfg, user.username, portalOrigin(request), body);
+    /* The kind of screen it went on, for their profile: cast from here, it's on the TV. */
+    const client = (body.device as { client?: unknown } | null | undefined)?.client;
+    notePlayedOn(watchDb(), user.username, String(body.titleId ?? ""), body.cast ? "tv" : screenKind(client, request.headers.get("user-agent") ?? ""));
+    return apiJson(playing);
+  });
 }

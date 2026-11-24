@@ -25,7 +25,7 @@ export type WidgetSize = "s" | "m" | "l" | "xl";
 export type Widget = { id: string; kind: WidgetKind; size: WidgetSize; config?: Record<string, string> };
 
 type Person = { username: string; name: string; picture: string | null };
-type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; at?: number | null; wide?: string | null; spot?: { part: number; episode?: number; of?: number } | null };
+type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; at?: number | null; wide?: string | null; spot?: { part: number; episode?: number; of?: number; screen?: "phone" | "computer" | "tv" } | null };
 type Section = { app: string; kind: string; title: string; items: Item[] };
 type Track = { key: string; title: string; artists: { key: string; name: string }[]; album: { key: string; title: string; cover: string | null } | null };
 export type MusicExtras = { listening: { track: Track; at: string; live: boolean } | null; plays: number; minutes: number; artists: { key: string; name: string; picture: string | null; plays?: number }[]; counts?: Record<string, number>; onRepeat?: { track: Track; plays: number } | null } | null;
@@ -300,7 +300,7 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
-/** What's on: the screen it's on, stopped where they are with the player's own scrubber; beside it the title, the episode, and the season as a mark an episode. */
+/** What's on: the screen it's on (a phone, a laptop or a TV, whichever they put it on), stopped where they are with the player's own scrubber; beside it the title, the episode, and the season as a mark an episode. */
 function Watching({ w, d }: { w: Widget; d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
   if (!t) return <div className="wg-card"><Empty icon="film" text="Nothing on right now" /></div>;
@@ -316,14 +316,18 @@ function Watching({ w, d }: { w: Widget; d: BoardData }) {
   /* Watch labels a one-season show "E7". */
   const e = /^E(\d+)$/.exec(t.subtitle ?? "");
   const where = se ? `Season ${se[1]} · Episode ${se[2]}` : e ? `Episode ${e[1]}` : t.subtitle?.replace(/\s*:\s*/g, " · ");
-  const { episode, of } = t.spot ?? {};
+  const { episode, of, screen } = t.spot ?? {};
   /* A season short enough to count is drawn; a long one is said. */
   const marks = episode && of && of <= 26 ? of : 0;
   return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-watch" title={t.title} onPointerMove={tilt} onPointerLeave={rest}>
-    <span className="wg-screen-wrap" aria-hidden="true"><span className={`wg-screen${t.wide ? "" : " is-poster"}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- the still from Watch */}
-      {t.wide || t.cover ? <img src={(t.wide || t.cover)!} alt="" /> : <LineIcon name="film" />}
-      {part ? <span className="wg-screen-bar"><i style={{ width: `${Math.round(part * 100)}%` }} /></span> : null}
+    {/* Drawn as what it was put on: a phone held sideways, a laptop, a TV on its foot; a plain screen when that isn't known. */}
+    <span className={`wg-screen-wrap${screen ? ` is-${screen}` : ""}`} aria-hidden="true"><span className="wg-device">
+      <span className={`wg-screen${t.wide ? "" : " is-poster"}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- the still from Watch */}
+        {t.wide || t.cover ? <img src={(t.wide || t.cover)!} alt="" /> : <LineIcon name="film" />}
+        {part ? <span className="wg-screen-bar"><i style={{ width: `${Math.round(part * 100)}%` }} /></span> : null}
+      </span>
+      {screen === "tv" || screen === "computer" ? <i className="wg-device-foot" /> : null}
     </span></span>
     {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Watching</small><b>{t.title}</b>
       {where ? <em>{where}{episode && of && !marks ? ` of ${of}` : ""}</em> : part ? <em>{Math.round(part * 100)}% in</em> : null}
