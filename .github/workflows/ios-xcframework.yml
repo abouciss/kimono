@@ -35,7 +35,9 @@ jobs:
       - name: Build Shared.xcframework
         working-directory: apps/compose
         run: |
-          ./gradlew :shared:assembleSharedReleaseXCFramework
+          # Both release links run in the Gradle daemon; side by side they overran its 4 GB heap
+          # (gradle.properties). One at a time, with most of the runner's 14 GB, they fit.
+          ./gradlew --max-workers=1 -Dorg.gradle.jvmargs="-Xmx10g -Dfile.encoding=UTF-8" :shared:assembleSharedReleaseXCFramework
           cd shared/build/XCFrameworks/release
           # Symlinks inside the framework survive only as a zip (-y), not as loose artifact files.
           zip -qry "$RUNNER_TEMP/Shared.xcframework.zip" Shared.xcframework
