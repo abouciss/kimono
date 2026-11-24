@@ -525,17 +525,17 @@ fun PlayerScreen(
         }
         if (!state.loading && chrome > 0.01f) {
             /* Bottom: the scrubber, then the buttons. */
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().alpha(chrome).padding(start = if (tv) 48.dp else 20.dp, end = if (tv) 48.dp else 20.dp, bottom = if (tv) 32.dp else 14.dp), verticalArrangement = Arrangement.spacedBy(if (tv) 14.dp else 4.dp)) {
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().alpha(chrome).padding(start = if (tv) 48.dp else 20.dp, end = if (tv) 48.dp else 20.dp, bottom = if (tv) 32.dp else 14.dp), verticalArrangement = Arrangement.spacedBy(if (tv) 6.dp else 4.dp)) {
                 LaunchedEffect(focusScrub) { if (focusScrub > 0) { delay(30); runCatching { (if (tv) playFocus else scrubFocus).requestFocus() } } }
                 /* TV: play sits at the start of the track; on it, left and right seek (hold to scrub) and OK pauses. */
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (tv) TvPlayBtn(playing, scrub != null, { toggle(); show() }, playFocus, onFocus = { playFocused = it })
                     Box(Modifier.weight(1f)) {
                         Scrubber(position, duration, buffered, scrub, state, engine, tv, scrubFocus, lit = tv && playFocused,
                             onScrub = { scrub = it; show(hold = true) }, onCommit = { scrub?.let { seekTo(it) }; scrub = null; show() })
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (tv) Arrangement.spacedBy(10.dp, Alignment.End) else Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth().padding(top = if (tv) 6.dp else 0.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (tv) Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally) else Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
                     if (!state.isFilm) LabBtn(Ic.eps, "Episodes", tv) { sheet = if (sheet == Sheet.Episodes) null else Sheet.Episodes; show() }
                     LabBtn(Ic.cc, "Audio & subtitles", tv) { sheet = if (sheet == Sheet.Tracks) null else Sheet.Tracks; show() }
                     LabBtn(Ic.gear, "Settings", tv) { sheet = if (sheet == Sheet.Settings) null else Sheet.Settings; show() }
@@ -675,9 +675,10 @@ private fun TvPlayBtn(playing: Boolean, scrubbing: Boolean, onClick: () -> Unit,
     val focused by source.collectIsFocusedAsState()
     LaunchedEffect(focused) { onFocus(focused) }
     val t by animateFloatAsState(if (playing && !scrubbing) 0f else 1f, spring(dampingRatio = 0.8f, stiffness = 500f), label = "tvPlayMorph")
-    val bg by androidx.compose.animation.animateColorAsState(if (focused) Night.suo else Color(0x1FFFFFFF), tween(160), label = "tvPlayBg")
-    Box(Modifier.size(68.dp).focusRequester(focus).clip(RoundedCornerShape(18.dp)).background(bg).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source), contentAlignment = Alignment.Center) {
-        PlayGlyph(t, Color.White, Modifier.size(40.dp))
+    val bg by androidx.compose.animation.animateColorAsState(if (focused) Color.White else Color.Transparent, tween(160), label = "tvPlayBg")
+    val ink by androidx.compose.animation.animateColorAsState(if (focused) Night.surface else Color.White, tween(160), label = "tvPlayInk")
+    Box(Modifier.size(48.dp).focusRequester(focus).clip(RoundedCornerShape(12.dp)).background(bg).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source), contentAlignment = Alignment.Center) {
+        PlayGlyph(t, ink, Modifier.size(30.dp))
     }
 }
 
@@ -773,15 +774,16 @@ private fun LabBtn(icon: ImageVector, label: String, tv: Boolean, dot: Boolean =
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
     if (tv) {
-        val bg by androidx.compose.animation.animateColorAsState(if (focused) Night.suo else Color(0x1FFFFFFF), tween(160), label = "sealBg")
-        Row(Modifier.height(56.dp).clip(RoundedCornerShape(14.dp)).background(bg).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source)
-            .animateContentSize(spring(dampingRatio = 0.8f, stiffness = 600f)).padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        val bg by androidx.compose.animation.animateColorAsState(if (focused) Color.White else Color.Transparent, tween(160), label = "sealBg")
+        val ink by androidx.compose.animation.animateColorAsState(if (focused) Night.surface else Color.White, tween(160), label = "sealInk")
+        Row(Modifier.height(40.dp).clip(RoundedCornerShape(10.dp)).background(bg).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source)
+            .animateContentSize(spring(dampingRatio = 0.8f, stiffness = 600f)).padding(horizontal = 9.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box {
-                I(icon, 28.dp, Color.White)
-                if (dot) Box(Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-2).dp).size(10.dp).clip(CircleShape).background(if (focused) Color.White else Night.suo).border(2.dp, Color.Black, CircleShape))
+                I(icon, 22.dp, ink)
+                if (dot) Box(Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-2).dp).size(8.dp).clip(CircleShape).background(Night.suo).border(1.5.dp, Color.Black, CircleShape))
             }
-            if (focused) Text(label, style = ui(17, FontWeight.Bold, Color.White), maxLines = 1)
+            if (focused) Text(label, style = ui(14, FontWeight.Bold, ink), maxLines = 1)
         }
         return
     }
