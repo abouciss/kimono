@@ -535,11 +535,10 @@ a.wg-mq:hover .wg-mq-title i { transform: none; }
 a.wg-mq:hover .wg-mq-bulbs i.is-on { animation-duration: .7s; }
 @keyframes wg-mq-chase { 50% { opacity: .45; } }
 .wg-mq-bulbs small { font: 700 11.5px/1 var(--k-sans); color: rgba(244, 234, 214, .75); font-variant-numeric: tabular-nums; }
-/* Large: the marquee over the doors, the poster case under it. */
-.wg-l .wg-mq { --mq: 1.3; flex-direction: column-reverse; gap: 12px; padding: 14px; text-align: left; }
-.wg-l .wg-mq-case { width: 100%; height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
-.wg-l .wg-mq-sign { flex: none; }
-.wg-l .wg-mq-board { flex: none; min-height: 96px; padding: 10px 12px; }
+/* Large: the same, taller, so the whole poster shows in its case and the board has room for a long title. */
+.wg-l .wg-mq { --mq: 1.35; flex-direction: row; gap: 16px; padding: 14px 16px 14px 14px; text-align: left; }
+.wg-l .wg-mq-sign { gap: 8px; }
+.wg-l .wg-mq-ep { font-size: 15px; line-height: 20px; }
 /* Small: the poster case, and one line of the board under it. */
 .wg-s .wg-mq { flex-direction: column; justify-content: flex-start; gap: 7px; padding: 10px; text-align: left; }
 .wg-s .wg-mq-case { width: 100%; height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
