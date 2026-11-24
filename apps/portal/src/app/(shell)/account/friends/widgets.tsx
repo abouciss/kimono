@@ -313,7 +313,9 @@ function Watching({ w, d }: { w: Widget; d: BoardData }) {
   /* How far into this film or episode; without that, how far through it all. */
   const part = t.spot?.part ?? t.progress ?? 0;
   const se = /^S(\d+)\s*:\s*E(\d+)$/.exec(t.subtitle ?? "");
-  const where = se ? `Season ${se[1]} · Episode ${se[2]}` : t.subtitle?.replace(/\s*:\s*/g, " · ");
+  /* Watch labels a one-season show "E7". */
+  const e = /^E(\d+)$/.exec(t.subtitle ?? "");
+  const where = se ? `Season ${se[1]} · Episode ${se[2]}` : e ? `Episode ${e[1]}` : t.subtitle?.replace(/\s*:\s*/g, " · ");
   const { episode, of } = t.spot ?? {};
   /* A season short enough to count is drawn; a long one is said. */
   const marks = episode && of && of <= 26 ? of : 0;

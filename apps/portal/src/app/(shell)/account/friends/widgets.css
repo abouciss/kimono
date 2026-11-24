@@ -511,9 +511,9 @@ a.wg-watch:hover .wg-screen { --lift: -3px; }
 /* No still to show: the poster, from where its faces usually are. */
 .wg-screen.is-poster img { object-position: center 28%; }
 .wg-screen .line-icon { width: 28px; height: 28px; }
-.wg-screen-bar { position: absolute; left: 6%; right: 6%; bottom: 9%; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .32); box-shadow: 0 1px 4px rgba(0, 0, 0, .5); }
+.wg-screen-bar { position: absolute; left: 6%; right: 6%; bottom: 9%; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .4); box-shadow: 0 0 0 1px rgba(0, 0, 0, .28), 0 1px 6px rgba(0, 0, 0, .6); }
 .wg-screen-bar i { position: relative; display: block; height: 100%; border-radius: 2px; background: #fff; }
-.wg-screen-bar i::after { content: ""; position: absolute; right: -4px; top: -3px; width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+.wg-screen-bar i::after { content: ""; position: absolute; right: -4px; top: -3px; width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .28); }
 .wg-eps { display: flex; gap: 3px; width: 100%; max-width: 220px; margin-top: 8px; }
 .wg-eps i { position: relative; flex: 1 1 0; max-width: 14px; height: 5px; overflow: hidden; border-radius: 2px; background: color-mix(in srgb, var(--k-on-surface) 16%, transparent); }
 .wg-eps i.is-done { background: var(--fr-color, var(--k-suo)); }
