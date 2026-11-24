@@ -588,3 +588,15 @@ a.wg-watch:hover .wg-device { --lift: -3px; }
   .wg-l .wg-ticket-main b { font-size: 22px; }
   .wg-l .wg-ticket-bars { width: 18px; }
 }
+
+/* Watched lately: the poster you're on is drawn up out of the hand, straightens and comes to the front, as you'd pull a card to look at it. */
+.wg-fan-card { transition: transform .45s var(--k-spring), box-shadow .3s, filter .3s; }
+.wg-cell .wg-fan .wg-fan-card:hover {
+  z-index: 3; box-shadow: 0 22px 30px -12px rgba(0, 0, 0, .75);
+  transform: rotate(calc((var(--i) - (var(--n) - 1) / 2) * 4deg)) translateX(calc((var(--i) - (var(--n) - 1) / 2) * 30%)) translateY(-16%) scale(1.1);
+}
+/* The others dim a little behind it. */
+.wg-fan-cards:has(.wg-fan-card:hover) .wg-fan-card:not(:hover) { filter: brightness(.6); }
+@media (prefers-reduced-motion: reduce) { .wg-fan-card { transition: none; } }
+/* A large ticket on a narrow board: the title comes down so it isn't cut. */
+@container wg (max-width: 900px) { .wg-l .wg-ticket-main b { font-size: 22px; } .wg-l .wg-ticket { --end: 46px; } }
