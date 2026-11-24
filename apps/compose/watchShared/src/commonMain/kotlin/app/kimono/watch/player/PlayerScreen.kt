@@ -446,13 +446,14 @@ fun PlayerScreen(
             }
         }) {
 
-        /* The picture, fitted; at the end card it moves to the top corner. */
+        /* The picture, fitted; at the end card it moves to a top corner. */
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val small = end && !pip
             val w by animateDpAsState(if (small) maxWidth * (if (maxWidth < maxHeight) 0.55f else 0.3f) else maxWidth, tween(700), label = "w")
             val h by animateDpAsState(if (small) w / aspect else maxHeight, tween(700), label = "h")
-            val x by animateDpAsState(if (small) 24.dp else 0.dp, tween(700), label = "x")
-            val y by animateDpAsState(if (small) (if (maxWidth < maxHeight) 70.dp else 24.dp) else 0.dp, tween(700), label = "y")
+            /* Upright: top left. Sideways: top right, under the close button, clear of the card's text. */
+            val x by animateDpAsState(if (small) (if (maxWidth < maxHeight) 24.dp else maxWidth * 0.7f - 24.dp) else 0.dp, tween(700), label = "x")
+            val y by animateDpAsState(if (small) (if (maxWidth < maxHeight) 70.dp else 72.dp) else 0.dp, tween(700), label = "y")
             Box(Modifier.offset(x, y).size(w, h).clip(RoundedCornerShape(if (small) 10.dp else 0.dp)).then(if (small) Modifier.border(2.dp, Color(0x4DFFFFFF), RoundedCornerShape(10.dp)) else Modifier), contentAlignment = Alignment.Center) {
                 /* mpv letterboxes and centres the picture itself; resizing its view when the shape arrives left a stale picture off to one side. */
                 if (engine.fitsItself) engine.Picture(Modifier.fillMaxSize())
@@ -1203,10 +1204,12 @@ private fun EndCard(vm: PlayerViewModel, state: app.kimono.watch.ui.PlayerState,
         Box(Modifier.fillMaxSize().alpha(bg.value * 0.55f)) { Img(page.title.backdropLarge ?: page.title.backdrop, Modifier.fillMaxSize()) }
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xEB000000), 0.55f to Color(0x8C000000), 1f to Color(0x33000000))))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0xCC000000))))
-        /* Over the small picture: back to the credits. */
+        /* Over the small picture: back to the credits. Sideways it sits top right, under the close button, clear of the card's text down the left. */
         val w = maxWidth * (if (portrait) 0.55f else 0.3f)
-        Box(Modifier.offset(24.dp, if (portrait) 70.dp else 24.dp).size(w, w * 9f / 16f).clickableScaleClipped(RoundedCornerShape(10.dp), { vm.watchCredits() }))
-        Text("Watch credits", style = ui(13, FontWeight.Bold, Night.fg2), modifier = Modifier.offset(24.dp, (if (portrait) 70.dp else 24.dp) + w * 9f / 16f + 12.dp).width(w), textAlign = TextAlign.Center)
+        val picX = if (portrait) 24.dp else maxWidth - w - 24.dp
+        val picY = if (portrait) 70.dp else 72.dp
+        Box(Modifier.offset(picX, picY).size(w, w * 9f / 16f).clickableScaleClipped(RoundedCornerShape(10.dp), { vm.watchCredits() }))
+        Text("Watch credits", style = ui(13, FontWeight.Bold, Night.fg2), modifier = Modifier.offset(picX, picY + w * 9f / 16f + 12.dp).width(w), textAlign = TextAlign.Center)
         Box(Modifier.align(Alignment.TopEnd).padding(top = 14.dp, end = 20.dp)) { PBtn(Ic.close, onExit) }
         val nextLine = when {
             page.title.isFilm -> "More like this"
