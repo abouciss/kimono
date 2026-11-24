@@ -254,10 +254,21 @@ data class PlayAnswer(
     val fillerAhead: FillerAhead? = null,
     val autoplayNext: Boolean = true,
     val markers: Markers = Markers(),
+    /** Where the scrubber's pictures are (index.json, then 0.jpg, 1.jpg, …); null when this copy gets none. */
+    val trickplay: String? = null,
     val skipIntros: Boolean = false,
     val tracks: TrackHints = TrackHints(),
     val languages: Languages = Languages(),
 )
+
+/** How the scrubber's sheets are cut: [cols] by [rows] tiles of [width] by [height], [count] frames [interval] seconds apart. */
+@Serializable
+data class Trickplay(val interval: Double = 10.0, val width: Int = 0, val height: Int = 0, val cols: Int = 0, val rows: Int = 0, val count: Int = 0, val sheets: Int = 0) {
+    val usable get() = interval > 0 && width > 0 && height > 0 && cols > 0 && rows > 0 && count > 0 && sheets > 0
+}
+
+/** A play's sheets of scrubber pictures: [base]/0.jpg and on, cut as [cut] says. */
+data class Tiles(val base: String, val cut: Trickplay)
 
 @Serializable
 data class PrepareAnswer(val next: EpisodeRef? = null, val ready: Boolean = false)

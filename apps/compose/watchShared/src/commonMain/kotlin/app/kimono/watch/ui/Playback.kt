@@ -11,6 +11,7 @@ import app.kimono.watch.model.TitlePage
 import app.kimono.watch.model.TrackChoice
 import app.kimono.watch.model.WatchProblem
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +56,8 @@ data class PlayerState(
     val finding: Boolean = true,
     /** Counts starts (a new episode, another copy): the start ring begins again with each. */
     val starts: Int = 0,
+    /** The scrubber's pictures for what's playing, once the server has them. */
+    val tiles: app.kimono.watch.model.Tiles? = null,
 ) {
     val isFilm get() = page?.title?.isFilm == true
     /** All of this person's screens are in use elsewhere (the server's 429). */
@@ -82,6 +85,7 @@ class PlayerViewModel(
     private val _state = MutableStateFlow(PlayerState(titleId))
     val state: StateFlow<PlayerState> = _state
     private var loadJob: Job? = null
+    private var tilesJob: Job? = null
     private var lastSaved = -100.0
     private var prepared = false
     private var autoSkipped = false
@@ -135,7 +139,21 @@ class PlayerViewModel(
             runCatching { api.title(titleId, season) }.getOrNull()?.let { _state.value = _state.value.copy(page = it) }
         }
         val answer = (if (version == null && quality == null && avoid.isEmpty()) offline(titleId, season, episode) else null) ?: api.play(titleId, season, episode, version, quality, avoid = avoid)
-        _state.value = _state.value.copy(answer = answer, finding = false, startAt = at ?: answer.startAt, loads = _state.value.loads + 1)
+        _state.value = _state.value.copy(answer = answer, finding = false, startAt = at ?: answer.startAt, loads = _state.value.loads + 1, tiles = null)
+        findTiles(answer.trickplay)
+    }
+
+    /** The scrubber's sheets for this play: asked for now, and every 15 seconds for a while when the server is still making them. */
+    private fun findTiles(base: String?) {
+        tilesJob?.cancel()
+        if (base == null) return
+        tilesJob = viewModelScope.launch {
+            repeat(60) {
+                val cut = api.trickplay(base)
+                if (cut != null) { if (_state.value.answer?.trickplay == base) _state.value = _state.value.copy(tiles = app.kimono.watch.model.Tiles(base, cut)); return@launch }
+                delay(15_000)
+            }
+        }
     }
 
     /** The decoder has the first frames: the loading ring goes. */

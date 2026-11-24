@@ -9,7 +9,11 @@ import app.kimono.watch.model.PrepareAnswer
 import app.kimono.watch.model.SearchAnswer
 import app.kimono.watch.model.TitlePage
 import app.kimono.watch.model.TrackChoice
+import app.kimono.watch.model.Trickplay
+import io.ktor.client.request.get
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
@@ -50,6 +54,12 @@ class WatchApi(
         contentType(ContentType.Application.Json)
         setBody(body.toString())
     }
+
+    /** How a play's scrubber sheets are cut, or null until the server has made them. [base] is the play answer's trickplay address, whose token is the permission. */
+    suspend fun trickplay(base: String): Trickplay? = runCatching {
+        val response = accounts.http.get("$base/index.json")
+        if (response.status.isSuccess()) json.decodeFromString<Trickplay>(response.bodyAsText()).takeIf { it.usable } else null
+    }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else null }
 
     /** Home's rows; [shelf] is "Series", "Film" or "Anime". */
     suspend fun home(shelf: String? = null, cursor: String? = null): Home =

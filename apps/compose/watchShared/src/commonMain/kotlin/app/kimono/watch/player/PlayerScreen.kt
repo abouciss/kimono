@@ -803,6 +803,28 @@ private fun LabBtn(icon: ImageVector, label: String, tv: Boolean, dot: Boolean =
     }
 }
 
+/** The picture for [seconds] out of its sheet, fitted in the scrubber's 192 by 108 frame whatever the film's shape. */
+@Composable
+private fun Tile(tiles: app.kimono.watch.model.Tiles, seconds: Double) {
+    val cut = tiles.cut
+    val per = cut.cols * cut.rows
+    val k = (seconds / cut.interval).toInt().coerceIn(0, cut.count - 1)
+    val sheet = k / per
+    val at = k % per
+    /* The last sheet stops at the last row it needs. */
+    val rows = ((if (sheet == cut.sheets - 1) cut.count - sheet * per else per) + cut.cols - 1) / cut.cols
+    val fit = minOf(192f / cut.width, 108f / cut.height)
+    val w = (cut.width * fit).dp
+    val h = (cut.height * fit).dp
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(Modifier.requiredSize(w, h).clip(androidx.compose.ui.graphics.RectangleShape)) {
+            coil3.compose.AsyncImage("${tiles.base}/$sheet.jpg", null,
+                Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).offset(x = -w * (at % cut.cols), y = -h * (at / cut.cols)).requiredSize(w * cut.cols, h * rows),
+                contentScale = ContentScale.FillBounds)
+        }
+    }
+}
+
 /** The track with buffered, played, the intro and credits marked, the knob, and a thumbnail while scrubbing. */
 @Composable
 private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub: Double?, state: app.kimono.watch.ui.PlayerState, engine: PlaybackEngine, tv: Boolean, focus: FocusRequester, lit: Boolean = false, onScrub: (Double) -> Unit, onCommit: () -> Unit) {
@@ -815,7 +837,16 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
     val thick by animateDpAsState(if (tv) (if (active) 8.dp else 6.dp) else if (active) 7.dp else 4.dp, tween(150), label = "t")
     val knob by animateFloatAsState(if (active) 1.25f else 0.85f, tween(150), label = "k")
     val markers = state.answer?.markers
-    val thumbs = remember(state.answer?.url) { state.answer?.url?.let { engine.thumbnails(it) } }
+    /* Sheets of pictures from the server, where it makes them: a tile is cut out of a loaded image, with no reading of the stream. Without them, the engine's own frames. */
+    val tiles = state.tiles
+    val thumbs = remember(state.answer?.url, tiles != null) { if (tiles != null) null else state.answer?.url?.let { engine.thumbnails(it) } }
+    val images = coil3.compose.LocalPlatformContext.current
+    LaunchedEffect(tiles, scrub != null) {
+        /* The first scrub fetches every sheet (small, and kept on disk), so the next tile is never a wait. */
+        if (tiles != null && scrub != null) repeat(tiles.cut.sheets) { n ->
+            coil3.SingletonImageLoader.get(images).enqueue(coil3.request.ImageRequest.Builder(images).data("${tiles.base}/$n.jpg").size(64, 36).build())
+        }
+    }
     DisposableEffect(thumbs) { onDispose { thumbs?.close() } }
     val frame by (thumbs?.frame ?: kotlinx.coroutines.flow.MutableStateFlow(null)).collectAsState()
     LaunchedEffect(scrub) { scrub?.let { thumbs?.want(it) } ?: thumbs?.idle() }
@@ -891,7 +922,8 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
                     if (chapter.isNotEmpty()) Text(chapter, style = ui(12, FontWeight.Bold, Night.blush))
                     Box(Modifier.requiredSize(192.dp, 108.dp).border(2.dp, Color.White, RoundedCornerShape(6.dp)).clip(RoundedCornerShape(6.dp)).background(Night.surface2)) {
                         Img(state.current?.still ?: state.page?.title?.backdrop, Modifier.fillMaxSize())
-                        frame?.takeIf { it.first == (scrub / 10).toInt() }?.second?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+                        if (tiles != null) Tile(tiles, scrub)
+                        else frame?.takeIf { it.first == (scrub / 10).toInt() }?.second?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
                     }
                     Text(clock(scrub), style = ui(14, FontWeight.Bold, Color.White))
                 }
