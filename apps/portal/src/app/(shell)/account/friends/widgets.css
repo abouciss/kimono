@@ -508,17 +508,26 @@ a.wg-fav:hover .wg-fav-art { transform: rotate(-2deg) translateY(-2px); }
 
 @media (prefers-reduced-motion: reduce) { .wg-fav-wash { animation: none; } }
 
-/* ── Watching: the film's case, as it would sit on a shelf beside the book and the record. Its poster on the front, a spine with some depth, and it leans toward your pointer; what it is and how far are said plainly beside it, as Reading does. ── */
-.wg-watch { gap: 22px; overflow: visible; }
-.wg-case-wrap { flex: none; padding: 0 8px; perspective: 700px; }
-.wg-case { --w: 86px; --d: calc(var(--w) * .13); position: relative; display: block; width: var(--w); aspect-ratio: 2 / 3; transform-style: preserve-3d; transform: translateY(var(--lift, 0px)) rotateX(var(--rx, 0deg)) rotateY(calc(24deg + var(--ry, 0deg))); transition: transform .5s var(--k-spring); }
-a.wg-watch:hover .wg-case { --lift: -4px; }
-.wg-case-front { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; border-radius: 2px 4px 4px 2px; background: #2a221d; color: rgba(255, 255, 255, .5); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), 0 16px 26px -14px rgba(0, 0, 0, .7); }
-.wg-case-front img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-/* The hinge a case has down its left edge. */
-.wg-case-front::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5%; background: rgba(0, 0, 0, .22); box-shadow: 1px 0 0 rgba(255, 255, 255, .14); }
-.wg-case-front .line-icon { width: 28px; height: 28px; }
-.wg-case-spine { position: absolute; left: 0; top: 0; width: var(--d); height: 100%; border-radius: 2px 0 0 2px; background: #171311; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); transform-origin: left center; transform: rotateY(90deg); }
-.wg-l .wg-case { --w: 118px; }
-.wg-l .wg-watch .wg-progress { width: 170px; }
-.wg-s .wg-case { --w: 72px; }
+/* ── Watching: a show is watched on a screen, so this is the screen. The show's still, stopped where they are with the player's own scrubber; it sits turned a little and faces your pointer. Beside it the title, the episode, and the season as a mark an episode. ── */
+.wg-watch { gap: 20px; overflow: visible; }
+.wg-screen-wrap { flex: none; height: 84%; max-width: 50%; margin-left: 4px; aspect-ratio: 16 / 9; perspective: 800px; }
+.wg-screen { position: relative; display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: 8px; background: #0b0908; color: rgba(255, 255, 255, .5); box-shadow: 0 0 0 3px #0b0908, 0 0 0 4px color-mix(in srgb, var(--k-on-surface) 14%, transparent), 0 18px 26px -14px rgba(0, 0, 0, .7); transform: translateY(var(--lift, 0px)) rotateX(var(--rx, 2deg)) rotateY(var(--ry, 12deg)); transition: transform .5s var(--k-spring); }
+a.wg-watch:hover .wg-screen { --lift: -3px; }
+.wg-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* No still to show: the poster, from where its faces usually are. */
+.wg-screen.is-poster img { object-position: center 28%; }
+.wg-screen .line-icon { width: 28px; height: 28px; }
+.wg-screen-bar { position: absolute; left: 6%; right: 6%; bottom: 9%; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .32); box-shadow: 0 1px 4px rgba(0, 0, 0, .5); }
+.wg-screen-bar i { position: relative; display: block; height: 100%; border-radius: 2px; background: #fff; }
+.wg-screen-bar i::after { content: ""; position: absolute; right: -4px; top: -3px; width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+.wg-eps { display: flex; gap: 3px; width: 100%; max-width: 220px; margin-top: 8px; }
+.wg-eps i { position: relative; flex: 1 1 0; max-width: 14px; height: 5px; overflow: hidden; border-radius: 2px; background: color-mix(in srgb, var(--k-on-surface) 16%, transparent); }
+.wg-eps i.is-done { background: var(--fr-color, var(--k-suo)); }
+.wg-eps i.is-now::after { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--part, 0) * 100%); background: var(--fr-color, var(--k-suo)); }
+.wg-s .wg-watch { padding: 14px; }
+.wg-s .wg-screen-wrap { width: 100%; height: auto; max-width: none; margin: 0; }
+.wg-l .wg-watch { align-items: flex-start; justify-content: flex-end; gap: 16px; padding: 18px; text-align: left; }
+.wg-l .wg-screen-wrap { flex: 1 1 0; min-height: 0; width: auto; height: auto; max-width: 100%; margin: 4px 0 0 4px; }
+.wg-l .wg-watch .wg-words { justify-items: start; width: 100%; }
+.wg-l .wg-eps { max-width: 300px; }
+.wg-l .wg-eps i { max-width: 20px; height: 6px; }

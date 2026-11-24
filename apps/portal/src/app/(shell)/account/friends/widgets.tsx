@@ -25,7 +25,7 @@ export type WidgetSize = "s" | "m" | "l" | "xl";
 export type Widget = { id: string; kind: WidgetKind; size: WidgetSize; config?: Record<string, string> };
 
 type Person = { username: string; name: string; picture: string | null };
-type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; at?: number | null };
+type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; at?: number | null; wide?: string | null; spot?: { part: number; episode?: number; of?: number } | null };
 type Section = { app: string; kind: string; title: string; items: Item[] };
 type Track = { key: string; title: string; artists: { key: string; name: string }[]; album: { key: string; title: string; cover: string | null } | null };
 export type MusicExtras = { listening: { track: Track; at: string; live: boolean } | null; plays: number; minutes: number; artists: { key: string; name: string; picture: string | null; plays?: number }[]; counts?: Record<string, number>; onRepeat?: { track: Track; plays: number } | null } | null;
@@ -301,24 +301,33 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
-/** What's on: its case with the poster on the front, leaning toward the pointer; the title, the episode and how far beside it, as Reading does. */
+/** What's on: the screen it's on, stopped where they are with the player's own scrubber; beside it the title, the episode, and the season as a mark an episode. */
 function Watching({ w, d }: { w: Widget; d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
   if (!t) return <div className="wg-card"><Empty icon="film" text="Nothing on right now" /></div>;
   const tilt = (e: React.PointerEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    e.currentTarget.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - .5) * -14}deg`);
-    e.currentTarget.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - .5) * 26}deg`);
+    e.currentTarget.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - .5) * -10}deg`);
+    e.currentTarget.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - .5) * 18}deg`);
   };
   const rest = (e: React.PointerEvent<HTMLElement>) => { e.currentTarget.style.removeProperty("--rx"); e.currentTarget.style.removeProperty("--ry"); };
+  /* How far into this film or episode; without that, how far through it all. */
+  const part = t.spot?.part ?? t.progress ?? 0;
+  const se = /^S(\d+)\s*:\s*E(\d+)$/.exec(t.subtitle ?? "");
+  const where = se ? `Season ${se[1]} · Episode ${se[2]}` : t.subtitle?.replace(/\s*:\s*/g, " · ");
+  const { episode, of } = t.spot ?? {};
+  /* A season short enough to count is drawn; a long one is said. */
+  const marks = episode && of && of <= 26 ? of : 0;
   return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-watch" title={t.title} onPointerMove={tilt} onPointerLeave={rest}>
-    <span className="wg-case-wrap" aria-hidden="true"><span className="wg-case">
-      <span className="wg-case-spine" />
-      {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
-      <span className="wg-case-front">{t.cover ? <img src={t.cover} alt="" /> : <LineIcon name="film" />}</span>
+    <span className="wg-screen-wrap" aria-hidden="true"><span className={`wg-screen${t.wide ? "" : " is-poster"}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- the still from Watch */}
+      {t.wide || t.cover ? <img src={(t.wide || t.cover)!} alt="" /> : <LineIcon name="film" />}
+      {part ? <span className="wg-screen-bar"><i style={{ width: `${Math.round(part * 100)}%` }} /></span> : null}
     </span></span>
-    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Watching</small><b>{t.title}</b>{t.subtitle ? <em>{t.subtitle.replace(/\s*:\s*/g, " · ")}</em> : null}
-      {t.progress ? <span className="wg-progress"><InkMeter className="wg-wave" value={t.progress} label="Watched" /><small>{Math.round(t.progress * 100)}%</small></span> : null}</span> : null}
+    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Watching</small><b>{t.title}</b>
+      {where ? <em>{where}{episode && of && !marks ? ` of ${of}` : ""}</em> : part ? <em>{Math.round(part * 100)}% in</em> : null}
+      {marks ? <span className="wg-eps" role="img" aria-label={`Episode ${episode} of ${of}`}>{Array.from({ length: marks }, (_, i) => <i key={i} className={i + 1 < episode! ? "is-done" : i + 1 === episode ? "is-now" : undefined} style={i + 1 === episode ? { "--part": part } as React.CSSProperties : undefined} />)}</span> : null}
+    </span> : null}
   </Crossing>;
 }
 
@@ -694,8 +703,8 @@ function previewData(d: BoardData): BoardData {
   const read = titles.map(([title, author], i) => ({ key: `demo:${i}`, title, author, cover: null, rating: i % 3 === 0 ? "love" as const : null, at: now - i * 86400_000 * 9 }));
   const posters = d.sections.flatMap((s) => (s.app === "watch" ? s.items : [])).filter((i) => i.cover);
   const watched = d.sections.some((s) => s.app === "watch" && s.kind === "watched" && s.items.length) ? [] : [{ app: "watch", kind: "watched", title: "Watched", items: posters.length ? Array.from({ length: 4 }, (_, i) => ({ ...posters[i % posters.length], itemId: `demo${i}` })) : [] }];
-  /* Something on, so the case is seen. */
-  const watching = d.sections.some((s) => s.app === "watch" && s.kind === "watching" && s.items.length) ? [] : [{ app: "watch", kind: "watching", title: "Watching", items: [{ ...(posters[0] ?? {}), itemId: "demo-on", title: posters[0]?.title ?? "Your show", subtitle: "S1:E3", cover: posters[0]?.cover ?? null, progress: .4 }] }];
+  /* Something on, so the screen is seen. */
+  const watching = d.sections.some((s) => s.app === "watch" && s.kind === "watching" && s.items.length) ? [] : [{ app: "watch", kind: "watching", title: "Watching", items: [{ ...(posters[0] ?? {}), itemId: "demo-on", title: posters[0]?.title ?? "Your show", subtitle: "S1:E3", cover: posters[0]?.cover ?? null, progress: .3, spot: { part: .4, episode: 3, of: 10 } }] }];
   return {
     ...d,
     sections: [...d.sections, ...watched, ...watching],

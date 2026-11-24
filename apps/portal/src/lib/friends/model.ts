@@ -360,7 +360,9 @@ export const apps: Record<string, { name: string }> = {
 };
 
 /** One row of a profile: what someone did in one app (watched, loved, reading…), latest first. */
-export type Section = { app: string; appName: string; kind: string; title: string; items: (Item & { href?: string | null; progress?: number | null; at?: number | null; rating?: Rating | null })[] };
+export type Section = { app: string; appName: string; kind: string; title: string; items: (Item & { href?: string | null; progress?: number | null; at?: number | null; rating?: Rating | null;
+  /** Watch, for what's on: its wide still, and where they are (how far into this film or episode; for a series, which episode of how many in its season). */
+  wide?: string | null; spot?: { part: number; episode?: number; of?: number } | null })[] };
 /** How someone rated a title, shown as a mark on its cover rather than a row of its own. */
 export type Rating = "love" | "up" | "down";
 

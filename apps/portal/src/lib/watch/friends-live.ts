@@ -273,9 +273,10 @@ export async function watchSections(viewer: string, username: string, origin: st
   const hidden = hiddenOf(db, u);
   const item = (t: Title) => ({ app: "watch", itemId: t.id, title: t.name, subtitle: t.year ? String(t.year) : null, cover: cardOf(t, origin).poster, href: `/watch?t=${encodeURIComponent(t.id)}` });
   /* `at`: when each was rated or listed. */
-  type Extra = { at?: number | null; rating?: Rating | null; progress?: number | null; subtitle?: string | null };
+  type Spot = { part: number; episode?: number; of?: number };
+  type Extra = { at?: number | null; rating?: Rating | null; progress?: number | null; subtitle?: string | null; spot?: Spot | null };
   const row = (kind: string, title: string, ids: string[], extra: (id: string) => Extra = () => ({})): Section =>
-    ({ app: "watch", appName: "Watch", kind, title, items: getTitles(db, ids.filter((id) => !hidden.has(id)).slice(0, 24)).map((t) => { const x = extra(t.id); return { ...item(t), at: x.at ?? null, rating: x.rating ?? null, progress: x.progress ?? null, subtitle: x.subtitle ?? item(t).subtitle }; }) });
+    ({ app: "watch", appName: "Watch", kind, title, items: getTitles(db, ids.filter((id) => !hidden.has(id)).slice(0, 24)).map((t) => { const x = extra(t.id); return { ...item(t), at: x.at ?? null, rating: x.rating ?? null, progress: x.progress ?? null, subtitle: x.subtitle ?? item(t).subtitle, ...(x.spot ? { wide: cardOf(t, origin).backdrop, spot: x.spot } : {}) }; }) });
   const rows: Section[] = [];
   /* Going invisible on Kimono is the profile's to apply (lib/friends profileFor), so their own profile still shows it all.
      Watching: a film part-way, or a series with aired episodes still to go, with how far (a series counts its episodes).
@@ -285,14 +286,14 @@ export async function watchSections(viewer: string, username: string, origin: st
   const rating = new Map(rated.map((r) => [r.title_id, r.rating as Rating]));
   const ratedAt = new Map(rated.map((r) => [r.title_id, r.rated_at ?? null]));
   const now = Date.now();
-  const watching = new Map<string, { at: number; progress: number | null; subtitle: string | null }>();
+  const watching = new Map<string, { at: number; progress: number | null; subtitle: string | null; spot: Spot }>();
   const finishedAt = new Map<string, number>();
   for (const p of sharingSet(u) ? lastRows(u, 48) : []) {
     const t = getTitle(db, p.titleId);
     if (!t) continue;
     if (t.kind === "movie") {
       if (finished(p)) finishedAt.set(p.titleId, p.updatedAt);
-      else watching.set(p.titleId, { at: p.updatedAt, progress: fraction(p), subtitle: null });
+      else watching.set(p.titleId, { at: p.updatedAt, progress: fraction(p), subtitle: null, spot: { part: fraction(p) } });
       continue;
     }
     const episodes = episodesOf(db, p.titleId).filter((e) => aired(e, now));
@@ -303,7 +304,11 @@ export async function watchSections(viewer: string, username: string, origin: st
     /* Where they are, and how much of what's aired they've seen (part of the one they're on counts too). */
     const part = finished(p) ? 0 : fraction(p);
     const label = labelsFor(u, p.titleId)?.(p.season, p.episode) ?? `S${p.season}:E${p.episode}`;
-    watching.set(p.titleId, { at: p.updatedAt, progress: episodes.length ? Math.min(1, (seen + part) / episodes.length) : null, subtitle: label });
+    /* The season they're in: which of its episodes this is, of how many. */
+    const season = episodesOf(db, p.titleId, p.season);
+    const nth = season.findIndex((e) => e.number === p.episode) + 1;
+    watching.set(p.titleId, { at: p.updatedAt, progress: episodes.length ? Math.min(1, (seen + part) / episodes.length) : null, subtitle: label,
+      spot: { part: finished(p) ? 1 : fraction(p), ...(nth ? { episode: nth, of: season.length } : {}) } });
   }
   rows.push(row("watching", "Watching", [...watching.entries()].sort((a, b) => b[1].at - a[1].at).map(([id]) => id), (id) => ({ ...watching.get(id), rating: rating.get(id) ?? null })));
   const watched = [...finishedAt.entries()].map(([id, at]) => ({ id, at }))
