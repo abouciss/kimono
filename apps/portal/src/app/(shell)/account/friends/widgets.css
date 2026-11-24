@@ -529,15 +529,23 @@ a.wg-watch:hover .wg-device { --lift: -3px; }
 .is-phone .wg-screen img { border-radius: 15px; }
 .is-phone .wg-screen::after { content: ""; position: absolute; left: 3%; top: 50%; width: 6px; height: 26%; translate: 0 -50%; border-radius: 4px; background: #0b0908; }
 .is-phone .wg-screen::before { content: ""; position: absolute; left: 20%; top: -9px; width: 26%; height: 3px; border-radius: 2px 2px 0 0; background: linear-gradient(90deg, var(--btn) 0 34%, transparent 34% 46%, var(--btn) 46%); --btn: color-mix(in srgb, var(--k-on-surface) 34%, #0b0908); }
-.is-phone .wg-screen-bar { left: 12%; }
 .wg-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 /* No still to show: the poster, from where its faces usually are. */
 .wg-screen.is-poster img { object-position: center 28%; }
 .wg-screen .line-icon { width: 28px; height: 28px; }
-.wg-screen-bar { position: absolute; left: 6%; right: 6%; bottom: 9%; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .4); box-shadow: 0 0 0 1px rgba(0, 0, 0, .28), 0 1px 6px rgba(0, 0, 0, .6); }
-.wg-screen-bar i { position: relative; display: block; height: 100%; border-radius: 2px; background: #fff; }
-.wg-screen-bar i::after { content: ""; position: absolute; right: -4px; top: -3px; width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .28); }
-.wg-eps { display: flex; gap: 3px; width: 100%; max-width: 220px; margin-top: 8px; }
+/* Not on right now: the picture dims and the pause mark sits on it. On: it's bright, and the label and the ink line are moving. */
+.wg-screen.is-paused img { filter: brightness(.5) saturate(.75); }
+.wg-screen-pause { position: relative; z-index: 1; display: flex; gap: 22%; width: 11%; aspect-ratio: 1; }
+.wg-screen-pause i { flex: 1; border-radius: 2px; background: #fff; opacity: .92; }
+.wg-on-now { color: var(--k-moss, #7da06a) !important; }
+.wg-live-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }
+.wg-live-bars i { width: 3px; height: 100%; border-radius: 1px 1px 0 0; background: currentColor; transform-origin: bottom; animation: wg-np-bar 1s ease-in-out infinite alternate; }
+.wg-live-bars i:nth-child(2) { animation-duration: .7s; animation-delay: -.3s; }
+.wg-live-bars i:nth-child(3) { animation-duration: 1.2s; animation-delay: -.6s; }
+.wg-watch .wg-progress { width: 100%; max-width: 220px; }
+.wg-watch:has(.wg-on-now) .wg-progress .wg-wave { color: var(--k-moss, #7da06a); }
+@media (prefers-reduced-motion: reduce) { .wg-live-bars i { animation: none; } }
+.wg-eps { display: flex; gap: 3px; width: 100%; max-width: 220px; margin-top: 6px; }
 .wg-eps i { position: relative; flex: 1 1 0; max-width: 14px; height: 5px; overflow: hidden; border-radius: 2px; background: color-mix(in srgb, var(--k-on-surface) 16%, transparent); }
 .wg-eps i.is-done { background: var(--fr-color, var(--k-suo)); }
 .wg-eps i.is-now::after { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--part, 0) * 100%); background: var(--fr-color, var(--k-suo)); }

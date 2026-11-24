@@ -274,7 +274,7 @@ export async function watchSections(viewer: string, username: string, origin: st
   const hidden = hiddenOf(db, u);
   const item = (t: Title) => ({ app: "watch", itemId: t.id, title: t.name, subtitle: t.year ? String(t.year) : null, cover: cardOf(t, origin).poster, href: `/watch?t=${encodeURIComponent(t.id)}` });
   /* `at`: when each was rated or listed. */
-  type Spot = { part: number; episode?: number; of?: number; screen?: "phone" | "computer" | "tv" };
+  type Spot = { part: number; episode?: number; of?: number; screen?: "phone" | "computer" | "tv"; live?: boolean };
   type Extra = { at?: number | null; rating?: Rating | null; progress?: number | null; subtitle?: string | null; spot?: Spot | null };
   const row = (kind: string, title: string, ids: string[], extra: (id: string) => Extra = () => ({})): Section =>
     ({ app: "watch", appName: "Watch", kind, title, items: getTitles(db, ids.filter((id) => !hidden.has(id)).slice(0, 24)).map((t) => { const x = extra(t.id); return { ...item(t), at: x.at ?? null, rating: x.rating ?? null, progress: x.progress ?? null, subtitle: x.subtitle ?? item(t).subtitle, ...(x.spot ? { wide: cardOf(t, origin).backdrop, spot: { ...x.spot, ...(playedOn(db, u, t.id) ? { screen: playedOn(db, u, t.id)! } : {}) } } : {}) }; }) });
@@ -288,13 +288,16 @@ export async function watchSections(viewer: string, username: string, origin: st
   const ratedAt = new Map(rated.map((r) => [r.title_id, r.rated_at ?? null]));
   const now = Date.now();
   const watching = new Map<string, { at: number; progress: number | null; subtitle: string | null; spot: Spot }>();
+  /* On right now: the player is still reporting in. */
+  const playing = new Set(playingNow(u, now));
+  const live = (p: { titleId: string; season: number; episode: number }) => (playing.has(watchKey(p.titleId, p.season, p.episode)) ? { live: true } : {});
   const finishedAt = new Map<string, number>();
   for (const p of sharingSet(u) ? lastRows(u, 48) : []) {
     const t = getTitle(db, p.titleId);
     if (!t) continue;
     if (t.kind === "movie") {
       if (finished(p)) finishedAt.set(p.titleId, p.updatedAt);
-      else watching.set(p.titleId, { at: p.updatedAt, progress: fraction(p), subtitle: null, spot: { part: fraction(p) } });
+      else watching.set(p.titleId, { at: p.updatedAt, progress: fraction(p), subtitle: null, spot: { part: fraction(p), ...live(p) } });
       continue;
     }
     const episodes = episodesOf(db, p.titleId).filter((e) => aired(e, now));
@@ -309,7 +312,7 @@ export async function watchSections(viewer: string, username: string, origin: st
     const season = episodesOf(db, p.titleId, p.season);
     const nth = season.findIndex((e) => e.number === p.episode) + 1;
     watching.set(p.titleId, { at: p.updatedAt, progress: episodes.length ? Math.min(1, (seen + part) / episodes.length) : null, subtitle: label,
-      spot: { part: finished(p) ? 1 : fraction(p), ...(nth ? { episode: nth, of: season.length } : {}) } });
+      spot: { part: finished(p) ? 1 : fraction(p), ...(nth ? { episode: nth, of: season.length } : {}), ...live(p) } });
   }
   rows.push(row("watching", "Watching", [...watching.entries()].sort((a, b) => b[1].at - a[1].at).map(([id]) => id), (id) => ({ ...watching.get(id), rating: rating.get(id) ?? null })));
   const watched = [...finishedAt.entries()].map(([id, at]) => ({ id, at }))

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { InkPortraitFrame, Seal, InkMeter } from "@kimono/ui";
+import { InkPortraitFrame, Seal, InkMeter, InkWave } from "@kimono/ui";
 import { Crossing } from "@/components/crossing";
 import { InkSheet } from "@/components/ink-sheet";
 import { LineIcon, type LineIconName } from "@/components/line-icon";
@@ -25,7 +25,7 @@ export type WidgetSize = "s" | "m" | "l" | "xl";
 export type Widget = { id: string; kind: WidgetKind; size: WidgetSize; config?: Record<string, string> };
 
 type Person = { username: string; name: string; picture: string | null };
-type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; at?: number | null; wide?: string | null; spot?: { part: number; episode?: number; of?: number; screen?: "phone" | "computer" | "tv" } | null };
+type Item = { app: string; itemId: string; title: string; subtitle: string | null; cover: string | null; href?: string | null; progress?: number | null; at?: number | null; wide?: string | null; spot?: { part: number; episode?: number; of?: number; screen?: "phone" | "computer" | "tv"; live?: boolean } | null };
 type Section = { app: string; kind: string; title: string; items: Item[] };
 type Track = { key: string; title: string; artists: { key: string; name: string }[]; album: { key: string; title: string; cover: string | null } | null };
 export type MusicExtras = { listening: { track: Track; at: string; live: boolean } | null; plays: number; minutes: number; artists: { key: string; name: string; picture: string | null; plays?: number }[]; counts?: Record<string, number>; onRepeat?: { track: Track; plays: number } | null } | null;
@@ -316,21 +316,25 @@ function Watching({ w, d }: { w: Widget; d: BoardData }) {
   /* Watch labels a one-season show "E7". */
   const e = /^E(\d+)$/.exec(t.subtitle ?? "");
   const where = se ? `Season ${se[1]} · Episode ${se[2]}` : e ? `Episode ${e[1]}` : t.subtitle?.replace(/\s*:\s*/g, " · ");
-  const { episode, of, screen } = t.spot ?? {};
+  const { episode, of, screen, live } = t.spot ?? {};
+  const on = screen === "tv" ? " on the TV" : screen === "computer" ? " on a computer" : screen === "phone" ? " on a phone" : "";
   /* A season short enough to count is drawn; a long one is said. */
   const marks = episode && of && of <= 26 ? of : 0;
   return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-watch" title={t.title} onPointerMove={tilt} onPointerLeave={rest}>
     {/* Drawn as what it was put on: a phone held sideways, a laptop, a TV on its foot; a plain screen when that isn't known. */}
     <span className={`wg-screen-wrap${screen ? ` is-${screen}` : ""}`} aria-hidden="true"><span className="wg-device">
-      <span className={`wg-screen${t.wide ? "" : " is-poster"}`}>
+      <span className={`wg-screen${t.wide ? "" : " is-poster"}${live ? " is-live" : " is-paused"}`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- the still from Watch */}
         {t.wide || t.cover ? <img src={(t.wide || t.cover)!} alt="" /> : <LineIcon name="film" />}
-        {part ? <span className="wg-screen-bar"><i style={{ width: `${Math.round(part * 100)}%` }} /></span> : null}
+        {/* Not on right now: the picture dims, paused. */}
+        {live ? null : <span className="wg-screen-pause"><i /><i /></span>}
       </span>
       {screen === "tv" || screen === "computer" ? <i className="wg-device-foot" /> : null}
     </span></span>
-    {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{screen === "tv" ? "Watching on the TV" : screen === "computer" ? "Watching on a computer" : screen === "phone" ? "Watching on a phone" : "Watching"}</small><b>{t.title}</b>
-      {where ? <em>{where}{episode && of && !marks ? ` of ${of}` : ""}</em> : part ? <em>{Math.round(part * 100)}% in</em> : null}
+    {w.size !== "s" ? <span className="wg-words"><small className={`wg-kicker${live ? " wg-on-now" : ""}`}>{live ? <><span className="wg-live-bars" aria-hidden="true"><i /><i /><i /></span>Watching now{on}</> : <>Watching{on}</>}</small><b>{t.title}</b>
+      {where ? <em>{where}{episode && of && !marks ? ` of ${of}` : ""}</em> : null}
+      {/* Kimono's own ink line for how far into it; it runs while it's on. */}
+      {part ? <span className="wg-progress">{live ? <InkWave className="wg-wave" value={part} label="Watched" /> : <InkMeter className="wg-wave" value={part} label="Watched" />}<small>{Math.round(part * 100)}%</small></span> : null}
       {marks ? <span className="wg-eps" role="img" aria-label={`Episode ${episode} of ${of}`}>{Array.from({ length: marks }, (_, i) => <i key={i} className={i + 1 < episode! ? "is-done" : i + 1 === episode ? "is-now" : undefined} style={i + 1 === episode ? { "--part": part } as React.CSSProperties : undefined} />)}</span> : null}
     </span> : null}
   </Crossing>;
