@@ -13,7 +13,14 @@ import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.ShortNavigationBarItemDefaults
 import androidx.compose.material3.Text
 import app.kimono.ui.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -125,9 +132,14 @@ fun RoomBar(app: RoomApp, route: String?, launcherApp: LauncherApp?, me: Account
  * way up): the bloom at the top leads to every app, then this app's rooms, then You.
  * A bar across the bottom of a tablet puts every room a long reach from where the
  * thumbs rest; a rail keeps them beside the content and gives the screen its height back.
+ * On Kimono's own pages, [apps] (Your apps, as the website's rail lists them) follow Home,
+ * so any app is one tap from the rail; they scroll when there are more than fit.
  */
 @Composable
-fun RoomRail(app: RoomApp, route: String?, launcherApp: LauncherApp?, me: AccountProfile?, go: (String) -> Unit, startTask: () -> Unit, openApps: () -> Unit) {
+fun RoomRail(
+    app: RoomApp, route: String?, launcherApp: LauncherApp?, me: AccountProfile?, go: (String) -> Unit, startTask: () -> Unit, openApps: () -> Unit,
+    apps: List<LauncherApp> = emptyList(), openApp: (LauncherApp) -> Unit = {},
+) {
     val accent = if (app === music) app.accent else launcherApp?.accent ?: app.accent
     AppAccentTheme(accent) {
         val colors = NavigationRailItemDefaults.colors(
@@ -146,14 +158,31 @@ fun RoomRail(app: RoomApp, route: String?, launcherApp: LauncherApp?, me: Accoun
                 }
             },
         ) {
-            app.rooms.forEach { room ->
+            @Composable fun rooms() = app.rooms.forEach { room ->
                 NavigationRailItem(
                     selected = route == room.route, onClick = { if (room.action) startTask() else go(room.route) },
                     icon = { Icon(kimonoIcon(room.icon), null) }, label = { Text(room.label, maxLines = 1, softWrap = false) }, colors = colors,
                 )
             }
-            if (app === kimono) {
-                Spacer(Modifier.weight(1f))
+            if (app !== kimono) rooms()
+            else {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                    rooms()
+                    apps.forEach { a ->
+                        NavigationRailItem(
+                            selected = false, onClick = { openApp(a) }, colors = colors,
+                            icon = {
+                                Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                                    InkBloom(a.id, a.accent, a.glyph, 28.dp)
+                                    /* An app without one of Kimono's glyphs wears its own icon in the heart, as on its tile. */
+                                    if (a.glyph == null && a.icon != null) AsyncImage(model = a.icon, contentDescription = null, modifier = Modifier.size(28.dp * .3f))
+                                }
+                            },
+                            label = { Text(a.name, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                            modifier = Modifier.widthIn(max = 88.dp),
+                        )
+                    }
+                }
                 NavigationRailItem(selected = route == "you", onClick = { go("you") }, icon = { Portrait(me?.picture, me?.name, me?.username, 24.dp) }, label = { Text("You") }, colors = colors, modifier = Modifier.padding(bottom = 12.dp))
             }
         }

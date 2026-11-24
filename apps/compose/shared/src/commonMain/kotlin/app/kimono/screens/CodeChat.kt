@@ -1651,7 +1651,7 @@ private fun Composer(code: Code, drive: Drive, platform: Platform, marks: AiMark
     }
     /* A question it asked stands in the bar's place; the settings sheet and what was written stay. */
     if (standIn != null) standIn()
-    else Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).bottomChrome().imePadding().padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 4.dp)) {
+    else Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).bottomChrome().imePadding().padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = app.kimono.ui.composerGap())) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (switching != null) {
