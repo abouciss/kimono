@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref as ReactRef } from "react";
-import { airText, clock, deviceOf, labelOf, languageName, longLabel, twoLetter, shownNumber, watchApi, type Episode, type FriendHere, type Play, type Ref, type TitleView } from "./api";
+import { airText, clock, deviceOf, labelOf, languageName, longLabel, twoLetter, shownNumber, watchApi, type Episode, type FriendHere, type Play, type Ref, type TitleView, type Trickplay } from "./api";
 import { alike, cx, Img, Spinner, TitleMark, useTabTitle, useWatch } from "./bits";
 import { subtitleClass } from "./settings";
 import { expectedOf, loadStarts, noteStep, ringValue } from "./start";
@@ -807,7 +807,25 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
     tv.addEventListener("loadedmetadata", ready);
     return () => { tv.removeEventListener("seeked", drawn); tv.removeEventListener("loadedmetadata", ready); };
   }, []);
-  const peek = (f: number) => { setPeekAt(f); setTrackW(track.current?.getBoundingClientRect().width ?? 0); drawAt(f * (duration || 0)); };
+  /* Where the server makes sheets of pictures (debrid copies), the picture is a tile cut out of a JPEG already loaded: a hover is no video work.
+     They're asked for as the play starts; until they're made (a 404, asked again every 15 seconds while hovering) the second video above stands in. */
+  const [tiles, setTiles] = useState<{ base: string; index: Trickplay } | null>(null);
+  const tilesAsked = useRef({ base: "", at: 0 });
+  const askTiles = useCallback(() => {
+    const base = live.current.play?.trickplay, asked = tilesAsked.current;
+    if (!base || (asked.base === base && Date.now() - asked.at < 15_000)) return;
+    tilesAsked.current = { base, at: Date.now() };
+    void fetch(`${base}/index.json`).then((r) => (r.ok ? r.json() as Promise<Trickplay> : null)).catch(() => null).then((index) => {
+      if (!index || !(index.width > 0 && index.height > 0 && index.cols > 0 && index.rows > 0 && index.interval > 0) || live.current.play?.trickplay !== base) return;
+      tilesAsked.current = { base, at: Infinity };
+      for (let n = 0; n < index.sheets; n++) new Image().src = `${base}/${n}.jpg`;
+      setTiles({ base, index });
+      thumbDetach.current?.(); thumbDetach.current = null;
+    });
+  }, []);
+  const tiled = tiles && tiles.base === play?.trickplay ? tiles : null;
+  useEffect(() => { if (play?.trickplay) askTiles(); }, [play?.trickplay, askTiles]);
+  const peek = (f: number) => { setPeekAt(f); setTrackW(track.current?.getBoundingClientRect().width ?? 0); if (!tiled) { askTiles(); drawAt(f * (duration || 0)); } };
 
   const d = duration || 1;
   const shownT = drag !== null ? drag * d : time;
@@ -815,6 +833,18 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
   const peekT = peekF !== null ? peekF * d : 0;
   const markers = play?.markers ?? {};
   const chapter = peekF === null ? "" : markers.intro && peekT >= markers.intro[0] && peekT < markers.intro[1] ? "Intro" : markers.recap && peekT >= markers.recap[0] && peekT < markers.recap[1] ? "Recap" : markers.credits && peekT >= markers.credits ? "Credits" : "";
+  const tile = (() => {
+    if (!tiled || peekF === null) return null;
+    const { interval, width, height, cols, rows, count } = tiled.index;
+    const k = Math.min(count - 1, Math.max(0, Math.floor(peekT / interval))), i = k % (cols * rows);
+    /* Fitted in the 192 by 108 frame, whatever the film's shape. */
+    const s = Math.min(192 / width, 108 / height), w = width * s, h = height * s;
+    return {
+      width: Math.floor(w), height: Math.floor(h), margin: `${Math.round((108 - Math.floor(h)) / 2)}px auto 0`,
+      backgroundImage: `url("${tiled.base}/${Math.floor(k / (cols * rows))}.jpg")`, backgroundSize: `${cols * w}px auto`,
+      backgroundPosition: `${-(i % cols) * w}px ${-Math.floor(i / cols) * h}px`,
+    };
+  })();
   const thumbLeft = peekF !== null ? Math.min(Math.max(peekF * trackW, 88), Math.max(88, trackW - 88)) : 0;
   const segs: [number, number][] = [];
   if (duration) {
@@ -918,7 +948,9 @@ export function Player({ ref, onExit, me, people, onTogether, onParty }: PlayerP
           <div className="kw-knob" style={{ left: `${(shownT / d) * 100}%` }} />
           <div className="kw-thumb" style={{ left: thumbLeft }}>
             <em>{chapter}</em>
-            <div className="kw-img" style={drawnAt === null || Math.abs(drawnAt - peekT) > 12 ? { visibility: "hidden" } : undefined}><canvas ref={canvas} width={192} height={108} /></div>
+            {tiled
+              ? <div className="kw-img">{tile && <i style={tile} />}</div>
+              : <div className="kw-img" style={drawnAt === null || Math.abs(drawnAt - peekT) > 12 ? { visibility: "hidden" } : undefined}><canvas ref={canvas} width={192} height={108} /></div>}
             <span>{clock(peekT)}</span>
           </div>
         </div>

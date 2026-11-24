@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { apiError } from "../api-v1";
@@ -19,7 +19,7 @@ import {
   type Episode, type Title,
 } from "./model";
 import { cachedImage, imageHeaders, imageRequest, imageUrl } from "./images";
-import { aniskip, aniskipEpisode, chooseMarkers, type Markers } from "./markers";
+import { aniskip, aniskipEpisode, chooseMarkers, releaseKey, type Markers } from "./markers";
 import { analyseLater, skipsFor, type SkipDeps, type SkipTarget } from "./skips";
 import { badges, bitrate, cleanDevice, describe, heightCap, linkCap, qualityOptions, rank, unplayable, type Release } from "./releases";
 
@@ -33,7 +33,8 @@ import { fillParams, planRows, rowMinimum, tasteOf, type PlannedRow } from "./ro
 import { ensureProvisioned, hasSources, provisioningOf, type NzbdavAccess } from "./provision";
 import { lastError, noteError, probe, type Probe } from "./status";
 import { fetchDetails, fetchSeason, namedLike, searchOrder, seasonsFromTmdb, stubFromTmdb, titleFromTmdb, tmdb, episodesFromTmdb } from "./tmdb";
-import { openStream, sealStream } from "./token";
+import { openJson, openStream, sealJson, sealStream } from "./token";
+import { sheetPath, trickLater, tricked, trickplayOf } from "./trickplay";
 import { screensOf } from "./screens";
 import { migrateTogether } from "./together";
 import { migrateFriends } from "./friends";
@@ -46,6 +47,7 @@ export * from "./model";
 export { askForScreens, decideScreens, moreScreens, mostScreens, screenAsks, screensOf, setScreens } from "./screens";
 
 const root = join(stateDir, "watch");
+const trickDir = join(root, "trickplay");
 const cache = globalThis as unknown as { kimonoWatch?: DatabaseSync; kimonoWatchSwept?: number };
 
 let migrated = false;
@@ -761,10 +763,12 @@ export async function prepare(cfg: WatchConfig, username: string, raw: Record<st
   const plan = trackPlan(title, prefs, tracksOf(db, username, title.id));
   const quality = qualityFor(cleanQuality(raw.quality), deviceQualityOf(db, username, cleanDeviceId(raw.deviceId)), prefs);
   const ranked = rank(found, device, quality, minutes, wantFor(plan, originalOf(title, prefs), prefs.fallbackLanguage), speedsOf(db), framingOf(db, title));
-  /* Work out the next episode's skips now, for the release it will most likely play. */
-  if (ranked[0] && cfg.packager.key && !complete(fromAniskip)) {
+  /* Work out the next episode's skips and make its scrubber pictures now, for the release it will most likely play. */
+  if (ranked[0] && cfg.packager.key) {
     const pick = picker(cfg, title, episodes, device, quality, wantFor(plan, originalOf(title, prefs), prefs.fallbackLanguage));
-    analyseLater(await skipDeps(cfg, username, pick), skipTarget(title, episodes, next.season, next.episode, ranked[0], minutes));
+    const deps = await skipDeps(cfg, username, pick);
+    if (!complete(fromAniskip)) analyseLater(deps, skipTarget(title, episodes, next.season, next.episode, ranked[0], minutes));
+    trickLater({ ...deps, dir: trickDir }, ranked[0]);
   }
   return { next: namer(db, title, prefs, username).named(next), ready: ranked.length > 0 };
 }
@@ -825,6 +829,9 @@ export async function play(cfg: WatchConfig, username: string, origin: string, r
 
   const sealKey = await streamKey();
   const expiresAt = Date.now() + streamLifeMs;
+  /* The scrubber's pictures, for copies that get them (./trickplay.ts): started now if they aren't made, and asked for by the player when it needs them. */
+  const pictures = Boolean(cfg.packager.key) && tricked(wanted);
+  if (pictures) trickLater({ ...(await skipDeps(cfg, username, async () => [])), dir: trickDir }, wanted);
   const sealed = (r: { url: string; service: string }) => sealStream(sealKey, { url: r.url, username, expiresAt, source: r.service, what });
   const address = (r: { url: string; service: string }) => `${origin}/api/v1/watch/stream/${sealed(r)}`;
   const tracks = playerTracks(withFallback(plan, prefs, wanted.languages, tracksOf(db, username, title.id), originalOf(title, prefs)));
@@ -861,6 +868,8 @@ export async function play(cfg: WatchConfig, username: string, origin: string, r
     autoplayNext: prefs.autoplayNext,
     /* Seconds: intro and recap as [start, end], credits as where they start. */
     markers,
+    /* Where the scrubber's pictures are: index.json says how the sheets (0.jpg, 1.jpg, …) are cut, and is a 404 until they're made. Null for copies that get none. */
+    trickplay: pictures ? `${origin}/api/v1/watch/trickplay/${sealJson(sealKey, { k: "trick", r: releaseKey(wanted) }, expiresAt)}` : null,
     skipIntros: prefs.skipIntros,
     /* Which audio and subtitle tracks to switch on, by the tags containers use; asked: the audio wanted before falling back. */
     tracks: { ...tracks, asked: plan.audio },
@@ -920,8 +929,8 @@ async function skipDeps(cfg: WatchConfig, username: string, releasesOf: SkipDeps
   return {
     db: watchDb(),
     packager: async (path, body, timeoutMs) => {
-      /* Fingerprints and the ending read minutes of the file: they wait while someone's play needs the source (./flow.ts). Chapters are only the head, read at play. */
-      if (path !== "/chapters") for (const until = Date.now() + 20 * 60_000; playbackNeedsSource() && Date.now() < until;) await new Promise((done) => setTimeout(done, 3000));
+      /* Fingerprints and the ending read minutes of the file: they wait while someone's play needs the source (./flow.ts). Chapters are only the head, read at play, and the scrubber's pictures are small reads. */
+      if (path !== "/chapters" && path !== "/trickplay") for (const until = Date.now() + 20 * 60_000; playbackNeedsSource() && Date.now() < until;) await new Promise((done) => setTimeout(done, 3000));
       const response = await packagerFetch(cfg, path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) }).catch(() => null);
       if (!response?.ok) { await response?.body?.cancel().catch(() => {}); return null; }
       try {
@@ -1108,6 +1117,24 @@ function hlsSession(cfg: WatchConfig, token: string, grant: HlsGrant): Promise<H
     hlsSessions.set(id, session);
     return session;
   });
+}
+
+/** The scrubber's pictures for a play: index.json, then the sheets. The sealed token is the permission, like a stream's. */
+export async function trickplayFile(token: string, file: string): Promise<Response> {
+  const grant = openJson(await streamKey(), token);
+  const rk = grant?.k === "trick" && typeof grant.r === "string" ? grant.r : null;
+  if (!rk) return Response.json({ error: "That address has run out." }, { status: 403 });
+  const known = trickplayOf(watchDb(), trickDir, rk);
+  const headers = { "access-control-allow-origin": "*" };
+  if (!known) return Response.json({ error: "Not made yet." }, { status: 404, headers: { ...headers, "cache-control": "no-store" } });
+  if (file === "index.json") return Response.json(known, { headers: { ...headers, "cache-control": "private, max-age=3600" } });
+  const path = sheetPath(trickDir, rk, file, known);
+  if (!path) return Response.json({ error: "There's no such sheet." }, { status: 404, headers });
+  try {
+    return new Response(new Uint8Array(readFileSync(path)), { headers: { ...headers, "content-type": "image/jpeg", "cache-control": "private, max-age=604800, immutable" } });
+  } catch {
+    return Response.json({ error: "Not made yet." }, { status: 404, headers: { ...headers, "cache-control": "no-store" } });
+  }
 }
 
 const hlsHeaders = (type: string) => new Headers({

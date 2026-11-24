@@ -62,6 +62,7 @@ func main() {
 	mux.HandleFunc("POST /chapters", authorized(handleChapters))
 	mux.HandleFunc("POST /fingerprint", authorized(handleFingerprint))
 	mux.HandleFunc("POST /ending", authorized(handleEnding))
+	mux.HandleFunc("POST /trickplay", authorized(handleTrickplay))
 	mux.HandleFunc("PUT /sessions/{id}", authorized(handlePut))
 	mux.HandleFunc("DELETE /sessions/{id}", authorized(func(w http.ResponseWriter, r *http.Request) {
 		sessions.remove(r.PathValue("id"))

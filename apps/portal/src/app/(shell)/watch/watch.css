@@ -544,6 +544,7 @@
 .kw a.kw-seal{text-decoration:none}
 .kw .kw-thumb .kw-img{background:#000;overflow:hidden}
 .kw .kw-thumb canvas{width:100%;height:100%;display:block}
+.kw .kw-thumb .kw-img i{display:block;background-repeat:no-repeat}
 .kw .kw-logo-img{display:block;max-width:min(100%,520px);max-height:160px;width:auto;height:auto;object-fit:contain;object-position:left bottom;filter:drop-shadow(0 2px 18px rgba(0,0,0,.45))}
 @media (max-width:899px){.kw .kw-hero .kw-logo-img{object-position:center bottom;margin-inline:auto;max-height:110px}}
 .kw .kw-sh-top .kw-logo-img{max-height:120px}

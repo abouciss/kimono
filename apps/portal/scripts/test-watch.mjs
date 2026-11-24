@@ -15,6 +15,10 @@ import * as friends from '../src/lib/watch/friends.ts';
 import * as startRing from '../src/app/(shell)/watch/start.ts';
 import * as flow from '../src/lib/watch/flow.ts';
 import * as screens from '../src/lib/watch/screens.ts';
+import * as trickplay from '../src/lib/watch/trickplay.ts';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const day = 24 * 60 * 60 * 1000;
 function fresh() {
@@ -1655,4 +1659,46 @@ test("anime: IMDb's numbering checked by air date, and files naming another epis
   assert.equal(anime.namesOtherEpisode('[Judas] Black Clover - S02E09 (060).mkv', c60), false);
   assert.equal(anime.namesOtherEpisode('Black Clover (2017) - S01E60 (Bluray-1080p AV1 Opus)-Pi13.mkv', c60), false);
   assert.equal(anime.namesOtherEpisode('Black Clover - S02E05 - The Highest vs The Lowest - 2160p HDR.mkv', c60), true);
+});
+
+test("scrubber pictures: made once for a debrid copy, kept on disk, and never for Usenet", async () => {
+  const db = fresh();
+  const dir = mkdtempSync(join(tmpdir(), 'kimono-trick-'));
+  let asked = 0;
+  const sheet = Buffer.from('a sheet').toString('base64');
+  const deps = (answer) => ({ db, dir, input: (r) => `http://portal/${r.name}`, packager: async (path, body) => { asked++; assert.equal(path, '/trickplay'); assert.match(String(body.input), /^http:\/\/portal\//); return answer; } });
+  const settle = () => new Promise((done) => setTimeout(done, 20));
+  const film = { name: 'Film 1080p', filename: 'Film.1080p.mkv', bytes: 9e9, service: 'debrid' };
+  const { releaseKey } = await import('../src/lib/watch/markers.ts');
+  const rk = releaseKey(film);
+
+  trickplay.trickLater(deps(null), { ...film, service: 'usenet' });
+  await settle();
+  assert.equal(asked, 0, 'a Usenet copy is never asked for');
+
+  /* 130 frames: two sheets. A set that doesn't add up is refused. */
+  trickplay.trickLater(deps({ interval: 10, width: 320, height: 180, cols: 10, rows: 10, count: 130, sheets: [sheet], ms: 1000 }), film);
+  await settle();
+  assert.equal(asked, 1);
+  assert.equal(trickplay.trickplayOf(db, dir, rk), null);
+  trickplay.trickLater(deps({ interval: 10, width: 320, height: 180, cols: 10, rows: 10, count: 130, sheets: [sheet, sheet], ms: 1000 }), film);
+  await settle();
+  assert.equal(asked, 1, 'a failure waits before it is tried again');
+
+  const other = { ...film, filename: 'Film.2160p.mkv' }, ok = releaseKey(other);
+  trickplay.trickLater(deps({ interval: 10, width: 320, height: 180, cols: 10, rows: 10, count: 130, sheets: [sheet, sheet], ms: 1000 }), other);
+  trickplay.trickLater(deps(null), other);
+  await settle();
+  assert.equal(asked, 2, 'asked once while it is being made');
+  const known = trickplay.trickplayOf(db, dir, ok);
+  assert.deepEqual(known, { interval: 10, width: 320, height: 180, cols: 10, rows: 10, count: 130, sheets: 2 });
+  assert.equal(readFileSync(join(dir, ok, '1.jpg'), 'utf8'), 'a sheet');
+  assert.equal(existsSync(join(dir, `${ok}.new`)), false);
+  trickplay.trickLater(deps(null), other);
+  await settle();
+  assert.equal(asked, 2, 'made once');
+  assert.equal(trickplay.sheetPath(dir, ok, '1.jpg', known), join(dir, ok, '1.jpg'));
+  assert.equal(trickplay.sheetPath(dir, ok, '2.jpg', known), null);
+  assert.equal(trickplay.sheetPath(dir, ok, '../1.jpg', known), null);
+  assert.equal(trickplay.sheetPath(dir, '../x', '0.jpg', known), null);
 });

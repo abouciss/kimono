@@ -85,6 +85,8 @@ export type Play = {
   label?: string | null;
   autoplayNext: boolean;
   markers: Markers;
+  /** Where the scrubber's pictures are (index.json, then 0.jpg, 1.jpg, …); null or absent when this copy gets none. */
+  trickplay?: string | null;
   skipIntros: boolean;
   tracks: { asked?: string; audio: { language: string; tags: string[] }; subtitles: { language: string; tags: string[]; kind: "full" | "signs"; signsTitles: string[] } | null };
   languages: { audio: string[]; subtitles: string[] };
@@ -93,6 +95,8 @@ export type Play = {
   /** For the player's stats: what this screen reported, the height allowed, and why each 4K copy wasn't taken. */
   why?: { device: { client: string; maxHeight: number; codecs: string[]; hdr: string[]; mbps?: number; link?: number }; quality: string; cap: number; copies: number; audio: string; original: string | null; ownChoice: boolean; uhd: { label: string; name: string; languages: string[]; reason: string }[] };
 };
+/** How the scrubber's sheets are cut: `cols` by `rows` tiles of `width` by `height`, `count` frames `interval` seconds apart. */
+export type Trickplay = { interval: number; width: number; height: number; cols: number; rows: number; count: number; sheets: number };
 /** Languages to pick from, by their ISO 639-1 code. */
 export const languages = ["en", "ja", "fr", "de", "es", "it", "pt", "nl", "sv", "no", "da", "fi", "pl", "ru", "uk", "tr", "ar", "hi", "ko", "zh"];
 
