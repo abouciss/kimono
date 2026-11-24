@@ -184,7 +184,7 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
           <span className="wg-sizes" role="group" aria-label="Size">
             {kindOf(w.kind).sizes.map((s) => <button key={s} type="button" aria-pressed={w.size === s} title={sizeName[s]} onClick={() => resize(w.id, s)}><i className={`wg-size-glyph wg-glyph-${s}`} /></button>)}
           </span>
-        </div> : editable ? <button type="button" className="wg-arrange" onClick={start} title="Arrange" aria-label="Arrange your widgets"><LineIcon name="pin" /></button> : null}
+        </div> : editable ? <button type="button" className="wg-arrange" onClick={start} title="Arrange" aria-label="Arrange your widgets"><LineIcon name="brush" /></button> : null}
       </div>)}
       {arranging || (editable && list.length) ? <button type="button" className="wg-cell wg-s wg-add wg-add-dashed" onClick={() => { if (!arranging) start(); setAdding(true); }} aria-label="Add a widget"><LineIcon name="plus" /></button> : null}
       {!list.length && editable && !arranging ? <button type="button" className="wg-cell wg-m wg-add" onClick={() => { start(); setAdding(true); }}><LineIcon name="plus" /><span>Make this yours: add widgets</span></button> : null}
