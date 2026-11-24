@@ -71,6 +71,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -591,7 +593,7 @@ fun PlayerScreen(
                 }
             }
             /* Skipping is the whole of it: the controls stay as they were. */
-            PaperButton(s.label, Ic.next, { seekTo(s.to) }, Modifier.focusRequester(focus).widthIn(min = 150.dp), height = 48.dp, fill = left)
+            SkipButton(s.label, left, { seekTo(s.to) }, Modifier.focusRequester(focus))
             LaunchedEffect(Unit) { if (tv && !ctl) runCatching { focus.requestFocus() } }
         }
 
@@ -895,6 +897,30 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
             }
         }
         Text("-" + clock(duration - shown), style = ui(if (tv) 16 else 14, FontWeight.Medium, Night.fg), textAlign = TextAlign.End)
+    }
+}
+
+/**
+ * Skip intro / Skip recap: it comes up whole in the selected look (white, dark ink), and from its end
+ * the unselected look (dark, white ink) takes it back as its time runs out, so it reads as an offer
+ * going away, never as a bar filling up to skip on its own.
+ */
+@Composable
+private fun SkipButton(label: String, left: Float, onClick: () -> Unit, modifier: Modifier) {
+    val source = remember { MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(10.dp)
+    @Composable
+    fun Face(bg: Color, ink: Color, m: Modifier) {
+        Row(m.height(44.dp).background(bg).padding(start = 14.dp, end = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            I(Ic.next, 20.dp, ink)
+            Text(label, style = ui(15, FontWeight.Bold, ink), maxLines = 1)
+        }
+    }
+    Box(modifier.clip(shape).clickableScale(onClick, focusScale = 1.06f, outline = false, source = source)
+        .then(if (focused) Modifier.border(2.dp, Night.suo, shape) else Modifier)) {
+        Face(Color(0xCC14100E), Color.White, Modifier)
+        Face(Color.White, Night.surface, Modifier.drawWithContent { clipRect(right = size.width * left) { this@drawWithContent.drawContent() } })
     }
 }
 
