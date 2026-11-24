@@ -248,13 +248,14 @@ private fun TvHero(featured: Card?, rows: List<WatchRow>, go: Go, active: Boolea
 @Composable
 fun TvButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, onClick: () -> Unit, modifier: Modifier = Modifier, tonal: Boolean = false) {
     val shape = RoundedCornerShape(8.dp)
-    /* Focus changes the fill rather than the size: paper turns blush, tonal turns paper. */
+    
     val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
-    val ink = focused || !tonal
+    /* Nothing is lit until it has focus: unfocused is a plain dark fill, focused is paper. */
+    val ink = focused
     Surface(onClick = onClick, modifier = modifier.height(44.dp), shape = ClickableSurfaceDefaults.shape(shape), interactionSource = source,
-        colors = ClickableSurfaceDefaults.colors(containerColor = if (tonal) Color(0x52A08C88) else Night.paper, focusedContainerColor = if (tonal) Night.paper else Night.blush,
-            pressedContainerColor = if (tonal) Night.paper else Night.blush, contentColor = if (tonal) Night.fg else Night.ink, focusedContentColor = Night.ink),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Night.surface3, focusedContainerColor = Night.paper,
+            pressedContainerColor = Night.paper, contentColor = Night.fg, focusedContentColor = Night.ink),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f)) {
         Row(Modifier.fillMaxHeight().padding(start = 16.dp, end = 22.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (icon != null) I(icon, tint = if (ink) Night.ink else Night.fg)

@@ -171,12 +171,13 @@ fun Face(profile: Profile, size: Dp, corner: Float = 0.28f, modifier: Modifier =
 @Composable
 fun PaperButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, onClick: () -> Unit, modifier: Modifier = Modifier, tonal: Boolean = false, height: Dp = 44.dp, fill: Float? = null) {
     val shape = RoundedCornerShape(8.dp)
-    /* Focus changes the fill: paper turns blush, tonal turns paper. */
+    /* Touch: paper, or tonal. TV: nothing is lit until it has focus, so an unfocused button is a plain dark fill and only the focused one is paper. */
     val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
-    val ink = focused || !tonal
+    val tv = app.kimono.watch.LocalWatch.current.tv
+    val ink = if (tv) focused else focused || !tonal
     Row(modifier.clickableScale(onClick, outline = false, source = source).height(height).clip(shape)
-        .background(when { focused && tonal -> Night.paper; focused -> Night.blush; tonal -> Color(0x52A08C88); else -> Night.paper })
+        .background(when { tv -> if (focused) Night.paper else Night.surface3; focused && tonal -> Night.paper; focused -> Night.blush; tonal -> Color(0x52A08C88); else -> Night.paper })
         .drawWithContent {
             if (fill != null) drawRect(Color(0x387E3448), size = size.copy(width = size.width * fill))
             drawContent()
