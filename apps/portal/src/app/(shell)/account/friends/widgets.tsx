@@ -215,9 +215,9 @@ function Empty({ icon, text }: { icon: LineIconName; text: string }) {
 function WidgetView({ w, d, onEditLinks }: { w: Widget; d: BoardData; onEditLinks?: () => void }) {
   switch (w.kind) {
     case "listening": return <Turntable w={w} d={d} />;
-    case "song": case "album": return <Favourite w={w} d={d} />;
+    case "song": case "album": return <Favourite w={w} />;
     case "reading": return <Reading w={w} d={d} />;
-    case "watching": return <Watching w={w} d={d} />;
+    case "watching": return <Watching d={d} />;
     case "artists": return <Artists w={w} d={d} />;
     case "stats": return <Stats w={w} d={d} />;
     case "note": return <Note w={w} />;
@@ -241,18 +241,24 @@ function WidgetView({ w, d, onEditLinks }: { w: Widget; d: BoardData; onEditLink
 
 /** What's playing: the album's sleeve on a wash of its own colours; while they listen the record slides out of it and turns. */
 function Turntable({ w, d }: { w: Widget; d: BoardData }) {
-  const l = d.music?.listening;
+  const next = d.music?.listening ?? null;
+  /* A new song doesn't just appear: the one that was on is held a moment while it's taken off (widgets.css, is-changing). */
+  const [held, setHeld] = useState(next);
+  const changing = Boolean(next && held && next.track.key !== held.track.key);
+  if (!changing && held !== next) setHeld(next);
+  useEffect(() => { if (!changing) return; const t = setTimeout(() => setHeld(next), 420); return () => clearTimeout(t); }, [changing, next]);
+  const l = changing ? held : next;
   if (!l) return <div className="wg-card wg-np is-empty"><Empty icon="music" text="Nothing played yet" /></div>;
   const by = l.track.artists.map((a) => a.name).join(", ");
   const cover = l.track.album?.cover ? l.track.album.cover.replace(/\/(\d{2,4})x\1-/, "/500x500-") : null;
-  return <Crossing kind="kakejiku" href={songHref(l.track.key)} className={`wg-card wg-np${l.live ? " is-live" : ""}`} title={`${l.track.title} · ${by}`}>
-    {cover ? <span className="wg-np-wash" style={{ backgroundImage: `url(${cover})` }} aria-hidden="true" /> : null}
-    <span className="wg-np-sleeve" aria-hidden="true">
+  return <Crossing kind="kakejiku" href={songHref(l.track.key)} className={`wg-card wg-np${l.live ? " is-live" : ""}${changing ? " is-changing" : ""}`} title={`${l.track.title} · ${by}`}>
+    {cover ? <span key={l.track.key} className="wg-np-wash" style={{ backgroundImage: `url(${cover})` }} aria-hidden="true" /> : null}
+    <span key={`s${l.track.key}`} className="wg-np-sleeve" aria-hidden="true">
       <span className="wg-np-record"><span className="wg-np-label" style={cover ? { backgroundImage: `url(${cover})` } : undefined} /></span>
       {/* eslint-disable-next-line @next/next/no-img-element -- the album's own cover */}
       <span className="wg-np-cover">{cover ? <img src={cover} alt="" /> : <LineIcon name="music" />}</span>
     </span>
-    {w.size !== "s" ? <span className="wg-np-words">
+    {w.size !== "s" ? <span key={`w${l.track.key}`} className="wg-np-words">
       <small className="wg-np-state">{l.live ? <><span className="wg-np-bars" aria-hidden="true"><i /><i /><i /><i /></span>Now</> : ago(l.at)}</small>
       <b>{l.track.title}</b><em>{by}</em>
       {w.size === "xl" && l.track.album ? <em className="wg-album">{l.track.album.title}</em> : null}
@@ -260,20 +266,17 @@ function Turntable({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
-function Favourite({ w, d }: { w: Widget; d: BoardData }) {
+function Favourite({ w }: { w: Widget }) {
   const c = w.config ?? {};
   const album = w.kind === "album";
-  const times = !album && c.key ? d.music?.counts?.[c.key] ?? 0 : 0;
   return <Crossing kind="kakejiku" href={album ? albumHref(c.key) : songHref(c.key)} className={`wg-card wg-fav${album ? " wg-sleeve" : ""}`}>
     {c.cover ? <span className="wg-fav-wash" style={{ backgroundImage: `url(${c.cover})` }} aria-hidden="true" /> : null}
     <span className="wg-fav-art">
       {album ? <span className="wg-fav-disc" aria-hidden="true" /> : null}
       {/* eslint-disable-next-line @next/next/no-img-element -- the cover from Music */}
       {c.cover ? <img src={c.cover} alt="" /> : <LineIcon name="music" />}
-      {!album ? <span className="wg-notes" aria-hidden="true"><i>♪</i><i>♫</i><i>♪</i><i>♬</i></span> : null}
     </span>
     {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">{album ? "Favourite album" : "Favourite song"}</small><b>{c.title}</b><em>{c.subtitle}</em></span> : null}
-    {times && w.size !== "s" ? <span className="wg-stamp" title={`Played ${times} ${times === 1 ? "time" : "times"}`}><b>{times}</b><small>{times === 1 ? "play" : "plays"}</small></span> : null}
   </Crossing>;
 }
 
@@ -298,20 +301,33 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   </Crossing>;
 }
 
-/** What's on: a strip of film with the poster as its frame, the episode stamped beside it and how far they are inked along the foot. */
-function Watching({ w, d }: { w: Widget; d: BoardData }) {
+/** What's on: a cinema's marquee. The title in loose letters on the lit board (a few hang crooked), the episode in red, the poster in its case, and bulbs lit as far as they've watched. */
+function Watching({ d }: { d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
-  if (!t) return <div className="wg-card wg-fs is-empty"><Empty icon="film" text="Nothing on right now" /></div>;
+  if (!t) return <div className="wg-card wg-mq is-empty"><Empty icon="film" text="Nothing on right now" /></div>;
   const pct = t.progress ? Math.round(t.progress * 100) : 0;
-  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-fs" title={t.title}>
-    {t.cover ? <span className="wg-fs-wash" style={{ backgroundImage: `url(${t.cover})` }} aria-hidden="true" /> : null}
+  const bulbs = 14;
+  /* Nothing to measure (a film just put on): every bulb runs. */
+  const lit = pct ? Math.max(1, Math.round((pct / 100) * bulbs)) : bulbs;
+  const fs = t.title.length <= 12 ? 30 : t.title.length <= 20 ? 24 : t.title.length <= 36 ? 19 : 15;
+  let n = 0;
+  return <Crossing kind="kakejiku" href={t.href ?? `/watch?t=${encodeURIComponent(t.itemId)}`} className="wg-card wg-mq" title={t.title}>
     {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
-    <span className="wg-fs-strip" aria-hidden="true"><span className="wg-fs-frame">{t.cover ? <img src={t.cover} alt="" /> : <LineIcon name="film" />}</span></span>
-    <span className="wg-fs-words">
-      <small className="wg-fs-kicker"><span className="wg-fs-rec" aria-hidden="true" />Watching</small>
-      <b>{t.title}</b>
-      {t.subtitle ? <span className="wg-fs-ep">{t.subtitle}</span> : null}
-      {pct ? <span className="wg-fs-line" aria-label={`${pct}% watched`}><span className="wg-fs-track"><i style={{ width: `${pct}%` }} /></span><small>{pct}%</small></span> : null}
+    <span className="wg-mq-case" aria-hidden="true">{t.cover ? <img src={t.cover} alt="" /> : <LineIcon name="film" />}</span>
+    <span className="wg-mq-sign">
+      <small className="wg-mq-now">Now showing</small>
+      <span className="wg-mq-board">
+        <b className="wg-mq-title" aria-label={t.title} style={{ "--fs": `${fs}px` } as React.CSSProperties}>{t.title.split(/\s+/).filter(Boolean).map((word, i) => <span key={i} aria-hidden="true">{[...word].map((c, j) => {
+          /* About one letter in seven was put up in a hurry. */
+          const k = (c.charCodeAt(0) * 7 + n++ * 13) % 7;
+          return <i key={j} style={k ? undefined : { "--r": `${n % 2 ? 2.4 : -2.8}deg`, "--y": `${n % 3 ? 1 : -1}px` } as React.CSSProperties}>{c}</i>;
+        })}</span>)}</b>
+        {t.subtitle ? <span className="wg-mq-ep">{t.subtitle.replace(/\s*:\s*/g, " · ")}</span> : null}
+      </span>
+      <span className="wg-mq-bulbs" role="img" aria-label={pct ? `${pct}% watched` : "Watching"}>
+        <span>{Array.from({ length: bulbs }, (_, i) => <i key={i} className={i < lit ? "is-on" : undefined} style={{ "--i": i } as React.CSSProperties} />)}</span>
+        {pct ? <small>{pct}%</small> : null}
+      </span>
     </span>
   </Crossing>;
 }
@@ -688,9 +704,11 @@ function previewData(d: BoardData): BoardData {
   const read = titles.map(([title, author], i) => ({ key: `demo:${i}`, title, author, cover: null, rating: i % 3 === 0 ? "love" as const : null, at: now - i * 86400_000 * 9 }));
   const posters = d.sections.flatMap((s) => (s.app === "watch" ? s.items : [])).filter((i) => i.cover);
   const watched = d.sections.some((s) => s.app === "watch" && s.kind === "watched" && s.items.length) ? [] : [{ app: "watch", kind: "watched", title: "Watched", items: posters.length ? Array.from({ length: 4 }, (_, i) => ({ ...posters[i % posters.length], itemId: `demo${i}` })) : [] }];
+  /* The marquee needs something on it to be seen. */
+  const watching = d.sections.some((s) => s.app === "watch" && s.kind === "watching" && s.items.length) ? [] : [{ app: "watch", kind: "watching", title: "Watching", items: [{ ...(posters[0] ?? {}), itemId: "demo-on", title: posters[0]?.title ?? "Your show", subtitle: "S1:E3", cover: posters[0]?.cover ?? null, progress: .4 }] }];
   return {
     ...d,
-    sections: [...d.sections, ...watched],
+    sections: [...d.sections, ...watched, ...watching],
     books: d.books?.read.length ? d.books : { read, reviews: [{ ...read[0], review: "Quiet, restrained and devastating: a whole life told in what's left unsaid." }] },
   };
 }

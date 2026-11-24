@@ -282,6 +282,7 @@ export function ProfileView({ username, home = false, standalone = false }: { us
   const sections = p.open ? p.sections.filter((s) => !preview || (!invisible && !rowKept(s.app, s.kind))) : [];
   const off = p.open ? p.off ?? [] : [];
   const friendList = p.open && !(preview && friendsKept) ? p.friendList ?? [] : [];
+  const friendsOffBoard = p.open && (p.widgets ?? []).some((w) => w.kind === "friends" && w.config?.off);
   const color = colorOf(p.open ? p.color : null);
   /* The widgets are the profile: what each app shows, and your friends, live in them. */
   /* What you keep to yourself, row by row ("watch:watching"): a whole app kept keeps all its rows. */
@@ -325,6 +326,12 @@ export function ProfileView({ username, home = false, standalone = false }: { us
         <div className="fr-hero-words">
           <h1 className="fr-name">{p.you && !preview && p.open ? <button type="button" className="fr-name-edit" onClick={() => setEditing(true)} title="Edit name, pronouns and colour">{p.name}<LineIcon name="brush" /></button> : p.name}{p.open && p.pronouns && !closedToFriends ? <small className="fr-pronouns">{p.pronouns}</small> : null}</h1>
           <p className="fr-handle">@{p.username}{p.open && !closedToFriends ? ` · ${p.friends === 1 ? "1 friend" : `${p.friends} friends`}` : ""}</p>
+          {/* Friends taken off the board still show: a few faces under the name. */}
+          {friendsOffBoard && friendList.length && !closedToFriends ? <span className="fr-hero-friends">
+            {friendList.slice(0, 6).map((f, i) => <Crossing key={f.username} kind="kakejiku" href={`/account/people/${encodeURIComponent(f.username)}`} title={f.name || f.username} style={{ "--i": i } as React.CSSProperties}>
+              <Portrait name={f.name} username={f.username} picture={f.picture} size={30} /></Crossing>)}
+            {friendList.length > 6 ? (p.you ? <Crossing kind="kakejiku" href="/account/friends" className="fr-hero-friends-more">+{friendList.length - 6}</Crossing> : <b className="fr-hero-friends-more">+{friendList.length - 6}</b>) : null}
+          </span> : null}
           {p.open && !closedToFriends && (p.links.some(underName) || (p.you && !preview)) ? <nav className="fr-socials" aria-label="Elsewhere">
             {/* eslint-disable-next-line no-restricted-syntax -- someone's own links leave Kimono, in a new tab */}
             {p.links.filter(underName).map((l, i) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow" title={l.title} aria-label={l.title} style={{ "--i": i } as React.CSSProperties}>

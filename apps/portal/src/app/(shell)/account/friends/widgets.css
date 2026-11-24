@@ -216,7 +216,8 @@ a.wg-card:hover, .wg-card:hover { transform: translateY(-3px); box-shadow: 0 14p
 /* ── The gallery, by app ──────────────────────────────────────────────── */
 
 .wg-gallery { display: grid; gap: 18px; }
-.wg-shelf h3 { margin: 0 0 8px; font: 600 18px/24px var(--k-display); color: var(--wg-shelf); }
+/* The shelf's colour, lifted toward the sheet's own ink so it reads on a dark ground and a light one. */
+.wg-shelf h3 { margin: 0 0 8px; font: 600 18px/24px var(--k-display); color: color-mix(in srgb, var(--wg-shelf) 42%, var(--k-on-surface)); }
 .wg-shelf-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .wg-pick { display: grid; align-content: start; justify-items: start; gap: 4px; padding: 8px; border: 0; border-radius: var(--k-r-l); background: none; color: var(--k-on-surface); text-align: left; cursor: pointer; transition: background var(--k-t-state), transform var(--k-t-fold) var(--k-spring); }
 .wg-pick:hover { background: var(--k-container-highest); transform: translateY(-2px); }
@@ -429,32 +430,21 @@ a.wg-np.is-live:hover .wg-np-record { transform: translateX(62%); }
 .wg-s .wg-np { justify-content: center; padding: 14px; }
 .wg-s .wg-np-sleeve { height: 86%; }
 .wg-np.is-empty { background: var(--k-container-low); color: var(--k-on-surface-variant); }
-@media (prefers-reduced-motion: reduce) { .wg-np-label, .wg-np-bars i { animation: none !important; } }
-
-/* ── Watching (2026-11-15): a strip of film, the poster its frame between the sprocket holes; the episode stamped, how far inked along the foot ── */
-.wg-fs { --holes: repeating-linear-gradient(90deg, transparent 0 5px, #e9e2d6 5px 11px, transparent 11px 16px); gap: 18px; padding: 0 18px 0 0; }
-.wg-fs-strip { position: relative; flex: none; height: 100%; aspect-ratio: .78; padding: 15px 7px; background: #15110e; transform: rotate(-2deg) scale(1.06); transition: transform .6s var(--k-spring); overflow: hidden; }
-.wg-fs-strip::before, .wg-fs-strip::after { content: ""; position: absolute; left: -6px; right: -6px; height: 7px; background: var(--holes); border-radius: 2px; opacity: .85; transition: background-position .9s var(--k-spring); }
-.wg-fs-strip::before { top: 4px; }
-.wg-fs-strip::after { bottom: 4px; }
-a.wg-fs:hover .wg-fs-strip { transform: rotate(0deg) scale(1.06); }
-a.wg-fs:hover .wg-fs-strip::before, a.wg-fs:hover .wg-fs-strip::after { background-position: 32px 0; }
-.wg-fs-frame { position: relative; display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: 3px; background: #2a221d; color: rgba(255, 255, 255, .5); }
-.wg-fs-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
-.wg-fs-frame .line-icon { width: 28px; height: 28px; }
-.wg-fs-words { display: grid; align-content: center; justify-items: start; gap: 4px; min-width: 0; padding: 12px 0 16px; }
-.wg-fs-words .wg-kicker .line-icon { width: 14px; height: 14px; }
-.wg-fs-words b { font: 600 19px/1.22 var(--k-display); color: var(--k-on-surface); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-/* The episode, stamped. */
-.wg-fs-ep { margin-top: 4px; padding: 2px 7px; border: 1.5px solid currentColor; border-radius: 3px; color: var(--fr-color, var(--k-suo)); font: 700 12px/16px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .06em; transform: rotate(-3deg); }
-.wg-fs-line { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: color-mix(in srgb, var(--k-on-surface-variant) 18%, transparent); }
-.wg-fs-line i { display: block; height: 100%; border-radius: 0 3px 3px 0; background: var(--fr-color, var(--k-suo)); }
-.wg-l .wg-fs { flex-direction: column; align-items: stretch; padding: 0 0 4px; gap: 4px; }
-.wg-l .wg-fs-strip { height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; padding: 15px 7px; transform: rotate(-1deg) scale(1.04); }
-.wg-l .wg-fs-words { padding: 6px 18px 12px; }
-.wg-s .wg-fs { padding: 0; justify-content: center; }
-.wg-s .wg-fs-strip { height: 100%; }
-.wg-fs.is-empty { padding: 16px; }
+/* A new song: the record tucks in and the old sleeve is pulled off to the side; the next one is set down, its record slips out, and its name comes up. */
+.wg-np-sleeve, .wg-np-words { transition: transform .42s var(--k-ease-settle), opacity .3s; }
+.wg-np-sleeve { animation: wg-np-set .7s var(--k-spring) backwards; }
+.wg-np-record { animation: wg-np-slip 1s .3s var(--k-spring) backwards; }
+.wg-np-words { animation: wg-np-rise .6s .2s var(--k-spring) backwards; }
+.wg-np-wash { animation: wg-np-fade .9s ease-out backwards; }
+.wg-np.is-changing .wg-np-sleeve { transform: translateX(-70%) rotate(-10deg); opacity: 0; }
+.wg-np.is-changing .wg-np-record { transform: translateX(0); transition-duration: .25s; }
+.wg-np.is-changing .wg-np-words { transform: translateY(8px); opacity: 0; }
+.wg-np.is-changing .wg-np-wash { opacity: 0; transition-duration: .42s; }
+@keyframes wg-np-set { from { transform: translateX(60%) rotate(9deg); opacity: 0; } }
+@keyframes wg-np-slip { from { transform: translateX(0); } }
+@keyframes wg-np-rise { from { transform: translateY(10px); opacity: 0; } }
+@keyframes wg-np-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .wg-np-label, .wg-np-bars i, .wg-np-sleeve, .wg-np-record, .wg-np-words, .wg-np-wash { animation: none !important; } }
 
 /* ── Reading (2026-11-15): the book floats in its own lamplight, leans toward your pointer, and opens on hover with motes rising off the pages ── */
 .wg-reading { isolation: isolate; gap: 22px; overflow: visible; }
@@ -516,54 +506,47 @@ a.wg-fav:hover .wg-fav-art { transform: rotate(-2deg) translateY(-2px); }
 .wg-words em { color: color-mix(in srgb, var(--k-on-surface) 80%, transparent); }
 @keyframes wg-drift { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.18) translate(4%, -3%); } }
 
-/* How often they've played it: a hanko pressed in the corner, landing with a thunk. */
-.wg-stamp { position: absolute; right: 16px; bottom: 16px; z-index: 2; display: grid; justify-items: center; align-content: center; min-width: 58px; height: 58px; padding: 0 8px;
-  border: 2.5px solid currentColor; border-radius: 12px 5px 12px 5px; color: color-mix(in srgb, var(--fr-color, var(--k-suo)) 70%, #fff);
-  background: color-mix(in srgb, var(--fr-color, var(--k-suo)) 16%, transparent); transform: rotate(-9deg);
-  animation: wg-thunk .55s var(--k-spring) both; animation-delay: calc(500ms + var(--n, 0) * 70ms); }
-.wg-stamp b { font: 700 26px/1 var(--k-display); font-variant-numeric: tabular-nums; }
-.wg-stamp small { font: 800 9.5px/12px var(--k-sans); letter-spacing: .14em; text-transform: uppercase; }
-@keyframes wg-thunk { from { opacity: 0; transform: rotate(-24deg) scale(1.9); } 70% { opacity: 1; } }
-a.wg-fav:hover .wg-stamp { transform: rotate(-4deg) scale(1.06); transition: transform .4s var(--k-spring); }
-.wg-l .wg-stamp { right: 20px; bottom: 20px; min-width: 70px; height: 70px; }
-.wg-l .wg-stamp b { font-size: 32px; }
-.wg-cell:has(.wg-kept) .wg-stamp { bottom: 24px; }
+@media (prefers-reduced-motion: reduce) { .wg-fav-wash { animation: none; } }
 
-/* A song sings: notes drift up off the cover, more of them when you're on it. */
-.wg-notes { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
-.wg-notes i { position: absolute; bottom: 30%; left: calc(18% + var(--x, 0%)); font: 700 18px/1 var(--k-display); font-style: normal; color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, .55); opacity: 0;
-  animation: wg-note 4.8s ease-out infinite; animation-delay: var(--d, 0s); }
-.wg-notes i:nth-child(1) { --x: 0%; --d: 0s; --dx: -18px; }
-.wg-notes i:nth-child(2) { --x: 40%; --d: 1.2s; --dx: 14px; font-size: 22px; }
-.wg-notes i:nth-child(3) { --x: 62%; --d: 2.4s; --dx: -10px; }
-.wg-notes i:nth-child(4) { --x: 24%; --d: 3.6s; --dx: 20px; font-size: 15px; }
-@keyframes wg-note { 0% { opacity: 0; transform: translate(0, 0) rotate(-10deg) scale(.7); } 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -150%) rotate(14deg) scale(1.1); } }
-.wg-l .wg-notes i { font-size: 28px; }
-a.wg-fav:hover .wg-notes i { animation-duration: 2.2s; }
-@media (prefers-reduced-motion: reduce) { .wg-notes, .wg-fav-wash { animation: none; } .wg-notes { display: none; } .wg-stamp { animation: none; } }
-
-/* ── Watching: a seat in a dark cinema. The poster on its strip of film (always running), lit by its own colours; what it is, which episode and how far, in cream. ── */
-.wg-fs { isolation: isolate; background: #15100e; color: #f3e7da; }
-.wg-fs.is-empty { background: var(--k-container-low); color: var(--k-on-surface-variant); }
-.wg-fs-wash { position: absolute; inset: -30%; z-index: -1; background: center / cover no-repeat; filter: blur(40px) saturate(1.4) brightness(.55); opacity: .7; animation: wg-drift 18s ease-in-out infinite alternate; pointer-events: none; }
-.wg-fs-strip::before, .wg-fs-strip::after { animation: wg-reel 2.4s linear infinite; }
-@keyframes wg-reel { to { background-position: 16px 0; } }
-.wg-fs-words { padding: 12px 0; }
-.wg-fs-words b { color: #fff5ea; }
-.wg-fs-kicker { display: inline-flex; align-items: center; gap: 7px; font: 700 12px/16px var(--k-sans); letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 240, 226, .78); }
-.wg-fs-rec { width: 8px; height: 8px; border-radius: 50%; background: #ff5a5f; box-shadow: 0 0 0 3px rgba(255, 90, 95, .25); animation: wg-rec 1.6s ease-in-out infinite; }
-@keyframes wg-rec { 50% { opacity: .35; } }
-.wg-fs-ep { color: #ffc9a8; }
-.wg-fs-line { position: static; display: flex; align-items: center; gap: 8px; width: 100%; max-width: 220px; height: auto; margin-top: 8px; background: none; }
-.wg-fs-track { flex: 1; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 240, 226, .18); }
-.wg-fs-track i { display: block; height: 100%; border-radius: 2px; background: #ffc9a8; }
-.wg-fs-line small { font: 700 11.5px/1 var(--k-sans); color: rgba(255, 240, 226, .7); font-variant-numeric: tabular-nums; }
-/* Small: the strip above, the title and the episode under it. */
-.wg-s .wg-fs { flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 0; padding: 0; text-align: left; }
-.wg-s .wg-fs-strip { height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; transform: rotate(-1.5deg) scale(1.05); }
-.wg-s .wg-fs-words { gap: 3px; padding: 8px 12px 10px; }
-.wg-s .wg-fs-kicker, .wg-s .wg-fs-line small { display: none; }
-.wg-s .wg-fs-words b { font-size: 14px; line-height: 1.2; -webkit-line-clamp: 1; }
-.wg-s .wg-fs-ep { margin-top: 0; padding: 0 5px; font-size: 10.5px; line-height: 14px; }
-.wg-s .wg-fs-line { margin-top: 3px; }
-@media (prefers-reduced-motion: reduce) { .wg-fs-wash, .wg-fs-strip::before, .wg-fs-strip::after, .wg-fs-rec { animation: none; } }
+/* ── Watching: the marquee over a cinema's doors at night. The title in loose black letters on the lit board (a few hang crooked), the episode in red under it, the poster in its case, and a row of bulbs lit as far as they've watched. ── */
+.wg-mq { --mq-letters: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", var(--k-sans); align-items: stretch; gap: 14px; padding: 12px 14px 12px 12px; background: #2a1417; color: #f4ead6; text-align: left; }
+a.wg-mq:hover { background: #2a1417; }
+.wg-mq.is-empty { align-items: center; background: var(--k-container-low); color: var(--k-on-surface-variant); }
+.wg-mq-case { position: relative; flex: none; display: grid; place-items: center; height: 100%; aspect-ratio: 2 / 3; overflow: hidden; border: 3px solid #0d0908; border-radius: 3px; background: #2a221d; color: rgba(255, 255, 255, .5); box-shadow: 0 0 0 1.5px #b98f4a; }
+.wg-mq-case img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; transition: transform 1.2s var(--k-ease-settle); }
+a.wg-mq:hover .wg-mq-case img { transform: scale(1.05); }
+.wg-mq-case .line-icon { width: 28px; height: 28px; }
+.wg-mq-sign { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
+.wg-mq-now { display: flex; align-items: center; gap: 8px; font: 800 11px/14px var(--k-sans); letter-spacing: .22em; text-transform: uppercase; color: #ff7a66; animation: wg-mq-neon 7s infinite; }
+.wg-mq-now::before, .wg-mq-now::after { content: "★"; font-size: 9px; letter-spacing: 0; }
+@keyframes wg-mq-neon { 0%, 91%, 94%, 100% { opacity: 1; } 92.5% { opacity: .4; } }
+/* The lit board: cream, with the rails the letters hang on. */
+.wg-mq-board { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: center; gap: 3px; min-height: 0; padding: 6px 10px; overflow: hidden; border-radius: 4px; background: #f4ead6 repeating-linear-gradient(0deg, transparent 0 8px, rgba(43, 29, 23, .09) 8px 9px); box-shadow: inset 0 0 0 2px #0d0908, 0 0 22px -4px rgba(255, 214, 150, .4); }
+.wg-mq-title { display: flex; flex-wrap: wrap; justify-content: center; column-gap: .42em; min-height: 0; overflow: hidden; font: 800 calc(var(--fs, 24px) * var(--mq, 1))/1.08 var(--mq-letters); text-transform: uppercase; color: #1c1412; }
+.wg-mq-title span { display: inline-flex; }
+.wg-mq-title i { min-width: .56em; padding: 0 .03em; font-style: normal; text-align: center; transform: rotate(var(--r, 0deg)) translateY(var(--y, 0)); transition: transform .5s var(--k-spring); }
+/* Looked at, someone straightens the letters. */
+a.wg-mq:hover .wg-mq-title i { transform: none; }
+.wg-mq-ep { flex: none; font: 800 13px/16px var(--mq-letters); letter-spacing: .2em; text-transform: uppercase; color: #c2382c; }
+.wg-mq-bulbs { display: flex; align-items: center; gap: 10px; height: 12px; }
+.wg-mq-bulbs span { display: flex; flex: 1; justify-content: space-between; padding: 0 3px; }
+.wg-mq-bulbs i { width: 7px; height: 7px; border-radius: 50%; background: #4a3a33; }
+.wg-mq-bulbs i.is-on { background: #ffd98a; box-shadow: 0 0 6px 1px rgba(255, 205, 120, .6); animation: wg-mq-chase 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.12s); }
+a.wg-mq:hover .wg-mq-bulbs i.is-on { animation-duration: .7s; }
+@keyframes wg-mq-chase { 50% { opacity: .45; } }
+.wg-mq-bulbs small { font: 700 11.5px/1 var(--k-sans); color: rgba(244, 234, 214, .75); font-variant-numeric: tabular-nums; }
+/* Large: the marquee over the doors, the poster case under it. */
+.wg-l .wg-mq { --mq: 1.3; flex-direction: column-reverse; gap: 12px; padding: 14px; text-align: left; }
+.wg-l .wg-mq-case { width: 100%; height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
+.wg-l .wg-mq-sign { flex: none; }
+.wg-l .wg-mq-board { flex: none; min-height: 96px; padding: 10px 12px; }
+/* Small: the poster case, and one line of the board under it. */
+.wg-s .wg-mq { flex-direction: column; justify-content: flex-start; gap: 7px; padding: 10px; text-align: left; }
+.wg-s .wg-mq-case { width: 100%; height: auto; flex: 1 1 0; min-height: 0; aspect-ratio: auto; }
+.wg-s .wg-mq-sign { flex: none; gap: 5px; }
+.wg-s .wg-mq-now, .wg-s .wg-mq-bulbs small, .wg-s .wg-mq-ep { display: none; }
+.wg-s .wg-mq-board { flex: none; padding: 4px 6px; align-items: stretch; }
+.wg-s .wg-mq-title { flex-wrap: nowrap; justify-content: flex-start; font-size: 13px; }
+.wg-s .wg-mq-bulbs { height: 8px; }
+.wg-s .wg-mq-bulbs i { width: 5px; height: 5px; }
+@media (prefers-reduced-motion: reduce) { .wg-mq-now, .wg-mq-bulbs i.is-on { animation: none; } }

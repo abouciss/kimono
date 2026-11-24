@@ -641,3 +641,10 @@ a.fr-tag { text-decoration: none; margin-top: 4px; }
 .fr-wsw-subs { animation: fr-rise .3s var(--k-spring) both; }
 .fr-app-glyph { width: 24px; height: 24px; }
 @media (max-width: 640px) { .fr-wsw-apphead { flex-wrap: wrap; } .fr-who.is-three button { padding: 0 8px; font-size: 12.5px; } }
+
+/* Friends off the board: their faces in a row under the name, overlapping like a stack of coins. */
+.fr-hero-friends { display: flex; align-items: center; margin-top: 6px; padding-left: 8px; }
+.fr-hero-friends > * { margin-left: -8px; border-radius: 50%; box-shadow: 0 0 0 2.5px var(--k-surface); background: var(--k-surface); transition: transform .35s var(--k-spring); animation: fr-pop .6s var(--k-spring) both; animation-delay: calc(240ms + var(--i, 6) * 50ms); }
+.fr-hero-friends a { display: block; line-height: 0; text-decoration: none !important; }
+.fr-hero-friends a:hover { position: relative; z-index: 1; transform: translateY(-4px) scale(1.12); }
+.fr-hero-friends-more { display: grid !important; place-items: center; min-width: 30px; height: 30px; padding: 0 7px; line-height: 1 !important; background: var(--k-container-high); color: var(--k-on-surface); font: 700 12px/1 var(--k-sans); }
