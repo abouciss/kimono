@@ -600,3 +600,5 @@ a.wg-watch:hover .wg-device { --lift: -3px; }
 @media (prefers-reduced-motion: reduce) { .wg-fan-card { transition: none; } }
 /* A large ticket on a narrow board: the title comes down so it isn't cut. */
 @container wg (max-width: 900px) { .wg-l .wg-ticket-main b { font-size: 22px; } .wg-l .wg-ticket { --end: 46px; } }
+/* Large: the posters stand as tall as the card allows, so the hand fills it instead of sitting at the bottom of an empty card. */
+.wg-l .wg-fan-card, .wg-xl .wg-fan-card { bottom: 3%; width: auto; height: 88%; max-width: none; margin-left: 0; translate: -50% 0; border-radius: 9px; }
