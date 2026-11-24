@@ -59,7 +59,7 @@ const kinds: { kind: WidgetKind; name: string; says: string; icon: LineIconName;
   { kind: "yearbooks", name: "Year in books", says: "How many you've read this year", icon: "book", sizes: ["s", "m"], size: "s" },
   { kind: "watching", name: "Watching", says: "What's on, and how far", icon: "film", sizes: ["s", "m", "l"], size: "m" },
   { kind: "watched", name: "Watched lately", says: "What you've seen, fanned out", icon: "film", sizes: ["m", "l", "xl"], size: "m" },
-  { kind: "show", name: "Favourite film or show", says: "The one you'd watch again tonight", icon: "film", sizes: ["s", "m", "l"], size: "l" },
+  { kind: "show", name: "Favourite film or show", says: "The one you'd watch again tonight", icon: "film", sizes: ["m", "l"], size: "l" },
   { kind: "stats", name: "Your month", says: "Songs, hours and books", icon: "clock", sizes: ["s", "m"], size: "s" },
   { kind: "note", name: "A note", says: "A few words, on paper", icon: "brush", sizes: ["s", "m", "l"], size: "s" },
   { kind: "quote", name: "A quote", says: "Words you live by", icon: "brush", sizes: ["m", "l", "xl"], size: "m" },
@@ -130,7 +130,8 @@ export function WidgetBoard({ data, widgets, editable, arranging, onArranging, o
   onEditLinks?: () => void;
   onSave: (w: Widget[]) => Promise<void>;
 }) {
-  const shown = useMemo(() => withFriends(widgets ?? defaultWidgets(data), data), [widgets, data]);
+  /* A widget saved at a size its kind no longer comes in is shown at the nearest it does. */
+  const shown = useMemo(() => withFriends(widgets ?? defaultWidgets(data), data).map((w) => (kindOf(w.kind).sizes.includes(w.size) ? w : { ...w, size: kindOf(w.kind).sizes[0] })), [widgets, data]);
   const [draft, setDraft] = useState<Widget[]>(shown);
   /* Arranging starts from what's shown (set while drawing, as React has it for a change from outside)… */
   const [was, setWas] = useState(arranging);
@@ -581,18 +582,19 @@ function FavouriteBook({ w }: { w: Widget }) {
 /** Their favourite film or show, as a ticket: the poster on the stub, the title on the ticket, a line to tear along. */
 function FavouriteShow({ w }: { w: Widget }) {
   const c = w.config ?? {};
-  return <Crossing kind="kakejiku" href={`/watch?t=${encodeURIComponent(c.key ?? "")}`} className="wg-card wg-ticket-card">
+  return <Crossing kind="kakejiku" href={`/watch?t=${encodeURIComponent(c.key ?? "")}`} className="wg-card wg-ticket-card" title={c.title}>
     <span className="wg-ticket">
       <span className="wg-ticket-stub">
         {/* eslint-disable-next-line @next/next/no-img-element -- the poster from Watch */}
         {c.cover ? <img src={c.cover} alt="" /> : null}
       </span>
       <span className="wg-ticket-main">
-        <small className="wg-ticket-admit">Admit one · Favourite</small>
+        <small className="wg-ticket-admit">Favourite</small>
         <b>{c.title}</b>
-        {c.subtitle && w.size !== "s" ? <em>{c.subtitle}</em> : null}
-        <span className="wg-ticket-no" aria-hidden="true">No. {String((c.key ?? "").length * 7919 % 100000).padStart(5, "0")}</span>
+        {c.subtitle ? <em>{c.subtitle}</em> : null}
       </span>
+      {/* The stub that tears off. */}
+      <span className="wg-ticket-end" aria-hidden="true"><i className="wg-ticket-bars" /></span>
     </span>
   </Crossing>;
 }
