@@ -857,16 +857,17 @@ private fun Scrubber(position: Double, duration: Double, buffered: Double, scrub
                     onCommit()
                 }
             }, contentAlignment = Alignment.CenterStart) {
-            /* One rounded track: what's left, what's loaded, what's played, with the intro, recap and credits cut into it as on the web. */
-            Box(Modifier.fillMaxWidth().height(thick).clip(CircleShape).background(Color(0x33FFFFFF)).drawBehind {
+            /* One rounded track: what's left, what's loaded, what's played, with the intro, recap and credits cut out of it: see-through gaps, the picture showing through. */
+            Box(Modifier.fillMaxWidth().height(thick).graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }.drawBehind {
                 val r = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
+                drawRoundRect(Color(0x33FFFFFF), cornerRadius = r)
                 drawRoundRect(Color(0x4DFFFFFF), size = size.copy(width = size.width * (buffered / d).toFloat().coerceIn(0f, 1f)), cornerRadius = r)
                 drawRoundRect(Night.suo, size = size.copy(width = (size.width * (shown / d).toFloat().coerceIn(0f, 1f)).coerceAtLeast(size.height)), cornerRadius = r)
                 fun seg(a: Double, b: Double) {
-                    val w = 2.dp.toPx()
+                    val w = 3.dp.toPx()
                     val x0 = (a / d * size.width).toFloat(); val x1 = (b / d * size.width).toFloat()
-                    if (x0 > w) drawRect(Color.Black, Offset(x0, 0f), androidx.compose.ui.geometry.Size(w, size.height))
-                    if (x1 < size.width - w) drawRect(Color.Black, Offset(x1 - w, 0f), androidx.compose.ui.geometry.Size(w, size.height))
+                    if (x0 > w) drawRect(Color.Black, Offset(x0 - w / 2, 0f), androidx.compose.ui.geometry.Size(w, size.height), blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
+                    if (x1 < size.width - w) drawRect(Color.Black, Offset(x1 - w / 2, 0f), androidx.compose.ui.geometry.Size(w, size.height), blendMode = androidx.compose.ui.graphics.BlendMode.Clear)
                 }
                 markers?.recap?.takeIf { it.size == 2 }?.let { seg(it[0], it[1]) }
                 markers?.intro?.takeIf { it.size == 2 }?.let { seg(it[0], it[1]) }
