@@ -153,6 +153,13 @@ fun KimonoApp(session: Session, platform: Platform, shared: SharedItem?, onShare
 /** The screens someone was on, kept between launches. */
 private const val WHERE = "kimono.where"
 
+/** Open on Home: whether a fresh start opens on Home rather than where you were. On unless it's "off". */
+object OpenOnHome {
+    const val KEY = "kimono.openOnHome"
+    /** Set once this run of the app has opened, so only a fresh start goes Home, not a turned screen. */
+    internal var started = false
+}
+
 @Composable
 private fun SignedIn(session: Session, platform: Platform, profile: AccountProfile?, offered: AppUpdate?, recheck: suspend () -> Unit, onLater: () -> Unit) {
     /*
@@ -202,12 +209,18 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     /*
      * Where you were: every screen on the way there is kept as you move, and the app
      * opens on them again, so Back still leads where it did. A notification's screen wins.
+     * With Open on Home (Settings; on unless turned off), a fresh start opens on Home instead,
+     * even where the system brought the screens back itself; turning the screen doesn't count.
      */
     LaunchedEffect(nav) {
         /* What was kept inside Kimono AI comes first, so the screens it reopens find it. */
         code.loadChoices()
+        val fresh = !OpenOnHome.started
+        OpenOnHome.started = true
+        val homeFirst = platform.readKept(OpenOnHome.KEY) != "off"
         val kept = platform.readKept(WHERE)?.split('\n')?.filter { it.isNotBlank() && it != "home" }.orEmpty()
-        if (Opening.route.value == null) for (to in kept) if (runCatching { nav.navigate(to) }.isFailure) break
+        if (Opening.route.value == null && fresh && homeFirst) { if (nav.currentDestination?.route != "home") nav.navigate("home") { popUpTo("home") { inclusive = true }; launchSingleTop = true } }
+        else if (Opening.route.value == null && !homeFirst) for (to in kept) if (runCatching { nav.navigate(to) }.isFailure) break
         nav.currentBackStack.collect { stack ->
             val routes = stack.mapNotNull { e ->
                 val pattern = e.destination.route ?: return@mapNotNull null
@@ -264,9 +277,8 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     val rail = wide && roomApp != null
     val chrome = (tab && !wide) || musicBar
     val launcherOfRoom = model.drive.launcher.collectAsState().value?.firstOrNull { it.id == roomApp?.id }
-    /* Your apps, as the website's rail and Home list them, down the rail on Kimono's own pages. */
-    val myApps by model.drive.myApps.collectAsState()
-    val railApps = model.drive.launcher.collectAsState().value?.let { app.kimono.screens.myAppsOf(it, myApps) }.orEmpty()
+    /* Kimono's suite down the rail, the same in every app. */
+    val railApps = model.drive.launcher.collectAsState().value?.let { app.kimono.screens.suiteOf(it) }.orEmpty()
     fun roomGo(to: String) { if (to == "notes") notes.go(app.kimono.screens.NotePlace.All); goTab(to) }
     fun roomTask() { when (roomApp?.id) { app.kimono.data.Notes.APP_ID -> notes.askSearch(); app.kimono.data.Code.APP_ID -> { AiDrawerAsk.open.value = true; if (route == "ai/connections" || route == "ai/memory") goTab("code") } } }
     Box(Modifier.fillMaxSize()) {
@@ -280,7 +292,9 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             }
         },
     ) { padding ->
-        if (appsOpen) app.kimono.screens.AppsSheet(model.drive, here = ::here, onDismiss = { appsOpen = false }, home = { appsOpen = false; goTab("home") }) { appsOpen = false; openApp(it) }
+        /* A wide window (an iPad) brings every app up as a card in the middle; a phone, as a sheet from the bottom. */
+        if (appsOpen && wide) app.kimono.screens.AppsDialog(model.drive, here = ::here, onDismiss = { appsOpen = false }, home = { appsOpen = false; goTab("home") }) { appsOpen = false; openApp(it) }
+        else if (appsOpen) app.kimono.screens.AppsSheet(model.drive, here = ::here, onDismiss = { appsOpen = false }, home = { appsOpen = false; goTab("home") }) { appsOpen = false; openApp(it) }
         /*
          * Material's own motion between screens. Tabs fade through: the old one
          * fades quickly, the new one settles in from just smaller. A screen
