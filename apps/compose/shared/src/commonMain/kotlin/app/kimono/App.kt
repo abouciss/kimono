@@ -264,6 +264,9 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     val rail = wide && roomApp != null
     val chrome = (tab && !wide) || musicBar
     val launcherOfRoom = model.drive.launcher.collectAsState().value?.firstOrNull { it.id == roomApp?.id }
+    /* Your apps, as the website's rail and Home list them, down the rail on Kimono's own pages. */
+    val myApps by model.drive.myApps.collectAsState()
+    val railApps = model.drive.launcher.collectAsState().value?.let { app.kimono.screens.myAppsOf(it, myApps) }.orEmpty()
     fun roomGo(to: String) { if (to == "notes") notes.go(app.kimono.screens.NotePlace.All); goTab(to) }
     fun roomTask() { when (roomApp?.id) { app.kimono.data.Notes.APP_ID -> notes.askSearch(); app.kimono.data.Code.APP_ID -> { AiDrawerAsk.open.value = true; if (route == "ai/connections" || route == "ai/memory") goTab("code") } } }
     Box(Modifier.fillMaxSize()) {
@@ -292,7 +295,7 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         val leave = fadeOut(tween(100, easing = FastOutLinearInEasing))
         val throughIn = arrive + scaleIn(tween(300, delayMillis = 100, easing = settle), initialScale = .94f)
         Row(Modifier.fillMaxSize()) {
-        if (rail && roomApp != null) RoomRail(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true })
+        if (rail && roomApp != null) RoomRail(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true }, apps = railApps, openApp = ::openApp)
         NavHost(
             nav, startDestination = "home",
             /* The bar takes the bottom inset, so a composer under it doesn't stand a whole hem higher. */
