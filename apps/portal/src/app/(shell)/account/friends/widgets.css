@@ -568,3 +568,23 @@ a.wg-watch:hover .wg-device { --lift: -3px; }
 .wg-l .wg-watch .wg-words { justify-items: start; width: 100%; }
 .wg-l .wg-eps { max-width: 300px; }
 .wg-l .wg-eps i { max-width: 20px; height: 6px; }
+
+/* On a phone the Watch widgets tighten: a smaller screen so the words beside it fit, the label on one line, and a ticket title that fits its ticket. */
+@media (max-width: 720px) {
+  .wg-m .wg-watch { gap: 12px; }
+  .wg-m .wg-screen-wrap { height: 66%; max-width: 42%; margin-left: 2px; }
+  .wg-m .wg-screen-wrap.is-computer { margin-left: 10px; margin-right: 8px; }
+  .wg-m .wg-screen-wrap.is-phone { height: 50%; }
+  .wg-watch .wg-kicker { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wg-m .wg-watch .wg-words b { font-size: 15px; line-height: 1.2; }
+  .wg-m .wg-watch .wg-words em { font-size: 12.5px; }
+  .wg-m .wg-watch .wg-progress { margin-top: 2px; }
+  .wg-m .wg-eps { margin-top: 3px; }
+  .wg-ticket { --end: 34px; }
+  .wg-ticket-main { padding: 8px 10px 8px 12px; }
+  .wg-ticket-main b { font-size: 18px; }
+  .wg-l .wg-ticket { --end: 44px; }
+  .wg-l .wg-ticket-main { padding: 12px 12px 12px 14px; }
+  .wg-l .wg-ticket-main b { font-size: 22px; }
+  .wg-l .wg-ticket-bars { width: 18px; }
+}

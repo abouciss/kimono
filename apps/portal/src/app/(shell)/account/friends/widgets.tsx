@@ -57,7 +57,7 @@ const kinds: { kind: WidgetKind; name: string; says: string; icon: LineIconName;
   { kind: "bookshelf", name: "Bookshelf", says: "What you've read, spine by spine", icon: "book", sizes: ["m", "l", "xl"], size: "xl" },
   { kind: "book", name: "Favourite book", says: "The one you press on everyone", icon: "book", sizes: ["s", "m", "l"], size: "m" },
   { kind: "yearbooks", name: "Year in books", says: "How many you've read this year", icon: "book", sizes: ["s", "m"], size: "s" },
-  { kind: "watching", name: "Watching", says: "What's on, and how far", icon: "film", sizes: ["s", "m", "l"], size: "m" },
+  { kind: "watching", name: "Watching", says: "What's on, and how far", icon: "film", sizes: ["m", "l"], size: "m" },
   { kind: "watched", name: "Watched lately", says: "What you've seen, fanned out", icon: "film", sizes: ["m", "l", "xl"], size: "m" },
   { kind: "show", name: "Favourite film or show", says: "The one you'd watch again tonight", icon: "film", sizes: ["m", "l"], size: "l" },
   { kind: "stats", name: "Your month", says: "Songs, hours and books", icon: "clock", sizes: ["s", "m"], size: "s" },
@@ -218,7 +218,7 @@ function WidgetView({ w, d, onEditLinks }: { w: Widget; d: BoardData; onEditLink
     case "listening": return <Turntable w={w} d={d} />;
     case "song": case "album": return <Favourite w={w} />;
     case "reading": return <Reading w={w} d={d} />;
-    case "watching": return <Watching w={w} d={d} />;
+    case "watching": return <Watching d={d} />;
     case "artists": return <Artists w={w} d={d} />;
     case "stats": return <Stats w={w} d={d} />;
     case "note": return <Note w={w} />;
@@ -302,7 +302,7 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
 }
 
 /** What's on: the screen it's on (a phone, a laptop or a TV, whichever they put it on), stopped where they are with the player's own scrubber; beside it the title, the episode, and the season as a mark an episode. */
-function Watching({ w, d }: { w: Widget; d: BoardData }) {
+function Watching({ d }: { d: BoardData }) {
   const t = itemOf(d, "watch", "watching");
   if (!t) return <div className="wg-card"><Empty icon="film" text="Nothing on right now" /></div>;
   const tilt = (e: React.PointerEvent<HTMLElement>) => {
@@ -332,12 +332,12 @@ function Watching({ w, d }: { w: Widget; d: BoardData }) {
       </span>
       {screen === "tv" || screen === "computer" ? <i className="wg-device-foot" /> : null}
     </span></span>
-    {w.size !== "s" ? <span className="wg-words"><small className={`wg-kicker${live ? " wg-on-now" : ""}`}>{live ? <><span className="wg-live-bars" aria-hidden="true"><i /><i /><i /></span>Watching now{on}</> : t.at ? `Last watched ${ago(new Date(t.at).toISOString())}` : "Last watched"}</small><b>{t.title}</b>
+    <span className="wg-words"><small className={`wg-kicker${live ? " wg-on-now" : ""}`}>{live ? <><span className="wg-live-bars" aria-hidden="true"><i /><i /><i /></span>Watching now{on}</> : t.at ? `Last watched ${ago(new Date(t.at).toISOString())}` : "Last watched"}</small><b>{t.title}</b>
       {where ? <em>{where}{episode && of && !marks ? ` of ${of}` : ""}</em> : null}
       {/* Kimono's own ink line for how far into it: flat until it's on, then it runs. */}
       {part ? <span className="wg-progress"><InkWave className="wg-wave" value={part} label="Watched" still={!live} pace={.5} /><small>{Math.round(part * 100)}%</small></span> : null}
       {marks ? <span className="wg-eps" role="img" aria-label={`Episode ${episode} of ${of}`}>{Array.from({ length: marks }, (_, i) => <i key={i} className={i + 1 < episode! ? "is-done" : i + 1 === episode ? "is-now" : undefined} style={i + 1 === episode ? { "--part": part } as React.CSSProperties : undefined} />)}</span> : null}
-    </span> : null}
+    </span>
   </Crossing>;
 }
 
