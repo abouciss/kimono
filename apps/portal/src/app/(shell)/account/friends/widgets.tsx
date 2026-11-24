@@ -293,7 +293,6 @@ function Reading({ w, d }: { w: Widget; d: BoardData }) {
   const rest = (e: React.PointerEvent<HTMLElement>) => { e.currentTarget.style.removeProperty("--rx"); e.currentTarget.style.removeProperty("--ry"); };
   return <Crossing kind="kakejiku" href={b.href ?? "/books"} className="wg-card wg-reading" onPointerMove={tilt} onPointerLeave={rest}>
     <span className="wg-book">
-      <span className="wg-book-glow" aria-hidden="true" />
       <span className="wg-book-float"><Book3D book={{ key: b.itemId, title: b.title, authors: author ? [author] : [], cover: b.cover, pages: null }} progress={b.progress ?? undefined} /></span>
     </span>
     {w.size !== "s" ? <span className="wg-words"><small className="wg-kicker">Reading</small><b>{b.title}</b>{author ? <em>{author}</em> : null}

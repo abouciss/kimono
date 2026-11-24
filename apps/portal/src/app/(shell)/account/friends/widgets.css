@@ -446,7 +446,7 @@ a.wg-np.is-live:hover .wg-np-record { transform: translateX(62%); }
 @keyframes wg-np-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .wg-np-label, .wg-np-bars i, .wg-np-sleeve, .wg-np-record, .wg-np-words, .wg-np-wash { animation: none !important; } }
 
-/* ── Reading (2026-11-15): the book floats in its own lamplight, leans toward your pointer, and opens on hover with motes rising off the pages ── */
+/* ── Reading (2026-11-15): the book floats, leans toward your pointer, and opens on hover with motes rising off the pages ── */
 .wg-reading { isolation: isolate; gap: 22px; overflow: visible; }
 .wg-reading .wg-book { position: relative; width: auto; padding: 0 6px; }
 .wg-book-float { position: relative; z-index: 1; display: block; animation: wg-float 6s ease-in-out infinite; }
@@ -456,13 +456,7 @@ a.wg-np.is-live:hover .wg-np-record { transform: translateX(62%); }
 .wg-s .wg-reading .kb-book { --w: 74px; }
 .wg-reading .kb-book-body { transition: transform .5s var(--b-spring, var(--k-spring)); }
 a.wg-reading:hover .kb-book { --open: -50deg; --b-shade: 1; --lift: -4px; }
-/* Lamplight: a warm pool behind and under the book that breathes, brighter when it opens. */
-.wg-book-glow { position: absolute; z-index: 0; left: 50%; top: 52%; width: 170%; height: 120%; translate: -50% -50%; border-radius: 50%;
-  background: radial-gradient(closest-side, color-mix(in srgb, #ffd38a 42%, transparent), color-mix(in srgb, var(--fr-color, #a84d63) 18%, transparent) 55%, transparent);
-  filter: blur(10px); opacity: .55; animation: wg-glow 5s ease-in-out infinite; transition: opacity .6s, scale .6s var(--k-spring); pointer-events: none; }
-@keyframes wg-glow { 50% { opacity: .8; scale: 1.08; } }
-a.wg-reading:hover .wg-book-glow { opacity: 1; scale: 1.25; }
-@media (prefers-reduced-motion: reduce) { .wg-book-float, .wg-book-glow { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .wg-book-float { animation: none !important; } }
 
 /* A widget your privacy settings keep from people who can see your profile: a warning tag on its foot, the widget itself untouched. */
 .wg-kept { position: absolute; z-index: 4; left: 50%; bottom: -11px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 4px 0 9px; white-space: nowrap; border-radius: 10px 4px 10px 4px;
