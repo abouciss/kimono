@@ -776,6 +776,13 @@ export function purgeNode(db: DatabaseSync, id: string, username: string): strin
   return purge(db, [{ id }]);
 }
 
+/** Deletes something now, trashed or not, and what's inside it, never by way of the trash; the caller deletes the bytes. */
+export function deleteForGood(db: DatabaseSync, id: string, username: string): string[] {
+  const node = nodeFor(db, id, username, "editor", { trashed: true });
+  if (isRoot(db, node)) throw new DriveProblem("A space's top folder can't be deleted.");
+  return purge(db, [{ id }]);
+}
+
 /** Trashed things and everything inside them, gone from the database; returns their blobs. */
 function purge(db: DatabaseSync, roots: { id: string }[]): string[] {
   const blobs: string[] = [];

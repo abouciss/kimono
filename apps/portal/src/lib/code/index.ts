@@ -11,12 +11,12 @@ import { stateDir } from "../state";
 import { codeConfig, missing, projectMissing, type CodeConfig } from "./config";
 import { finish, toolHint, translate, type ArtifactCall, type Attachment, type CodeEvent, type SentFile, type TurnResult } from "./events";
 import { typeOf } from "../drive/storage";
-import { backfillRatingFiles, backfillRatings, keepPick, kimonoVersion, type Versions } from "./feedback";
+import { backfillRatingFiles, backfillRatings, forgetRatingFiles, keepPick, kimonoVersion, type Versions } from "./feedback";
 import { islamNoticeNote, isSkillCommand, madeSkillId, madeSkillsDir, noticeSeen, saveMadeSkill, skillsForTurn } from "./skills";
 import { bounded } from "./bounded";
 import { applyEdits, artifactOf, Drafts, maxMediaBytes, mediaNames, saveArtifact } from "./artifacts";
 import {
-  abandonRunningTurns, appendEvent, createSite, hostedSite, intoProject, setDeployed, setHookSecret, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, allowedShare, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
+  abandonRunningTurns, appendEvent, createSite, removeWorkspace, hostedSite, intoProject, setDeployed, setHookSecret, keepThinking, keepToolCall, sandboxStartedOver, awaitsName, CodeProblem, endTurn, eventsAfter, migrate, nameWorkspace, noteTurnEnd, rewindTo, titleFrom, newId, recordUsage, extraOf, allowedShare, setLastModel, runningTurn, setPreviewName, setTurnByOwner, turnByOwner, turnsByOwner, usageOf, setPreview, setSession, startTurn, takeDriveNews, workspaceFor, workspacesOf,
   type StoredEvent, type Workspace,
 } from "./model";
 import { sandbox, type Effort, type NodePreview } from "./node";
@@ -29,15 +29,15 @@ import { dropTakes, keepTake, lastTurnEnd, takeOf, leaningsOf, noteTake, startTa
 export { modelChoices, type ModelChoice } from "./models";
 import { accessPrompt, answer as answerAccess_, grantedAhead, onRequest, syncOpened } from "./access";
 import { portalOrigin } from "../account";
-import { serveTempLink, tempLinkBase, tempLinkKey } from "./temp-links";
+import { forgetTempLinks, serveTempLink, tempLinkBase, tempLinkKey } from "./temp-links";
 export { efforts, type Effort } from "./node";
-import { markChat, retitle, shotToDrive, syncDrive, treeAhead } from "./drive";
-import { hasHistory, historyNote, syncHistory } from "./history";
+import { forgetChatFolder, markChat, retitle, shotToDrive, syncDrive, treeAhead } from "./drive";
+import { forgetFromHistory, hasHistory, historyNote, syncHistory } from "./history";
 import { applyBookChanges, booksNote, forgetBooksWritten, syncBooks, takeBookMisses } from "./books";
 import { hostedNote, isProjectCommand, offeredProject, projectNote } from "./sites";
 import { answersOf, answerText, askedId, askNote, isAskCommand, questionsDir, questionsOf } from "./questions";
 import { debridNote, debridReady, isDebridCommand, watchDebrid } from "./debrid";
-import { createRepository, ensurePushHook, gitAccountOf, ownProject, repositoryFor } from "./forgejo";
+import { createRepository, dropChatBranch, ensurePushHook, gitAccountOf, ownProject, repositoryFor } from "./forgejo";
 import { suggestTitle } from "./title";
 import { db as driveDb } from "../drive";
 import { notesConfig } from "../notes/config";
@@ -1225,6 +1225,31 @@ export function attachmentPath(workspace: Workspace, stored: string) {
 export async function attachmentBytes(workspace: Workspace, stored: string) {
   if (stored !== safeName(stored) || stored.includes("/")) throw new CodeProblem("That file isn't here.", 404);
   try { return await readFile(join(attachmentDir(workspace.id), stored)); } catch { throw new CodeProblem("That file isn't here.", 404); }
+}
+
+/**
+ * Deletes a chat and everything it left anywhere, for good: its sandbox and published app, its own branch
+ * (and pull request) in Kimono Git, its Drive folder and the bytes in it, its copies in the person's other
+ * chats, the files its thumbs kept, its links, attachments, screenshots and media, and every row about it.
+ * Nothing goes to a trash. Each step can be run again, so one that fails throws before the chat is
+ * forgotten, and deleting again finishes the job.
+ */
+export async function eraseWorkspace(config: CodeConfig, workspace: Workspace) {
+  /* A turn still working ends first, so it doesn't write to a chat that's going. */
+  await stop(config, workspace).catch(() => {});
+  if (config.nodeAddress && config.nodeKey) {
+    await sandbox.remove(config, workspace).catch(() => { throw new CodeProblem("This chat's sandbox couldn't be deleted. Try again in a moment.", 502); });
+  }
+  if (workspace.kind === "project" && !workspace.hosted && workspace.branch && workspace.branch !== workspace.base && config.gitAddress) {
+    await dropChatBranch(config, workspace.repo.owner, workspace.repo.name, workspace.branch, workspace.pullRequest?.number ?? null);
+  }
+  await forgetChatFolder(workspaceFor(db(), workspace.id, workspace.owner));
+  forgetRatingFiles(db(), workspace.id);
+  if (config.nodeAddress && config.nodeKey) await forgetFromHistory(db(), config, workspace.id);
+  removeWorkspace(db(), workspace.id, workspace.owner);
+  await forgetAttachments(workspace.id);
+  await forgetTempLinks(workspace.id);
+  awake.at.delete(workspace.id);
 }
 
 export async function forgetAttachments(workspaceId: string) {

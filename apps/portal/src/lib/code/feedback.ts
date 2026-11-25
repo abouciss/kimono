@@ -127,6 +127,12 @@ function withPages(db: DatabaseSync, workspaceId: string, answers: Answer[]): An
 /** Which Kimono and which sandbox a thumb or report was given on. The sandbox is the node's version and the image it makes sandboxes from, when it answered. */
 export type Versions = { kimono: string; sandbox: string | null };
 
+/** The files every thumb on a chat kept, gone: for a chat being deleted, whose ratings go with it. */
+export function forgetRatingFiles(db: DatabaseSync, workspaceId: string) {
+  const rows = db.prepare("SELECT seq, username FROM ai_ratings WHERE workspace_id = ?").all(workspaceId) as { seq: number; username: string }[];
+  for (const row of rows) forgetKept(keptOf(storedRating(db, workspaceId, row.seq, row.username)));
+}
+
 /** Rates the answer that ended at [seq], or takes the rating back (rating null). */
 export function rate(db: DatabaseSync, workspaceId: string, seq: number, username: string, rating: Rating | null, note = "", now = Date.now(), versions: Versions = { kimono: kimonoVersion(), sandbox: null }) {
   const was = keptOf(storedRating(db, workspaceId, seq, username));

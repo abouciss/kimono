@@ -39,6 +39,12 @@ function signed(workspaceId: string, token: string) {
   return timingSafeEqual(Buffer.from(expected), Buffer.from(token.slice(16)));
 }
 
+/** Every link a workspace made, gone now rather than when it would have expired. */
+export async function forgetTempLinks(workspaceId: string) {
+  if (!/^[0-9a-f]+$/.test(workspaceId)) return;
+  await rm(join(root, workspaceId), { recursive: true, force: true });
+}
+
 /** Where kimono-link's links for a workspace start. */
 export const tempLinkBase = (origin: string, workspaceId: string) => `${origin}/api/v1/code/temp/${workspaceId}`;
 

@@ -3,7 +3,7 @@ import "server-only";
 import type { DatabaseSync } from "node:sqlite";
 import type { CodeConfig } from "./config";
 import type { CodeEvent } from "./events";
-import { eventsAfter, workspacesOf, type Workspace } from "./model";
+import { eventsAfter, workspaceFor, workspacesOf, type Workspace } from "./model";
 import { sandbox } from "./node";
 
 /*
@@ -125,6 +125,23 @@ async function syncHistoryNow(db: DatabaseSync, config: CodeConfig, workspace: W
     db.prepare("INSERT INTO history_synced (workspace_id, chat_id, seq) VALUES (?, '', 0) ON CONFLICT DO NOTHING").run(workspace.id);
   }
   return chats.length > 0;
+}
+
+/**
+ * A deleted chat out of every other chat's sandbox now, with the index that names it, rather than at their next turn.
+ * A sandbox that can't be reached keeps its rows, so its next sync still takes the chat out and writes the index again.
+ */
+export async function forgetFromHistory(db: DatabaseSync, config: CodeConfig, chatId: string) {
+  const holders = db.prepare("SELECT w.id, w.owner FROM history_synced h JOIN workspaces w ON w.id = h.workspace_id WHERE h.chat_id = ? AND h.workspace_id != ?").all(chatId, chatId) as { id: string; owner: string }[];
+  for (const { id, owner } of holders) {
+    let holder: Workspace;
+    try { holder = workspaceFor(db, id, owner); } catch { continue; }
+    try {
+      await sandbox.removeFile(config, holder, `${historyDir}/${chatId}.md`);
+      await sandbox.removeFile(config, holder, `${historyDir}/index.tsv`).catch(() => {});
+      db.prepare("DELETE FROM history_synced WHERE workspace_id = ? AND chat_id IN (?, '')").run(id, chatId);
+    } catch { /* asleep or gone: its next sync does it */ }
+  }
 }
 
 /** What Kimono AI is told about its earlier chats, when it has them. */

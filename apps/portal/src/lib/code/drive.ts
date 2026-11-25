@@ -9,7 +9,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { DatabaseSync } from "node:sqlite";
 import {
-  addFile, blobPath, childrenOf, moveNode, createFolder, createSpace, db as driveDb, driveOn, DriveProblem, finishUpload,
+  addFile, blobPath, childrenOf, deleteForGood, moveNode, createFolder, createSpace, db as driveDb, driveOn, DriveProblem, finishUpload,
   maxFileBytes, newId as driveId, nodeFor, renameNode, renameSpace, roleIn, root as driveRoot, setPurpose, startReplace, trashNode, typeOf,
   type DriveNode,
 } from "../drive";
@@ -19,6 +19,7 @@ import {
   type Workspace,
 } from "./model";
 import { NoRoom, sandbox } from "./node";
+import { removeBlob } from "../drive/storage";
 import type { Attachment } from "./events";
 import { agentCopyName, planSync, type DriveFile, type SyncAction } from "./sync";
 
@@ -122,6 +123,20 @@ export async function retitle(db: DatabaseSync, workspace: Workspace) {
 }
 
 const folderName = (title: string) => title.replace(/[\u0000-\u001f\u007f/\\]/g, " ").trim().slice(0, 120) || "Task";
+
+/**
+ * A deleted chat's Drive folder and everything in it, gone for good: not to the trash, and its bytes off the disk.
+ * A folder already gone is fine.
+ */
+export async function forgetChatFolder(workspace: Workspace) {
+  if (!workspace.drive || !(await driveOn())) return;
+  let blobs: string[];
+  try { blobs = deleteForGood(driveDb(), workspace.drive.folderId, workspace.owner); } catch (error) {
+    if (error instanceof DriveProblem && error.status === 404) return;
+    throw error;
+  }
+  await Promise.all(blobs.map((blob) => removeBlob(driveRoot, blob)));
+}
 
 /** The person's Code space, where every chat's files are: any of their chats may use it without asking. */
 export function codeSpaceOf(db: DatabaseSync, owner: string): string | null {

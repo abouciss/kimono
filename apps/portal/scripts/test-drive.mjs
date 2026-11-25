@@ -455,3 +455,20 @@ test('a crest has a colour its owner picks, plum until then', () => {
   assert.throws(() => drive.renameSpace(db, plain.id, 'akram', { color: '#ff0000' }), /colours/);
   assert.throws(() => drive.renameSpace(db, plain.id, 'mina', { color: 'ai' }), /owner/i);
 });
+
+test('deleting for good skips the trash: the folder and all inside it go, with their blobs', () => {
+  const db = fresh();
+  const space = drive.createSpace(db, 'akram', { name: 'AI', members: [{ username: 'ren', role: 'viewer' }] });
+  const chat = drive.createFolder(db, space.rootId, 'akram', 'Kyoto trip');
+  const inner = drive.createFolder(db, chat.id, 'akram', 'Screenshots');
+  drive.addFile(db, chat.id, 'akram', file('plan.md', 'blob-a'));
+  drive.addFile(db, inner.id, 'akram', file('shot.png', 'blob-b'));
+  const kept = drive.addFile(db, space.rootId, 'akram', file('other.md', 'blob-c'));
+  assert.throws(() => drive.deleteForGood(db, chat.id, 'ren'), /view/);
+  assert.throws(() => drive.deleteForGood(db, space.rootId, 'akram'), /top folder/);
+  assert.deepEqual(drive.deleteForGood(db, chat.id, 'akram').sort(), ['blob-a', 'blob-b']);
+  assert.equal(drive.trashOf(db, 'akram').length, 0);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM nodes WHERE id IN (?, ?)').get(chat.id, inner.id).n, 0);
+  assert.equal(drive.nodeFor(db, kept.id, 'akram').name, 'other.md');
+  assert.throws(() => drive.deleteForGood(db, chat.id, 'akram'), /doesn't exist/);
+});

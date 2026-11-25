@@ -1,7 +1,6 @@
 import { apiJson, apiUser, crossSite, readJson, unauthorized } from "@/lib/api-v1";
-import { archiveWorkspace, code, codeOpen, db, shareOf, workspaceAs, forgetAttachments, removeWorkspace, renameWorkspace, setWorkspaceProject, stop, taskFolder, workspaceFor } from "@/lib/code";
+import { archiveWorkspace, code, codeOpen, db, eraseWorkspace, shareOf, workspaceAs, renameWorkspace, setWorkspaceProject, taskFolder, workspaceFor } from "@/lib/code";
 import { rehome, retitle } from "@/lib/code/drive";
-import { sandbox } from "@/lib/code/node";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -45,7 +44,7 @@ export async function PATCH(request: Request, { params }: Context) {
   }, false);
 }
 
-/** Throws the sandbox away and forgets the workspace. Its branch stays in Kimono Git. */
+/** Deletes the chat for good, with everything it left anywhere (eraseWorkspace): nothing goes to a trash. */
 export async function DELETE(request: Request, { params }: Context) {
   const refused = crossSite(request);
   if (refused) return refused;
@@ -53,12 +52,7 @@ export async function DELETE(request: Request, { params }: Context) {
   if (!user) return unauthorized();
   const { id } = await params;
   return code(user, async (config) => {
-    const workspace = workspaceFor(db(), id, user.username);
-    /* A turn still working ends first, so it doesn't write to a chat that's gone. */
-    await stop(config, workspace).catch(() => {});
-    if (config.nodeAddress && config.nodeKey) await sandbox.remove(config, workspace).catch(() => {});
-    removeWorkspace(db(), id, user.username);
-    await forgetAttachments(id);
+    await eraseWorkspace(config, workspaceFor(db(), id, user.username));
     return new Response(null, { status: 204 });
   }, false);
 }

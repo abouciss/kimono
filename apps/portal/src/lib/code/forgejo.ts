@@ -150,6 +150,21 @@ export async function ensurePushHook(config: CodeConfig, owner: string, name: st
   if (!response.ok) throw new CodeProblem("Kimono Git couldn't be told to report pushes to this repository.", 502);
 }
 
+/**
+ * A deleted chat's own branch (code/…) goes from Kimono Git, its pull request closed first if one is open.
+ * A branch already gone is fine; anything else Kimono Git refuses throws, so the chat isn't forgotten with its work left behind.
+ */
+export async function dropChatBranch(config: CodeConfig, owner: string, name: string, branch: string, pull: number | null) {
+  if (!branch.startsWith("code/")) return;
+  const repo = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  if (pull) {
+    const closed = await send(config, `${repo}/pulls/${pull}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }), timeout: 15_000 });
+    if (!closed.ok && closed.status !== 404) throw new CodeProblem("Kimono Git couldn't close this chat's pull request. Try again in a moment.", 502);
+  }
+  const gone = await send(config, `${repo}/branches/${branch.split("/").map(encodeURIComponent).join("/")}`, { method: "DELETE", timeout: 15_000 });
+  if (!gone.ok && gone.status !== 404) throw new CodeProblem("Kimono Git couldn't delete this chat's branch. Try again in a moment.", 502);
+}
+
 /** One repository, as the person may see it: theirs, or shared with them. */
 export async function repositoryFor(config: CodeConfig, person: GitPerson, owner: string, name: string): Promise<Repository> {
   const login = await gitAccountOf(config, person);
