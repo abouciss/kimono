@@ -11,7 +11,7 @@ comes from CI:
 gh workflow run ios-xcframework.yml --ref <branch> -f app=watch
 gh run download <run> -n WatchShared.xcframework -D /tmp/kimono-watch-fw
 ./prepare.sh /tmp/kimono-watch-fw/WatchShared.xcframework.zip
-xtool dev            # or: xtool dev build
+./install.sh          # build and install (not `xtool dev`: see install.sh); build only: xtool dev build
 ```
 
 `prepare.sh` also runs `../MPVKit/fetch.sh` once (libmpv and FFmpeg's LGPL
