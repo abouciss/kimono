@@ -2,8 +2,8 @@
 
 Kimono for iPhone ran on iPad in compatibility mode: a fixed iPhone-sized window in the middle
 of the screen. This note covers what made it do that, what makes it a native universal app,
-and how the shared Compose UI adapts to an iPad's width. Building from Linux with xtool is in
-[`apps/compose/iosApp/xtool/README.md`](../apps/compose/iosApp/xtool/README.md).
+and how the shared Compose UI adapts to an iPad's width. A local xtool build from Linux (kept out of
+the repo) links the `Shared.xcframework` that `.github/workflows/ios-xcframework.yml` builds.
 
 ## 1. Build and configuration
 
@@ -18,7 +18,6 @@ generated and gitignored (`iosApp/*/Info.plist`), so `project.yml` is the only p
 | `project.yml` › KimonoFiles | `TARGETED_DEVICE_FAMILY: "1"` | `"1,2"` (an extension must cover its app's devices) |
 | `project.yml` › Kimono `info` | portrait only | adds `UISupportedInterfaceOrientations~ipad` with all four |
 | `project.yml` › Kimono `info` | no camera string | adds `NSCameraUsageDescription` (see below) |
-| `xtool/Kimono-Info.plist` (new) | none | same keys, with values written out for xtool |
 
 iPhone keeps `UISupportedInterfaceOrientations: [Portrait]`. `UIRequiresFullScreen` stays
 unset, which keeps Split View, Slide Over and Stage Manager available. iPadOS only allows
@@ -27,8 +26,8 @@ those with all four iPad orientations and a launch screen, and `UILaunchScreen` 
 **Repository facts the request assumed differently:**
 
 - There was no `xtool.yml` or `Package.swift` for this app. iOS builds came from XcodeGen. The
-  only `Package.swift` was `watchIos/MPVKit`, a local package for Kimono Watch. This change
-  adds an xtool package in `iosApp/xtool/` that compiles the same Swift files.
+  only `Package.swift` was `watchIos/MPVKit`, a local package for Kimono Watch. An xtool
+  package that compiles the same Swift files can live in `iosApp/xtool/`, which is git-ignored.
 - `Info.plist` isn't committed. It's generated from `project.yml`.
 - There is no `GoogleService-Info.plist`, because nothing uses Firebase. `.env` belongs to
   the web Portal (`pnpm local:dev`) and isn't needed for the app. `local.properties` is

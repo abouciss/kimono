@@ -20,7 +20,7 @@ kotlin {
     /*
      * The iPhone and iPad app links this as a framework; iosApp/ builds it from Xcode. The same
      * framework is also packed as Shared.xcframework (`:shared:assembleSharedReleaseXCFramework`,
-     * macOS only) for builds without Xcode, such as xtool on Linux: see iosApp/xtool/README.md.
+     * macOS only) for builds without Xcode, such as a local xtool build on Linux.
      * Compose resources travel inside it (Shared.framework/composeResources).
      */
     val xcframework = XCFramework("Shared")

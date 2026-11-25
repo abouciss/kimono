@@ -1,9 +1,8 @@
 name: Shared.xcframework (and WatchShared) for xtool
 
-# Kotlin/Native links Apple targets only on macOS, so a Linux machine building Kimono with
-# xtool gets the Compose app from here: run this workflow, then on Linux
+# Kotlin/Native links Apple targets only on macOS, so a local xtool build of Kimono on Linux
+# gets the Compose app from here: run this workflow, then
 #   gh run download --repo kimonoapps/kimono -n Shared.xcframework -D /tmp/kimono-fw
-#   apps/compose/iosApp/xtool/prepare.sh /tmp/kimono-fw/Shared.xcframework.zip
 # With app: watch (or both) it builds WatchShared.xcframework too, for a local xtool build of Kimono Watch:
 #   gh run download --repo kimonoapps/kimono -n WatchShared.xcframework -D /tmp/kimono-watch-fw
 on:
