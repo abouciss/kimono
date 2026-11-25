@@ -1,12 +1,20 @@
-name: Shared.xcframework for xtool
+name: Shared.xcframework (and WatchShared) for xtool
 
 # Kotlin/Native links Apple targets only on macOS, so a Linux machine building Kimono with
 # xtool gets the Compose app from here: run this workflow, then on Linux
 #   gh run download --repo kimonoapps/kimono -n Shared.xcframework -D /tmp/kimono-fw
 #   apps/compose/iosApp/xtool/prepare.sh /tmp/kimono-fw/Shared.xcframework.zip
+# Kimono Watch the same way, with app: watch (or both):
+#   gh run download --repo kimonoapps/kimono -n WatchShared.xcframework -D /tmp/kimono-watch-fw
+#   apps/compose/watchIos/xtool/prepare.sh /tmp/kimono-watch-fw/WatchShared.xcframework.zip
 on:
   workflow_dispatch:
     inputs:
+      app:
+        description: Which app's framework to build
+        type: choice
+        default: kimono
+        options: [kimono, watch, both]
       runner:
         description: Hosted macOS runner (arm64 macos-latest often sits unacquired for lack of capacity)
         type: choice
@@ -33,6 +41,7 @@ jobs:
           key: konan-${{ runner.os }}-${{ hashFiles('apps/compose/gradle/libs.versions.toml') }}
           restore-keys: konan-${{ runner.os }}-
       - name: Build Shared.xcframework
+        if: inputs.app != 'watch'
         working-directory: apps/compose
         run: |
           # Both release links run in the Gradle daemon; side by side they overran its 4 GB heap
@@ -41,9 +50,23 @@ jobs:
           cd shared/build/XCFrameworks/release
           # Symlinks inside the framework survive only as a zip (-y), not as loose artifact files.
           zip -qry "$RUNNER_TEMP/Shared.xcframework.zip" Shared.xcframework
+      - name: Build WatchShared.xcframework
+        if: inputs.app == 'watch' || inputs.app == 'both'
+        working-directory: apps/compose
+        run: |
+          ./gradlew --max-workers=1 -Dorg.gradle.jvmargs="-Xmx10g -Dfile.encoding=UTF-8" :watchShared:assembleWatchSharedReleaseXCFramework
+          cd watchShared/build/XCFrameworks/release
+          zip -qry "$RUNNER_TEMP/WatchShared.xcframework.zip" WatchShared.xcframework
       # Pin to a commit SHA, as the release workflow does for its actions.
       - uses: actions/upload-artifact@v4
+        if: inputs.app != 'watch'
         with:
           name: Shared.xcframework
           path: ${{ runner.temp }}/Shared.xcframework.zip
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: inputs.app == 'watch' || inputs.app == 'both'
+        with:
+          name: WatchShared.xcframework
+          path: ${{ runner.temp }}/WatchShared.xcframework.zip
           retention-days: 14

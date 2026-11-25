@@ -1,0 +1,11 @@
+# Made by prepare.sh and by xtool, never committed.
+Sources/
+Resources/
+Frameworks/
+compose-resources/
+subtitle-fonts/
+.build/
+xtool/
+.sourcekit-lsp/
+.swiftpm/
+.bsp/
