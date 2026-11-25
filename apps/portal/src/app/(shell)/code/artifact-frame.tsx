@@ -15,14 +15,18 @@ export type SceneParam = { name: string; label: string; min: number; max: number
 export type SceneState = { t: number; end: number; playing: boolean; complete: boolean; count: number; params: SceneParam[]; voiced?: boolean; muted?: boolean; blocked?: boolean; volume?: number; held?: boolean };
 export type SceneControl = { n: number; action: "play" | "pause" | "replay" | "seek" | "set" | "sound-on" | "sound-off" | "volume"; t?: number; name?: string; value?: number };
 
-export function ArtifactFrame({ content, final, title, media, control, onHeight, onScene, onDrawn }: { content: string; final: boolean; title: string; media?: string; control: SceneControl | null; onHeight?: (height: number) => void; onScene?: (state: SceneState) => void; /** It drew something: it said how tall it is. */ onDrawn?: () => void }) {
+/** network: Kimono's engine for it didn't arrive (a bad connection); broken: its own code threw. */
+export type FrameProblem = "network" | "broken";
+
+export function ArtifactFrame({ content, final, title, media, control, onHeight, onScene, onDrawn, onProblem }: { content: string; final: boolean; title: string; media?: string; control: SceneControl | null; onHeight?: (height: number) => void; onScene?: (state: SceneState) => void; /** It drew something: it said how tall it is. */ onDrawn?: () => void; onProblem?: (problem: FrameProblem) => void }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const ready = useRef(false);
   const latest = useRef({ content, final, media });
   const heightTo = useRef(onHeight);
   const sceneTo = useRef(onScene);
   const drawnTo = useRef(onDrawn);
-  useEffect(() => { heightTo.current = onHeight; sceneTo.current = onScene; drawnTo.current = onDrawn; }, [onHeight, onScene, onDrawn]);
+  const problemTo = useRef(onProblem);
+  useEffect(() => { heightTo.current = onHeight; sceneTo.current = onScene; drawnTo.current = onDrawn; problemTo.current = onProblem; }, [onHeight, onScene, onDrawn, onProblem]);
   const post = useCallback(() => {
     if (!ready.current) return;
     frame.current?.contentWindow?.postMessage({ kimono: "artifact", type: "render", content: latest.current.content, final: latest.current.final, media: latest.current.media }, "*");
@@ -55,7 +59,12 @@ export function ArtifactFrame({ content, final, title, media, control, onHeight,
       if (m?.kimono !== "artifact") return;
       if (m.type === "ready") { ready.current = true; post(); }
       if (m.type === "size" && typeof m.height === "number") { heightTo.current?.(m.height); drawnTo.current?.(); }
-      if (m.type === "error") console.warn("Artifact:", (m as { message?: string }).message);
+      if (m.type === "error") {
+        const message = String((m as { message?: string }).message ?? "");
+        console.warn("Artifact:", message);
+        /* the frame says "Couldn't load <src>" when a file it needs didn't arrive: the engine, over a bad connection */
+        problemTo.current?.(/^Couldn't load .*\/ai\/lib\//.test(message) ? "network" : "broken");
+      }
       if (m.type === "scene" && typeof m.t === "number" && typeof m.end === "number") { scene.current = { t: m.t, end: m.end, playing: Boolean(m.playing), complete: Boolean(m.complete) }; begin(); }
       if (m.type === "scene" && typeof m.t === "number" && typeof m.end === "number") sceneTo.current?.({ t: m.t, end: m.end, playing: Boolean(m.playing), complete: Boolean(m.complete), count: m.count ?? 1, voiced: Boolean(m.voiced), muted: Boolean(m.muted), blocked: Boolean(m.blocked), held: Boolean(m.held), volume: typeof m.volume === "number" ? m.volume : 1, params: Array.isArray(m.params) ? m.params.filter((p): p is SceneParam => typeof p?.name === "string" && typeof p.min === "number" && typeof p.max === "number" && typeof p.value === "number").slice(0, 8) : [] });
     };

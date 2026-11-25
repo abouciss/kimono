@@ -115,7 +115,7 @@ export const frameHtml = (origin: string) => `<!doctype html>
   }
   /* what goes wrong inside goes to Kimono, so a broken artifact says so instead of staying blank */
   function listenForErrors() {
-    addEventListener("error", (event) => tell({ type: "error", message: String(event.message || (event.target && event.target.src ? "Couldn't load " + event.target.src : "error")) }), true);
+    addEventListener("error", (event) => { const file = event.target && (event.target.src || event.target.href); tell({ type: "error", message: String(event.message || (file ? "Couldn't load " + file : "error")) }); }, true);
     addEventListener("unhandledrejection", (event) => tell({ type: "error", message: String(event.reason && event.reason.message || event.reason) }));
   }
   addEventListener("message", hear);
