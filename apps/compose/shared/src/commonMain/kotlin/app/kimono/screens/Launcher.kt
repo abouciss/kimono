@@ -269,8 +269,10 @@ fun AppsDialog(drive: Drive, here: (LauncherApp) -> PhoneAppHere, onDismiss: () 
             val all = apps
             val suite = all?.let { suiteOf(it) }.orEmpty()
             val others = all.orEmpty().filter { it.id !in suiteIds }
+            /* Three across, whatever the card's width: tidier than as many as fit; the rest scroll. */
             LazyVerticalGrid(
-                app.kimono.ui.AdaptiveAtLeast(168.dp),
+                androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),

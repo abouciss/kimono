@@ -32,6 +32,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.kimono.ui.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -165,6 +169,8 @@ fun RoomRail(
         ) {
             /* The app you're in stays on the rail even when it isn't one of the suite (VPN, say). */
             val listed = if (app !== kimono && launcherApp != null && apps.none { it.id == app.id }) apps + launcherApp else apps
+            /* Tapping the app you're in again folds its rooms away (and back); another app opens with them showing. */
+            var folded by remember(app.id) { mutableStateOf(false) }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 NavigationRailItem(
                     selected = route == "home", onClick = { go("home") },
@@ -174,7 +180,7 @@ fun RoomRail(
                     val inside = app !== kimono && a.id == app.id
                     NavigationRailItem(
                         /* Lit for the app you're in; its rooms below say where in it. */
-                        selected = inside && app.rooms.none { it.route == route && !it.action }, onClick = { openApp(a) }, colors = colors,
+                        selected = inside && (folded || app.rooms.none { it.route == route && !it.action }), onClick = { if (inside && app.rooms.isNotEmpty()) folded = !folded else openApp(a) }, colors = colors,
                         icon = {
                             Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
                                 InkBloom(a.id, a.accent, a.glyph, 28.dp)
@@ -185,7 +191,7 @@ fun RoomRail(
                         label = { Text(if (a.id == "kimono-code") "Kimono AI" else a.name, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         modifier = Modifier.widthIn(max = 88.dp),
                     )
-                    if (inside && app.rooms.isNotEmpty()) Column(
+                    if (inside && app.rooms.isNotEmpty() && !folded) Column(
                         Modifier.padding(vertical = 2.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
