@@ -1,0 +1,19 @@
+# Kimono built with xtool. Run ./prepare.sh first; see README.md.
+version: 1
+# xtool prefixes this when it signs for a device (XTL-xxxx.app.kimono.compose), so an
+# xtool build installs beside a TestFlight copy of Kimono rather than over it.
+bundleID: app.kimono.compose
+product: Kimono
+# Only the keys that differ from xtool's defaults. Those defaults already make a universal
+# app (UIDeviceFamily [1, 2], every iPad orientation); Kimono-Info.plist says so again
+# explicitly, since this file's keys win over the defaults.
+infoPath: Kimono-Info.plist
+# xtool has no asset catalog compiler (actool is Xcode's), so the icon is the 1024px PNG
+# the catalog holds; prepare.sh copies it here.
+iconPath: Resources/AppIcon.png
+resources:
+  # Compose Multiplatform's strings, fonts and images, at the bundle root where the
+  # runtime looks when the framework isn't embedded (it's static). prepare.sh fills it.
+  - compose-resources
+# No entitlements yet: keychain sharing, the app group, Universal Links and the Files
+# extension all need values tied to a paid team. README.md, "Entitlements", adds them.

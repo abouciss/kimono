@@ -1,0 +1,18 @@
+# Kimono Watch built with xtool. Run ./prepare.sh first; see README.md.
+version: 1
+# xtool prefixes this when it signs for a device (XTL-xxxx.app.kimono.watch), so an
+# xtool build installs beside a TestFlight copy of Kimono Watch rather than over it.
+bundleID: app.kimono.watch
+product: KimonoWatch
+infoPath: KimonoWatch-Info.plist
+# xtool has no asset catalog compiler (actool is Xcode's), so the icon is the 1024px PNG
+# the catalog holds; prepare.sh copies it here.
+iconPath: Resources/AppIcon.png
+resources:
+  # Compose Multiplatform's strings, fonts and images, at the bundle root where the
+  # runtime looks when the framework isn't embedded (it's static). prepare.sh fills it.
+  - compose-resources
+  # The fonts mpv draws plain subtitles with: a folder lands as itself at the bundle root,
+  # and MPVPlayer.swift looks in <bundle>/font.
+  - font
+# No entitlements yet: the keychain group shared with Kimono needs a paid team.

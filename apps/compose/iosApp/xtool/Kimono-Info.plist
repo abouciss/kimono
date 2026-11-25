@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Kimono's Info.plist for xtool builds: what ../project.yml generates for Xcode, with build
+  settings written out, since xtool doesn't expand $(VARIABLES). Keep the two in step.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Kimono</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+
+	<!-- A universal app: iPhone (1) and iPad (2). Without 2, iPadOS runs it in iPhone compatibility mode. -->
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<!-- iPhone stays upright. -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<!-- iPad turns every way; all four are also what Split View, Slide Over and Stage Manager require. -->
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<!-- Left false (the default) so the app can share the screen; true would force it full screen. -->
+	<key>UIRequiresFullScreen</key>
+	<false/>
+	<key>UILaunchScreen</key>
+	<dict/>
+
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<!--
+	  Unexpanded on purpose: Host.swift sees the "$(" and keeps the sign-in in the app's own
+	  keychain instead of the group shared with the Files extension. Replace with
+	  TEAMID.app.kimono.shared once the entitlement is added (README.md, "Entitlements").
+	-->
+	<key>KimonoKeychainGroup</key>
+	<string>$(AppIdentifierPrefix)app.kimono.shared</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick photos to attach, or one for your portrait.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Speak a message to Kimono AI instead of typing it.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo to attach.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kimono-photos</string>
+		<string>kimono-watch</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+</dict>
+</plist>

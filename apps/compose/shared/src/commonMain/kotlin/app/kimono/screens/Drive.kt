@@ -173,7 +173,7 @@ fun DriveScreen(model: DriveModel, me: String?, open: (String) -> Unit) {
             when {
                 list == null && problem == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { InkLoader() }
                 list.isNullOrEmpty() -> Empty(problem ?: "Spaces hold your files. Make one, or ask someone to add you to theirs.")
-                else -> LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+                else -> app.kimono.ui.WithGutter { side -> LazyColumn(contentPadding = PaddingValues(start = side, end = side, top = 0.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
                     /* Kimono's own spaces (AI first, then Notes), then yours, then others'. */
                     val groups = listOf(
                         "Kimono" to list.filter { it.kimono }.sortedBy { if (it.code != null) 0 else 1 },
@@ -213,7 +213,7 @@ fun DriveScreen(model: DriveModel, me: String?, open: (String) -> Unit) {
                             trailingContent = { Icon(kimonoIcon("go"), null, modifier = Modifier.size(18.dp)) },
                         ) { Text("Shared with you", style = MaterialTheme.typography.bodyLarge) }
                     }
-                }
+                } }
             }
         }
     }
@@ -338,7 +338,7 @@ fun FolderScreen(model: DriveModel, platform: Platform, folderId: String, me: St
                 when {
                     here == null && problem == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { InkLoader() }
                     children.isNullOrEmpty() -> Empty(problem ?: if (canEdit) "Nothing here yet. Add files with the button below." else "Nothing here yet.")
-                    else -> LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+                    else -> app.kimono.ui.WithGutter { side -> LazyColumn(contentPadding = PaddingValues(start = side, end = side, top = 8.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
                         itemsIndexed(children, key = { _, n -> n.id }) { index, node ->
                             val isPicked = node.id in selected
                             val row = @Composable {
@@ -368,7 +368,7 @@ fun FolderScreen(model: DriveModel, platform: Platform, folderId: String, me: St
                                 catch (p: KimonoProblem) { snackbar.showSnackbar(p.message ?: "That didn't work."); false }
                             }) { row() } else row()
                         }
-                    }
+                    } }
                 }
             }
         }

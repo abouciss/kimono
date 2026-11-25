@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
@@ -13,12 +15,19 @@ kotlin {
         minSdk = 26
         androidResources { enable = true }
     }
-    /* The iPhone app links this as a framework; iosApp/ builds it from Xcode. */
+    /*
+     * The iPhone and iPad app links this as a framework; iosApp/ builds it from Xcode. The same
+     * framework is also packed as Shared.xcframework (`:shared:assembleSharedReleaseXCFramework`,
+     * macOS only) for builds without Xcode, such as xtool on Linux: see iosApp/xtool/README.md.
+     * Compose resources travel inside it (Shared.framework/composeResources).
+     */
+    val xcframework = XCFramework("Shared")
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "Shared"
             isStatic = true
             binaryOption("smallBinary", "true")
+            xcframework.add(this)
         }
     }
 
