@@ -783,6 +783,12 @@ export function deleteForGood(db: DatabaseSync, id: string, username: string): s
   return purge(db, [{ id }]);
 }
 
+/** Kimono AI chat folders whose chat is gone (not in [chats]), deleted for good with all inside them; returns which chats they were and their blobs. */
+export function deleteGoneChatFolders(db: DatabaseSync, chats: Set<string>): { refs: string[]; blobs: string[] } {
+  const gone = (db.prepare("SELECT id, ref FROM nodes WHERE purpose = 'chat' AND ref IS NOT NULL").all() as { id: string; ref: string }[]).filter((row) => !chats.has(row.ref));
+  return { refs: gone.map((row) => row.ref), blobs: gone.length ? purge(db, gone) : [] };
+}
+
 /** Trashed things and everything inside them, gone from the database; returns their blobs. */
 function purge(db: DatabaseSync, roots: { id: string }[]): string[] {
   const blobs: string[] = [];

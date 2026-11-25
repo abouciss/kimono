@@ -165,6 +165,30 @@ export async function dropChatBranch(config: CodeConfig, owner: string, name: st
   if (!gone.ok && gone.status !== 404) throw new CodeProblem("Kimono Git couldn't delete this chat's branch. Try again in a moment.", 502);
 }
 
+/**
+ * Every code/ branch in Kimono Git that no chat has any more (not in [known]): its open pull requests closed, then
+ * the branch deleted. Chats are the only ones that make code/ branches. Returns how many went.
+ */
+export async function chatBranchesGone(config: CodeConfig, known: Set<string>): Promise<number> {
+  let dropped = 0;
+  for (let page = 1; page < 200; page += 1) {
+    const found = await get<{ data: ForgejoRepo[] }>(config, `/repos/search?limit=50&page=${page}&private=true`);
+    if (!found.data?.length) break;
+    for (const repo of found.data) {
+      const path = `/repos/${encodeURIComponent(repo.owner.login)}/${encodeURIComponent(repo.name)}`;
+      const list = await get<{ name: string }[]>(config, `${path}/branches?limit=100`).catch(() => [] as { name: string }[]);
+      const stale = list.map((b) => b.name).filter((b) => b.startsWith("code/") && !known.has(b));
+      if (!stale.length) continue;
+      const pulls = await get<{ number: number; head: { ref: string } }[]>(config, `${path}/pulls?state=open&limit=50`).catch(() => [] as { number: number; head: { ref: string } }[]);
+      for (const branch of stale) {
+        try { await dropChatBranch(config, repo.owner.login, repo.name, branch, pulls.find((p) => p.head.ref === branch)?.number ?? null); dropped++; } catch { /* next sweep */ }
+      }
+    }
+    if (found.data.length < 50) break;
+  }
+  return dropped;
+}
+
 /** One repository, as the person may see it: theirs, or shared with them. */
 export async function repositoryFor(config: CodeConfig, person: GitPerson, owner: string, name: string): Promise<Repository> {
   const login = await gitAccountOf(config, person);

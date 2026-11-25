@@ -472,3 +472,21 @@ test('deleting for good skips the trash: the folder and all inside it go, with t
   assert.equal(drive.nodeFor(db, kept.id, 'akram').name, 'other.md');
   assert.throws(() => drive.deleteForGood(db, chat.id, 'akram'), /doesn't exist/);
 });
+
+test('chat folders whose chat is gone are deleted for good; the rest stay', () => {
+  const db = fresh();
+  const space = drive.createSpace(db, 'akram', { name: 'AI' });
+  const live = drive.createFolder(db, space.rootId, 'akram', 'Still here');
+  const dead = drive.createFolder(db, space.rootId, 'akram', 'Deleted chat');
+  const plain = drive.createFolder(db, space.rootId, 'akram', 'Chats');
+  drive.setPurpose(db, live.id, 'akram', 'chat', 'aaaaaaaaaaaaaaaa');
+  drive.setPurpose(db, dead.id, 'akram', 'chat', 'bbbbbbbbbbbbbbbb');
+  drive.addFile(db, dead.id, 'akram', file('notes.md', 'blob-dead'));
+  drive.addFile(db, live.id, 'akram', file('keep.md', 'blob-live'));
+  drive.trashNode(db, dead.id, 'akram');
+  const swept = drive.deleteGoneChatFolders(db, new Set(['aaaaaaaaaaaaaaaa']));
+  assert.deepEqual(swept, { refs: ['bbbbbbbbbbbbbbbb'], blobs: ['blob-dead'] });
+  assert.equal(drive.nodeFor(db, live.id, 'akram').name, 'Still here');
+  assert.equal(drive.nodeFor(db, plain.id, 'akram').name, 'Chats');
+  assert.equal(drive.trashOf(db, 'akram').length, 0);
+});

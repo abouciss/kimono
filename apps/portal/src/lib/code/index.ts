@@ -32,6 +32,7 @@ import { portalOrigin } from "../account";
 import { forgetTempLinks, serveTempLink, tempLinkBase, tempLinkKey } from "./temp-links";
 export { efforts, type Effort } from "./node";
 import { forgetChatFolder, markChat, retitle, shotToDrive, syncDrive, treeAhead } from "./drive";
+import { sweepDeletedChats } from "./leftovers";
 import { forgetFromHistory, hasHistory, historyNote, syncHistory } from "./history";
 import { applyBookChanges, booksNote, forgetBooksWritten, syncBooks, takeBookMisses } from "./books";
 import { hostedNote, isProjectCommand, offeredProject, projectNote } from "./sites";
@@ -91,6 +92,7 @@ export function db(): DatabaseSync {
 }
 let migrated = false;
 let ratingsFilled = false;
+let leftoversSwept = false;
 let chatsMarked = false;
 
 /* Chats made before Drive knew a chat's folder from any other get marked once, so Drive shows them as chats. */
@@ -121,6 +123,10 @@ export async function code(user: ApiUser, work: (config: CodeConfig) => Promise<
     if (!allowed(user)) return apiError(403, "Kimono AI isn't for this account.");
     const blocked = needsSetup ? missing(config) : null;
     if (blocked) return apiError(409, blocked);
+    if (!leftoversSwept) {
+      leftoversSwept = true;
+      void sweepDeletedChats(db(), config).catch((error) => console.warn("Kimono AI couldn't sweep what deleted chats left:", error instanceof Error ? error.message : error));
+    }
     return await work(config);
   } catch (error) {
     if (error instanceof CodeProblem) return apiError(error.status, error.message);
