@@ -5,7 +5,7 @@
 #   ../MPVKit/Frameworks/    libmpv and FFmpeg's LGPL xcframeworks (MPVKit/fetch.sh, about 1 GB, once)
 #   Frameworks/WatchShared.xcframework    the Compose screens, built on a Mac
 #   compose-resources/composeResources    their resources, at the bundle root where Compose looks
-#   subtitle-fonts/font      the fonts mpv draws plain subtitles with
+#   font/                    the fonts mpv draws plain subtitles with
 #
 #   ./prepare.sh                           uses Frameworks/WatchShared.xcframework as it is
 #   ./prepare.sh path/to/WatchShared.xcframework[.zip]   takes it from there first
@@ -26,8 +26,8 @@ done
 mkdir -p Resources
 cp "$ios/KimonoWatch/Assets.xcassets/AppIcon.appiconset/icon-1024.png" Resources/AppIcon.png
 
-rm -rf subtitle-fonts && mkdir -p subtitle-fonts
-cp -R "$compose/watchShared/src/commonMain/composeResources/font" subtitle-fonts/font
+rm -rf font
+cp -R "$compose/watchShared/src/commonMain/composeResources/font" font
 
 # The player's libraries: fetched once, checksummed, and kept (they're out of git).
 "$ios/MPVKit/fetch.sh"

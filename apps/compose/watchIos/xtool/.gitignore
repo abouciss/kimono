@@ -3,7 +3,7 @@ Sources/
 Resources/
 Frameworks/
 compose-resources/
-subtitle-fonts/
+font/
 .build/
 xtool/
 .sourcekit-lsp/

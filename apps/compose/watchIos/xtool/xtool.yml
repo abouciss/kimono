@@ -12,6 +12,7 @@ resources:
   # Compose Multiplatform's strings, fonts and images, at the bundle root where the
   # runtime looks when the framework isn't embedded (it's static). prepare.sh fills it.
   - compose-resources
-  # The fonts mpv draws plain subtitles with (MPVPlayer.swift looks in <bundle>/font).
-  - subtitle-fonts
+  # The fonts mpv draws plain subtitles with: a folder lands as itself at the bundle root,
+  # and MPVPlayer.swift looks in <bundle>/font.
+  - font
 # No entitlements yet: the keychain group shared with Kimono needs a paid team.
