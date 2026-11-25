@@ -4,9 +4,8 @@ name: Shared.xcframework (and WatchShared) for xtool
 # xtool gets the Compose app from here: run this workflow, then on Linux
 #   gh run download --repo kimonoapps/kimono -n Shared.xcframework -D /tmp/kimono-fw
 #   apps/compose/iosApp/xtool/prepare.sh /tmp/kimono-fw/Shared.xcframework.zip
-# Kimono Watch the same way, with app: watch (or both):
+# With app: watch (or both) it builds WatchShared.xcframework too, for a local xtool build of Kimono Watch:
 #   gh run download --repo kimonoapps/kimono -n WatchShared.xcframework -D /tmp/kimono-watch-fw
-#   apps/compose/watchIos/xtool/prepare.sh /tmp/kimono-watch-fw/WatchShared.xcframework.zip
 on:
   workflow_dispatch:
     inputs:

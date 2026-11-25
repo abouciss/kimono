@@ -24,7 +24,7 @@ kotlin {
     /*
      * Kimono Watch for iPhone and iPad links this as a framework; watchIos/ builds it from Xcode.
      * It is also packed as WatchShared.xcframework (`:watchShared:assembleWatchSharedReleaseXCFramework`,
-     * macOS only) for builds without Xcode, such as xtool on Linux: see watchIos/xtool/README.md.
+     * macOS only) for builds without Xcode, such as a local xtool build on Linux.
      */
     val xcframework = XCFramework("WatchShared")
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
