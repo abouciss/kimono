@@ -252,8 +252,9 @@ internal val suiteIds = listOf(app.kimono.data.Code.APP_ID, "kimono-drive", "imm
 internal fun suiteOf(apps: List<LauncherApp>): List<LauncherApp> = suiteIds.mapNotNull { id -> apps.firstOrNull { it.id == id } }
 
 /**
- * 庫 Every app as a card in the middle of a wide window (an iPad), where the bloom brings it up:
- * Home, then Kimono's suite, then whatever else the household has. A phone has [AppsSheet].
+ * 庫 Every app as a card in the middle of the screen, where the bloom brings it up: Home, then
+ * Kimono's suite, then whatever else the household has, three across, scrolling. On a narrow
+ * window (a phone, Split View, Slide Over) the tiles are a bloom and a name, so three still fit.
  */
 @Composable
 fun AppsDialog(drive: Drive, here: (LauncherApp) -> PhoneAppHere, onDismiss: () -> Unit, home: () -> Unit, open: (LauncherApp) -> Unit) {
@@ -261,38 +262,69 @@ fun AppsDialog(drive: Drive, here: (LauncherApp) -> PhoneAppHere, onDismiss: () 
     var problem by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { if (drive.launcher.value == null) drive.knownApps(); try { drive.otherApps(); problem = null } catch (p: KimonoProblem) { problem = p.message } }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
-        app.kimono.ui.Surface(
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.padding(32.dp).widthIn(max = 760.dp).fillMaxWidth().fillMaxHeight(.8f),
-        ) {
-            val all = apps
-            val suite = all?.let { suiteOf(it) }.orEmpty()
-            val others = all.orEmpty().filter { it.id !in suiteIds }
-            /* Three across, whatever the card's width: tidier than as many as fit; the rest scroll. */
-            LazyVerticalGrid(
-                androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            val narrow = maxWidth < 600.dp
+            app.kimono.ui.Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.padding(if (narrow) 16.dp else 32.dp).widthIn(max = 760.dp).fillMaxWidth().fillMaxHeight(.8f),
             ) {
-                item(span = { GridItemSpan(maxLineSpan) }, key = "title") { KimonoTopBar("Apps") }
-                when {
-                    all == null && problem == null -> item(span = { GridItemSpan(maxLineSpan) }) { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { InkLoader() } }
-                    all == null -> item(span = { GridItemSpan(maxLineSpan) }) { Problem(problem) }
-                    else -> {
-                        item(key = "home") { HomeTile(onClick = home) }
-                        items(suite, key = { "app:" + it.id }) { a -> AppTile(a, here(a)) { open(a) } }
-                        if (others.isNotEmpty()) {
-                            item(span = { GridItemSpan(maxLineSpan) }, key = "more") {
-                                Text("More apps", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 2.dp))
+                val all = apps
+                val suite = all?.let { suiteOf(it) }.orEmpty()
+                val others = all.orEmpty().filter { it.id !in suiteIds }
+                @Composable fun tile(a: LauncherApp) = if (narrow) AppIconTile(a) { open(a) } else AppTile(a, here(a)) { open(a) }
+                /* Three across, whatever the card's width: tidier than as many as fit; the rest scroll. */
+                LazyVerticalGrid(
+                    androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = if (narrow) PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 20.dp) else PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(if (narrow) 6.dp else 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (narrow) 6.dp else 10.dp),
+                ) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "title") { KimonoTopBar("Apps") }
+                    when {
+                        all == null && problem == null -> item(span = { GridItemSpan(maxLineSpan) }) { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { InkLoader() } }
+                        all == null -> item(span = { GridItemSpan(maxLineSpan) }) { Problem(problem) }
+                        else -> {
+                            item(key = "home") { if (narrow) HomeIconTile(onClick = home) else HomeTile(onClick = home) }
+                            items(suite, key = { "app:" + it.id }) { a -> tile(a) }
+                            if (others.isNotEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "more") {
+                                    Text("More apps", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 2.dp))
+                                }
+                                items(others, key = { "app:" + it.id }) { a -> tile(a) }
                             }
-                            items(others, key = { "app:" + it.id }) { a -> AppTile(a, here(a)) { open(a) } }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** An app in a narrow apps card: its bloom, and its name under it. */
+@Composable
+private fun AppIconTile(app: LauncherApp, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).clickable(onClick = onClick).padding(vertical = 12.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+            InkBloom(app.id, app.accent, app.glyph, 52.dp)
+            if (app.glyph == null && app.icon != null) AsyncImage(model = app.icon, contentDescription = null, modifier = Modifier.size(52.dp * .3f))
+        }
+        Text(app.name, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
+/** Kimono itself in a narrow apps card: its branch, and Home. */
+@Composable
+private fun HomeIconTile(onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).clickable(onClick = onClick).padding(vertical = 12.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) { KimonoBranch(44.dp) }
+        Text("Home", style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 }

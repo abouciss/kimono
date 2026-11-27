@@ -292,9 +292,8 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             }
         },
     ) { padding ->
-        /* A wide window (an iPad) brings every app up as a card in the middle; a phone, as a sheet from the bottom. */
-        if (appsOpen && wide) app.kimono.screens.AppsDialog(model.drive, here = ::here, onDismiss = { appsOpen = false }, home = { appsOpen = false; goTab("home") }) { appsOpen = false; openApp(it) }
-        else if (appsOpen) app.kimono.screens.AppsSheet(model.drive, here = ::here, onDismiss = { appsOpen = false }, home = { appsOpen = false; goTab("home") }) { appsOpen = false; openApp(it) }
+        /* Every app, as a card in the middle of the screen: an iPad, a Split View or Slide Over window, and a phone alike. */
+        if (appsOpen) app.kimono.screens.AppsDialog(model.drive, here = ::here, onDismiss = { appsOpen = false }, home = { appsOpen = false; goTab("home") }) { appsOpen = false; openApp(it) }
         /*
          * Material's own motion between screens. Tabs fade through: the old one
          * fades quickly, the new one settles in from just smaller. A screen
@@ -309,7 +308,10 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         val leave = fadeOut(tween(100, easing = FastOutLinearInEasing))
         val throughIn = arrive + scaleIn(tween(300, delayMillis = 100, easing = settle), initialScale = .94f)
         Row(Modifier.fillMaxSize()) {
-        if (rail && roomApp != null) RoomRail(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true }, apps = railApps, openApp = ::openApp)
+        /* The rail stops above the song's bar, as the screens beside it do, so You at its foot stays in sight. */
+        if (rail && roomApp != null) Box(if (musicBar) Modifier.padding(bottom = padding.calculateBottomPadding()).consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())) else Modifier) {
+            RoomRail(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true }, apps = railApps, openApp = ::openApp)
+        }
         NavHost(
             nav, startDestination = "home",
             /* The bar takes the bottom inset, so a composer under it doesn't stand a whole hem higher. */
