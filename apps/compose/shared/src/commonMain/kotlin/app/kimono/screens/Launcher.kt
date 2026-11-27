@@ -262,7 +262,11 @@ fun AppsDialog(drive: Drive, here: (LauncherApp) -> PhoneAppHere, onDismiss: () 
     var problem by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { if (drive.launcher.value == null) drive.knownApps(); try { drive.otherApps(); problem = null } catch (p: KimonoProblem) { problem = p.message } }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
-        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        /* A tap anywhere around the card closes it, as a tap on the dimmed screen should; the card itself keeps its taps. */
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClickLabel = "Close", onClick = onDismiss),
+            contentAlignment = Alignment.Center,
+        ) {
             val narrow = maxWidth < 600.dp
             app.kimono.ui.Surface(
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
