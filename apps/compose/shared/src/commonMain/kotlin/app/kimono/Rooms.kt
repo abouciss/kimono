@@ -110,27 +110,25 @@ fun RoomBar(app: RoomApp, route: String?, launcherApp: LauncherApp?, me: Account
         )
         @Composable fun RowScope.place(room: Room) = ShortNavigationBarItem(
             selected = route == room.route, onClick = { if (room.action) startTask() else go(room.route) },
-            icon = { Icon(kimonoIcon(room.icon), null) }, label = { Text(room.label, maxLines = 1, softWrap = false) }, colors = colors,
-            /* A longer name gets more room than a short one beside it, so none is cut off. */
-            modifier = Modifier.weight(maxOf(room.label.length, 10).toFloat()),
+            icon = { Icon(kimonoIcon(room.icon), null) }, label = { Text(room.label, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, colors = colors,
+            /* Every room, the bloom and You get the same share of the bar, whatever their names or how many sit each side. */
+            modifier = Modifier.weight(1f),
         )
-        /* The bloom stays dead centre whatever the app: its rooms share the left half, the rest and You the right. */
+        /* The bloom sits between the app's rooms (before it, after it) as one more slot of the same width. */
         /* It stands on the screen's hem (see bottomChrome), not a whole inset above it. */
         Surface(color = MaterialTheme.colorScheme.surface) {
             Row(Modifier.fillMaxWidth().bottomChrome().heightIn(min = 64.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.weight(1f)) { app.before.forEach { place(it) } }
+                app.before.forEach { place(it) }
                 Column(
-                    Modifier.width(92.dp).clip(RoundedCornerShape(24.dp)).clickable(onClickLabel = "Every app", onClick = openApps).padding(vertical = 4.dp),
+                    Modifier.weight(1f).clip(RoundedCornerShape(24.dp)).clickable(onClickLabel = "Every app", onClick = openApps).padding(vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     if (accent == null) KimonoBranch(36.dp) else InkBloom(launcherApp?.id ?: app.id, accent, launcherApp?.glyph ?: app.glyph, 42.dp)
-                    Text(if (app.id == "kimono-code") app.name else launcherApp?.name ?: app.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+                    Text(if (app.id == "kimono-code") app.name else launcherApp?.name ?: app.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 }
-                Row(Modifier.weight(1f)) {
-                    app.after.forEach { place(it) }
-                    /* You is Kimono's: inside an app the bar is that app's alone. */
-                    if (app === kimono) ShortNavigationBarItem(selected = route == "you", onClick = { go("you") }, icon = { Portrait(me?.picture, me?.name, me?.username, 24.dp) }, label = { Text("You") }, colors = colors, modifier = Modifier.weight(1f))
-                }
+                app.after.forEach { place(it) }
+                /* You is Kimono's: inside an app the bar is that app's alone. */
+                if (app === kimono) ShortNavigationBarItem(selected = route == "you", onClick = { go("you") }, icon = { Portrait(me?.picture, me?.name, me?.username, 24.dp) }, label = { Text("You") }, colors = colors, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -198,7 +196,7 @@ fun RoomRail(
                         app.rooms.forEach { room ->
                             NavigationRailItem(
                                 selected = route == room.route, onClick = { if (room.action) startTask() else go(room.route) },
-                                icon = { Icon(kimonoIcon(room.icon), null) }, label = { Text(room.label, maxLines = 1, softWrap = false) }, colors = colors,
+                                icon = { Icon(kimonoIcon(room.icon), null) }, label = { Text(room.label, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, colors = colors,
                             )
                         }
                     }

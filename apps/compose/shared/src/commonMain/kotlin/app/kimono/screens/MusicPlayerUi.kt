@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.offset
 import app.kimono.data.Lyrics
 import app.kimono.data.Music
 import app.kimono.data.SongStatus
@@ -274,9 +275,13 @@ private fun Controls(player: MusicPlayer) {
             else FilledIconButtonBig(if (player.playing) "pause" else "play", "Play", 72.dp) { player.toggle() }
         }
         IconButton(onClick = { player.next() }, modifier = Modifier.size(56.dp)) { MusicGlyph("next", MaterialTheme.colorScheme.onSurface, 30.dp, filled = true) }
-        Box(contentAlignment = Alignment.TopEnd) {
-            Toggle(player.repeat != "off", enabled = !inParty, onClick = { player.cycleRepeat() }) { MusicGlyph("repeat", it, 22.dp) }
-            if (player.repeat == "one") Text("1", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        Toggle(player.repeat != "off", enabled = !inParty, onClick = { player.cycleRepeat() }) { ink ->
+            /* Repeat one: a small 1 tucked against the arrows' corner, not out at the button's. */
+            Box(Modifier.size(22.dp)) {
+                MusicGlyph("repeat", ink, 22.dp)
+                if (player.repeat == "one") Text("1", fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, color = ink,
+                    modifier = Modifier.align(Alignment.TopEnd).offset(x = 5.dp, y = (-4).dp))
+            }
         }
     }
 }

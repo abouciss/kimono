@@ -2,15 +2,12 @@
 
 package app.kimono.screens
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -34,8 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.kimono.data.FriendListening
 import app.kimono.data.FriendParty
 import app.kimono.data.Music
@@ -211,13 +208,12 @@ private fun Genres(genres: List<app.kimono.data.Genre>, open: (Int) -> Unit) {
 }
 
 /**
- * Listen again: the songs you play most, nine to a page (three by three),
- * swiped sideways for the next nine. Your top three carry a seal with their place.
+ * Listen again: the songs you play most as banners, the cover on the left and the name beside it,
+ * filling the width. Two to a row on a phone, three or four on an iPad, four rows of them.
+ * Your top three carry a seal with their place.
  */
 @Composable
 private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono.data.AccountProfile?, firstName: String?) {
-    val pages = remember(tracks) { tracks.chunked(9) }
-    val pager = rememberPagerState { pages.size }
     val source = QueueSource("history", "most", "Listen again")
     Column(Modifier.padding(top = 24.dp)) {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -228,55 +224,48 @@ private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono
                 Text("Listen again", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             }
         }
-        /*
-         * A page is the screen less its margins on a phone, as before; on an iPad it stops at about
-         * a phone's width and the next pages show beside it, rather than nine tiles each a third of a tablet wide.
-         */
-        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.padding(top = 12.dp)) {
-        val page = (maxWidth - 56.dp).coerceAtMost(420.dp)
-        HorizontalPager(pager, contentPadding = PaddingValues(start = 16.dp, end = 40.dp), pageSize = androidx.compose.foundation.pager.PageSize.Fixed(page), pageSpacing = 12.dp, verticalAlignment = Alignment.Top) { n ->
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                pages[n].chunked(3).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
+            val across = when { maxWidth < 560.dp -> 2; maxWidth < 900.dp -> 3; else -> 4 }
+            val shown = tracks.take(across * 4)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                shown.chunked(across).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { t ->
                             val i = tracks.indexOf(t)
-                            AgainTile(t, i, player.current?.key == t.key, player.playing, Modifier.weight(1f)) {
+                            AgainBanner(t, i, player.current?.key == t.key, player.playing, Modifier.weight(1f)) {
                                 if (player.current?.key == t.key) player.toggle() else player.play(tracks, i, source)
                             }
                         }
-                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        repeat(across - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
-            }
-        }
-        }
-        if (pages.size > 1) Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
-            repeat(pages.size) { n ->
-                val on = pager.currentPage == n
-                val w by animateDpAsState(if (on) 18.dp else 6.dp, label = "dot")
-                Box(Modifier.padding(horizontal = 3.dp).size(w, 6.dp).clip(CircleShape).background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant))
             }
         }
     }
 }
 
 @Composable
-private fun AgainTile(t: Track, place: Int, now: Boolean, playing: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun AgainBanner(t: Track, place: Int, now: Boolean, playing: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val press by animateFloatAsState(if (now) 1f else 0f, spring(dampingRatio = .6f, stiffness = 300f), label = "now")
-    Column(modifier.clickable(onClick = onClick)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
-            Box(Modifier.fillMaxSize().graphicsLayer { val s = 1f - press * .04f; scaleX = s; scaleY = s }.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer)) {
-                if (t.cover != null) AsyncImage(model = t.cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                if (now) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)), contentAlignment = Alignment.Center) { Bars(Color.White, playing) }
-            }
+    Row(
+        modifier.height(56.dp).graphicsLayer { val s = 1f - press * .02f; scaleX = s; scaleY = s }
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (now) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.secondaryContainer)) {
+            if (t.cover != null) AsyncImage(model = t.cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (now) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)), contentAlignment = Alignment.Center) { Bars(Color.White, playing) }
             if (place < 3) Box(
-                Modifier.padding(6.dp).size(24.dp).graphicsLayer { rotationZ = listOf(-6f, 4f, -2f)[place] }
-                    .clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.primary),
+                Modifier.padding(3.dp).size(16.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center,
-            ) { Text("${place + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary) }
+            ) { Text("${place + 1}", fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary) }
         }
-        Text(t.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (now) MaterialTheme.colorScheme.primary else Color.Unspecified, modifier = Modifier.padding(top = 6.dp))
-        Text(t.byline, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+            Text(t.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                color = if (now) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+        }
     }
 }
 

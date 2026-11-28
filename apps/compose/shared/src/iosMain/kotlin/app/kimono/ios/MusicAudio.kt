@@ -76,9 +76,14 @@ class IosMusicAudio : MusicAudio {
     private var lastPlaying = false
     private var lastBuffering = false
     private var commandsSet = false
-    /* Some streams (HE-AAC signalled implicitly) read at twice their real length: their clock is scaled back to the song's. */
-    private var scale = 1.0
-    private fun raw(seconds: Double) = CMTimeMakeWithSeconds(seconds * scale, 600)
+    /*
+     * Some streams (HE-AAC signalled implicitly) report about twice their real length, though their clock
+     * runs true. The clock is left alone; the song's own length stands in for the reported one, and the
+     * song ends there instead of playing on into the silence AVPlayer thinks is still to come.
+     */
+    private var end = 0.0
+    private var endedAt: AVPlayerItem? = null
+    private fun raw(seconds: Double) = CMTimeMakeWithSeconds(seconds, 600)
 
     private fun session() {
         val s = AVAudioSession.sharedInstance()
@@ -104,13 +109,14 @@ class IosMusicAudio : MusicAudio {
         val made = AVPlayerItem.playerItemWithAsset(asset)
         item = made
         ready = false
-        scale = 1.0
+        end = 0.0
+        endedAt = null
         wantPlay = play
         startAt = at
         player.replaceCurrentItemWithPlayerItem(made)
         val center = NSNotificationCenter.defaultCenter
         observers = listOf(
-            center.addObserverForName(AVPlayerItemDidPlayToEndTimeNotification, made, NSOperationQueue.mainQueue) { _ -> if (item === made) { wantPlay = false; publish(); events?.ended() } },
+            center.addObserverForName(AVPlayerItemDidPlayToEndTimeNotification, made, NSOperationQueue.mainQueue) { _ -> if (item === made) finish(made) },
             center.addObserverForName(AVPlayerItemFailedToPlayToEndTimeNotification, made, NSOperationQueue.mainQueue) { _ -> if (item === made) events?.failed() },
         )
         show(info)
@@ -127,12 +133,13 @@ class IosMusicAudio : MusicAudio {
                 ready = true
                 val real = info?.duration ?: 0.0
                 val got = CMTimeGetSeconds(current.duration)
-                scale = if (real > 0 && got.isFinite() && got / real in 1.8..2.2) 2.0 else 1.0
+                end = if (real > 0 && got.isFinite() && got > real * 1.3) real else 0.0
                 if (startAt > 0.5) player.seekToTime(raw(startAt))
                 events?.ready()
                 if (wantPlay) play() else publish()
             }
             if (current.status == AVPlayerItemStatusFailed && item === current) { item = null; ready = false; events?.failed() }
+            if (ready && end > 0 && wantPlay && endedAt !== current && position >= end - 0.15) { player.pause(); finish(current); return@scheduledTimerWithTimeInterval }
             val playing = player.timeControlStatus == AVPlayerTimeControlStatusPlaying
             val buffering = wantPlay && (player.timeControlStatus == AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate || !ready)
             if (playing != lastPlaying || buffering != lastBuffering) {
@@ -147,6 +154,7 @@ class IosMusicAudio : MusicAudio {
         wantPlay = true
         if (!ready) { events?.changed(false, true); return }
         session()
+        if (end > 0 && position >= end - 0.15) { player.seekToTime(raw(0.0)); endedAt = null }
         player.play()
         if (rate != 1f) player.setRate(rate)
         publish()
@@ -161,6 +169,7 @@ class IosMusicAudio : MusicAudio {
 
     override fun seek(seconds: Double) {
         if (!ready) { startAt = seconds; return }
+        if (end > 0 && seconds < end - 0.5) endedAt = null
         player.seekToTime(raw(seconds))
         publish()
     }
@@ -179,8 +188,17 @@ class IosMusicAudio : MusicAudio {
         MPNowPlayingInfoCenter.defaultCenter().nowPlayingInfo = null
     }
 
-    override val position: Double get() = if (ready) (CMTimeGetSeconds(player.currentTime()).takeIf { it.isFinite() } ?: 0.0) / scale else startAt
-    override val duration: Double get() = item?.let { CMTimeGetSeconds(it.duration).takeIf { d -> d.isFinite() && d > 0 } }?.div(scale) ?: 0.0
+    /* Once, whichever comes first: AVPlayer reaching the end it believes in, or the song's real end. */
+    private fun finish(which: AVPlayerItem) {
+        if (endedAt === which) return
+        endedAt = which
+        wantPlay = false
+        publish()
+        events?.ended()
+    }
+
+    override val position: Double get() = if (ready) (CMTimeGetSeconds(player.currentTime()).takeIf { it.isFinite() } ?: 0.0).let { if (end > 0) minOf(it, end) else it } else startAt
+    override val duration: Double get() = if (end > 0) end else item?.let { CMTimeGetSeconds(it.duration).takeIf { d -> d.isFinite() && d > 0 } } ?: 0.0
     override val isPlaying: Boolean get() = player.timeControlStatus == AVPlayerTimeControlStatusPlaying
     override val isReady: Boolean get() = ready
 
