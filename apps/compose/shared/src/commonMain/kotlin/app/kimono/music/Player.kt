@@ -116,7 +116,23 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
     private var asking: Job? = null
     private var toastJob: Job? = null
 
-    init { audio?.events = this }
+    init {
+        audio?.events = this
+        scope.launch {
+            platform.readKept(PLACES)?.let { kept -> app.kimono.data.attempt { placesJson.decodeFromString<List<app.kimono.data.RecentPlace>>(kept) }.onSuccess { if (places.isEmpty()) places = it } }
+        }
+    }
+
+    /** Playlists and albums you played from lately, newest first: Listen again shows them beside the songs. */
+    var places by mutableStateOf<List<app.kimono.data.RecentPlace>>(emptyList()); private set
+
+    private fun visited(from: QueueSource?, list: List<Track>) {
+        if (from == null || from.kind !in setOf("playlist", "album") || from.id.isBlank()) return
+        val p = app.kimono.data.RecentPlace(from.kind, from.id, from.title, list.mapNotNull { it.cover }.distinct().take(4))
+        places = (listOf(p) + places.filterNot { it.kind == p.kind && it.id == p.id }).take(8)
+        val keep = placesJson.encodeToString(places)
+        scope.launch { platform.keep(PLACES, keep) }
+    }
 
     /** The hour where the phone is, for Home's greeting. */
     fun localHour(): Int {
@@ -270,6 +286,7 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
             i = 0
         }
         tracks = order; index = i; source = from
+        visited(from, list)
         load(order[i], true)
         upcoming()
         save()
@@ -502,3 +519,6 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         playing = false
     }
 }
+
+private const val PLACES = "kimono.music.places"
+private val placesJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }

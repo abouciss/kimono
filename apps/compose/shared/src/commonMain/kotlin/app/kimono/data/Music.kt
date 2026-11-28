@@ -90,6 +90,8 @@ data class PlaylistPage(
 @Serializable data class GenreFound(val tag: String, val title: String, val tracks: List<Track> = emptyList(), val artists: List<Artist> = emptyList())
 @Serializable data class SongStatus(val stage: String, val fraction: Double? = null)
 @Serializable data class QueueSource(val kind: String, val id: String, val title: String)
+/** A playlist or album you played from lately, kept on the phone for Listen again: [covers] for its picture. */
+@Serializable data class RecentPlace(val kind: String, val id: String, val title: String, val covers: List<String> = emptyList())
 @Serializable
 data class SavedQueue(
     val tracks: List<Track> = emptyList(), val index: Int = 0, val position: Double = 0.0, val shuffle: Boolean = false,

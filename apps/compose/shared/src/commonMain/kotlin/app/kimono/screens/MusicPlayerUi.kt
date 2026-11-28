@@ -158,11 +158,35 @@ fun NowPlaying(player: MusicPlayer, go: MusicGo) {
                     val titleShared = Modifier.sharedBounds(rememberSharedContentState("np-title"), this@AnimatedContent, boundsTransform = { _, _ -> spring(dampingRatio = .85f, stiffness = 340f) })
                     Column(Modifier.fillMaxSize()) {
                     if (full) {
-                        /* The song in full: its cover, big; tap it to play or pause. */
+                        /* The song in full: its cover, big; tap it to play or pause, swipe it left for the next song and right for the last. */
                         Box(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
                             BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 val side = minOf(maxWidth, maxHeight)
-                                Cover(t.cover, side, coverShared.clickable(onClickLabel = if (player.playing) "Pause" else "Play") { player.toggle() }, corner = 16.dp)
+                                val swipe = remember { androidx.compose.animation.core.Animatable(0f) }
+                                val swipeScope = rememberCoroutineScope()
+                                val swiping = Modifier
+                                    .graphicsLayer {
+                                        translationX = swipe.value
+                                        val f = (kotlin.math.abs(swipe.value) / size.width).coerceIn(0f, 1f)
+                                        alpha = 1f - f * .6f; rotationZ = swipe.value / size.width * 6f
+                                    }
+                                    .pointerInput(t.key) {
+                                        detectHorizontalDragGestures(
+                                            onDragEnd = {
+                                                val w = size.width.toFloat()
+                                                val v = swipe.value
+                                                swipeScope.launch {
+                                                    when {
+                                                        v < -w * .25f -> { swipe.animateTo(-w, tween(160)); player.next(); swipe.snapTo(w * .6f); swipe.animateTo(0f, spring(dampingRatio = .8f, stiffness = 380f)) }
+                                                        v > w * .25f -> { swipe.animateTo(w, tween(160)); player.prev(); swipe.snapTo(-w * .6f); swipe.animateTo(0f, spring(dampingRatio = .8f, stiffness = 380f)) }
+                                                        else -> swipe.animateTo(0f, spring(dampingRatio = .7f, stiffness = 500f))
+                                                    }
+                                                }
+                                            },
+                                            onDragCancel = { swipeScope.launch { swipe.animateTo(0f) } },
+                                        ) { change, by -> change.consume(); swipeScope.launch { swipe.snapTo(swipe.value + by) } }
+                                    }
+                                Cover(t.cover, side, coverShared.then(swiping).clickable(onClickLabel = if (player.playing) "Pause" else "Play") { player.toggle() }, corner = 16.dp)
                             }
                         }
                         SongTitle(player, t, go, Modifier.padding(horizontal = 24.dp), titleModifier = titleShared)

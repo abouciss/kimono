@@ -93,7 +93,7 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
         /* Yours first, at the top: the songs you play most (or, new here, what you played last). */
         home?.let { h ->
             val personal = h.listenAgain.size >= 6
-            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain.filter { player.ratingOf("track", it.key) != "down" }, me, firstName) }
+            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain.filter { player.ratingOf("track", it.key) != "down" }, me, firstName, go) }
             else if (h.jumpBack.size > 1) item {
                 Shelf("Jump back in") { items(h.jumpBack.take(12), key = { "jb" + it.key }) { t -> SleeveTile(t.title, t.byline, t.cover, player.current?.key == t.key && player.playing) { player.play(h.jumpBack, h.jumpBack.indexOf(t), QueueSource("history", "recent", "Played lately")) } } }
             }
@@ -208,12 +208,13 @@ private fun Genres(genres: List<app.kimono.data.Genre>, open: (Int) -> Unit) {
 }
 
 /**
- * Listen again: the songs you play most as banners, the cover on the left and the name beside it,
- * filling the width. Two to a row on a phone, three or four on an iPad, four rows of them.
- * Your top three carry a seal with their place.
+ * Listen again: the playlists and albums you played from lately, then the songs you play most, as
+ * banners with the cover on the left and the name beside it, filling the width. Eight on a phone
+ * (two by four) and on a landscape iPad (four by two), nine on an upright one (three by three).
+ * Your top three songs carry a seal with their place.
  */
 @Composable
-private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono.data.AccountProfile?, firstName: String?) {
+private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono.data.AccountProfile?, firstName: String?, go: MusicGo) {
     val source = QueueSource("history", "most", "Listen again")
     Column(Modifier.padding(top = 24.dp)) {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -226,20 +227,49 @@ private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono
         }
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
             val across = when { maxWidth < 560.dp -> 2; maxWidth < 900.dp -> 3; else -> 4 }
-            val shown = tracks.take(across * 4)
+            val count = if (across == 3) 9 else 8
+            /* Up to half the banners are places (a playlist, an album), more only when there are too few songs to fill them. */
+            val places = player.places.take(maxOf(count / 2, count - tracks.size))
+            val shown: List<Any> = places + tracks.take(count - places.size)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 shown.chunked(across).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { t ->
-                            val i = tracks.indexOf(t)
-                            AgainBanner(t, i, player.current?.key == t.key, player.playing, Modifier.weight(1f)) {
-                                if (player.current?.key == t.key) player.toggle() else player.play(tracks, i, source)
+                        row.forEach { x ->
+                            if (x is app.kimono.data.RecentPlace) PlaceBanner(x, player.source?.kind == x.kind && player.source?.id == x.id, player.playing, Modifier.weight(1f)) {
+                                go(if (x.kind == "album") MusicRoutes.album(x.id) else MusicRoutes.playlist(x.id))
+                            } else if (x is Track) {
+                                val t = x
+                                val i = tracks.indexOf(t)
+                                AgainBanner(t, i, player.current?.key == t.key, player.playing, Modifier.weight(1f)) {
+                                    if (player.current?.key == t.key) player.toggle() else player.play(tracks, i, source)
+                                }
                             }
                         }
                         repeat(across - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PlaceBanner(p: app.kimono.data.RecentPlace, now: Boolean, playing: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Row(
+        modifier.height(56.dp).clip(RoundedCornerShape(8.dp))
+            .background(if (now) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.secondaryContainer)) {
+            if (p.kind == "playlist" && p.covers.size >= 4) Mosaic(p.covers, 56.dp)
+            else p.covers.firstOrNull()?.let { AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+            if (now && playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)), contentAlignment = Alignment.Center) { Bars(Color.White, true) }
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+            Text(p.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = if (now) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+            Text(if (p.kind == "album") "Album" else "Playlist", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
 }

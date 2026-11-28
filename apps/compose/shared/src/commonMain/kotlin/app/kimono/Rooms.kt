@@ -34,6 +34,9 @@ import app.kimono.ui.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -153,14 +156,31 @@ fun RoomRail(
             indicatorColor = MaterialTheme.colorScheme.secondaryContainer, selectedIconColor = MaterialTheme.colorScheme.primary,
             selectedTextColor = MaterialTheme.colorScheme.onSurface, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /* Inside an app the rail is its icons alone, so the app has the room; a name shows on a hover, a press, or for the app you're in. */
+        val iconsOnly = app !== kimono
+        @Composable fun item(
+            selected: Boolean, onClick: () -> Unit, name: String, modifier: Modifier = Modifier, keepName: Boolean = false, icon: @Composable () -> Unit,
+        ) {
+            val touch = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            val hovered by touch.collectIsHoveredAsState()
+            val pressed by touch.collectIsPressedAsState()
+            val named = !iconsOnly || selected || keepName
+            NavigationRailItem(
+                selected = selected, onClick = onClick, colors = colors, interactionSource = touch, alwaysShowLabel = named,
+                icon = { Box(contentAlignment = Alignment.Center) { icon(); if (!named && (hovered || pressed)) RailTip(name) } },
+                label = { Text(name, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                modifier = modifier.widthIn(max = 96.dp).hoverable(touch),
+            )
+        }
         NavigationRail(
             containerColor = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.widthIn(min = 96.dp),
             header = {
                 Column(
-                    Modifier.padding(top = 8.dp, bottom = 12.dp).width(80.dp).clip(RoundedCornerShape(24.dp)).clickable(onClickLabel = "Every app", onClick = openApps).padding(vertical = 6.dp),
+                    Modifier.padding(top = 10.dp, bottom = 14.dp).width(92.dp).clip(RoundedCornerShape(26.dp)).clickable(onClickLabel = "Every app", onClick = openApps).padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (accent == null) KimonoBranch(36.dp) else InkBloom(launcherApp?.id ?: app.id, accent, launcherApp?.glyph ?: app.glyph, 42.dp)
+                    if (accent == null) KimonoBranch(40.dp) else InkBloom(launcherApp?.id ?: app.id, accent, launcherApp?.glyph ?: app.glyph, 48.dp)
                     Text(if (app.id == "kimono-code") app.name else launcherApp?.name ?: app.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
                 }
             },
@@ -170,25 +190,22 @@ fun RoomRail(
             /* Tapping the app you're in again folds its rooms away (and back); another app opens with them showing. */
             var folded by remember(app.id) { mutableStateOf(false) }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                NavigationRailItem(
-                    selected = route == "home", onClick = { go("home") },
-                    icon = { Icon(kimonoIcon("home"), null) }, label = { Text("Home", maxLines = 1, softWrap = false) }, colors = colors,
-                )
+                item(route == "home", { go("home") }, "Home") { Icon(kimonoIcon("home"), null, Modifier.size(26.dp)) }
                 listed.forEach { a ->
                     val inside = app !== kimono && a.id == app.id
-                    NavigationRailItem(
-                        /* Lit for the app you're in; its rooms below say where in it. */
-                        selected = inside && (folded || app.rooms.none { it.route == route && !it.action }), onClick = { if (inside && app.rooms.isNotEmpty()) folded = !folded else openApp(a) }, colors = colors,
-                        icon = {
-                            Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                                InkBloom(a.id, a.accent, a.glyph, 28.dp)
-                                /* An app without one of Kimono's glyphs wears its own icon in the heart, as on its tile. */
-                                if (a.glyph == null && a.icon != null) AsyncImage(model = a.icon, contentDescription = null, modifier = Modifier.size(28.dp * .3f))
-                            }
-                        },
-                        label = { Text(if (a.id == "kimono-code") "Kimono AI" else a.name, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
-                        modifier = Modifier.widthIn(max = 88.dp),
-                    )
+                    /* Lit for the app you're in; its rooms below say where in it. The app you're in keeps its name. */
+                    item(
+                        inside && (folded || app.rooms.none { it.route == route && !it.action }),
+                        { if (inside && app.rooms.isNotEmpty()) folded = !folded else openApp(a) },
+                        if (a.id == "kimono-code") "Kimono AI" else a.name,
+                        keepName = inside,
+                    ) {
+                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                            InkBloom(a.id, a.accent, a.glyph, 32.dp)
+                            /* An app without one of Kimono's glyphs wears its own icon in the heart, as on its tile. */
+                            if (a.glyph == null && a.icon != null) AsyncImage(model = a.icon, contentDescription = null, modifier = Modifier.size(32.dp * .3f))
+                        }
+                    }
                     if (inside && app.rooms.isNotEmpty() && !folded) Column(
                         Modifier.padding(vertical = 2.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -203,7 +220,21 @@ fun RoomRail(
                 }
             }
             /* You, at the foot whichever app you're in: your profile and settings a tap away. */
-            NavigationRailItem(selected = route == "you", onClick = { go("you") }, icon = { Portrait(me?.picture, me?.name, me?.username, 24.dp) }, label = { Text("You") }, colors = colors, modifier = Modifier.padding(bottom = 12.dp))
+            item(route == "you", { go("you") }, "You", Modifier.padding(bottom = 14.dp)) { Portrait(me?.picture, me?.name, me?.username, 28.dp) }
+        }
+    }
+}
+
+/** An app's name in a small tag beside its icon on the rail, while a pointer rests on it or a finger holds it. */
+@Composable
+private fun RailTip(name: String) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.ui.window.Popup(
+        alignment = Alignment.CenterStart,
+        offset = androidx.compose.ui.unit.IntOffset(with(density) { 44.dp.roundToPx() }, 0),
+    ) {
+        androidx.compose.material3.Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.inverseSurface, shadowElevation = 4.dp) {
+            Text(name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.inverseOnSurface, maxLines = 1, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
         }
     }
 }
