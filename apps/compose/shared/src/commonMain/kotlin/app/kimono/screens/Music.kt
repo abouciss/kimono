@@ -32,6 +32,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.coerceAtMost
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.unit.sp
 import app.kimono.data.FriendListening
 import app.kimono.data.FriendParty
@@ -90,10 +94,11 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
         item {
             Text("${greeting(player.localHour())}${firstName?.let { ", $it" } ?: ""}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp))
         }
-        /* Yours first, at the top: the songs you play most (or, new here, what you played last). */
+        /* Yours first, at the top: your playlists as banners, then the songs you play most (or, new here, what you played last). */
         home?.let { h ->
+            item(key = "quick") { QuickBanners(player, h, go) }
             val personal = h.listenAgain.size >= 6
-            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain.filter { player.ratingOf("track", it.key) != "down" }, me, firstName, go) }
+            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain.filter { player.ratingOf("track", it.key) != "down" }, me, firstName) }
             else if (h.jumpBack.size > 1) item {
                 Shelf("Jump back in") { items(h.jumpBack.take(12), key = { "jb" + it.key }) { t -> SleeveTile(t.title, t.byline, t.cover, player.current?.key == t.key && player.playing) { player.play(h.jumpBack, h.jumpBack.indexOf(t), QueueSource("history", "recent", "Played lately")) } } }
             }
@@ -207,14 +212,76 @@ private fun Genres(genres: List<app.kimono.data.Genre>, open: (Int) -> Unit) {
     }
 }
 
+/** One banner at the top of Music's Home: a playlist of yours, one made for you, or your liked songs. */
+private class Quick(val key: String, val title: String, val caption: String, val covers: List<String>, val icon: String? = null, val now: Boolean, val open: () -> Unit)
+
 /**
- * Listen again: the playlists and albums you played from lately, then the songs you play most, as
- * banners with the cover on the left and the name beside it, filling the width. Eight on a phone
- * (two by four) and on a landscape iPad (four by two), nine on an upright one (three by three).
- * Your top three songs carry a seal with their place.
+ * The banners at the top of Music's Home, where your playlists live: Liked songs, the playlists and albums
+ * you played from lately, your own playlists, then the mixes made for you. Each is a cover on the left and
+ * its name beside it, filling the width: eight on a phone (two by four) and a landscape iPad (four by two),
+ * nine on an upright iPad (three by three). The songs you play most come after, in Listen again.
  */
 @Composable
-private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono.data.AccountProfile?, firstName: String?, go: MusicGo) {
+private fun QuickBanners(player: MusicPlayer, h: MusicHome, go: MusicGo) {
+    fun playingFrom(kind: String, id: String) = player.source?.kind == kind && player.source?.id == id && player.playing
+    val all = buildList {
+        add(Quick("liked", "Liked songs", "Playlist", emptyList(), icon = "love", now = playingFrom("liked", "liked")) { go("music/liked") })
+        player.places.forEach { p ->
+            add(Quick("${p.kind}:${p.id}", p.title, if (p.kind == "album") "Album" else "Playlist", p.covers, now = playingFrom(p.kind, p.id)) {
+                go(if (p.kind == "album") MusicRoutes.album(p.id) else MusicRoutes.playlist(p.id))
+            })
+        }
+        h.playlists.forEach { pl -> add(Quick("playlist:${pl.id}", pl.name, "Playlist", pl.covers, now = playingFrom("playlist", pl.id)) { go(MusicRoutes.playlist(pl.id)) }) }
+        h.mixes.forEach { m ->
+            add(Quick("mix:${m.id}", m.title, "Made for you", m.items.mapNotNull { it.cover }.distinct().take(4), now = playingFrom("mix", m.id)) { go(MusicRoutes.mix(m.id)) })
+        }
+    }.distinctBy { it.key }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+        val across = when { maxWidth < 560.dp -> 2; maxWidth < 900.dp -> 3; else -> 4 }
+        val shown = all.take(if (across == 3) 9 else 8)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            shown.chunked(across).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { q -> QuickBanner(q, Modifier.weight(1f)) }
+                    repeat(across - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickBanner(q: Quick, modifier: Modifier) {
+    Row(
+        modifier.height(56.dp).clip(RoundedCornerShape(8.dp))
+            .background(if (q.now) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = q.open),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(56.dp).background(if (q.icon != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+            when {
+                q.icon != null -> MusicGlyph(q.icon, MaterialTheme.colorScheme.onPrimary, 24.dp, filled = true)
+                q.covers.size >= 4 -> Mosaic(q.covers, 56.dp)
+                else -> q.covers.firstOrNull()?.let { AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+            }
+            if (q.now) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)), contentAlignment = Alignment.Center) { Bars(Color.White, true) }
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+            Text(q.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = if (q.now) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+            Text(q.caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * Listen again: the songs you play most, nine to a page (three by three),
+ * swiped sideways for the next nine. Your top three carry a seal with their place.
+ */
+@Composable
+private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono.data.AccountProfile?, firstName: String?) {
+    val pages = remember(tracks) { tracks.chunked(9) }
+    val pager = rememberPagerState { pages.size }
     val source = QueueSource("history", "most", "Listen again")
     Column(Modifier.padding(top = 24.dp)) {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -225,77 +292,55 @@ private fun ListenAgain(player: MusicPlayer, tracks: List<Track>, me: app.kimono
                 Text("Listen again", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             }
         }
-        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
-            val across = when { maxWidth < 560.dp -> 2; maxWidth < 900.dp -> 3; else -> 4 }
-            val count = if (across == 3) 9 else 8
-            /* Up to half the banners are places (a playlist, an album), more only when there are too few songs to fill them. */
-            val places = player.places.take(maxOf(count / 2, count - tracks.size))
-            val shown: List<Any> = places + tracks.take(count - places.size)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                shown.chunked(across).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { x ->
-                            if (x is app.kimono.data.RecentPlace) PlaceBanner(x, player.source?.kind == x.kind && player.source?.id == x.id, player.playing, Modifier.weight(1f)) {
-                                go(if (x.kind == "album") MusicRoutes.album(x.id) else MusicRoutes.playlist(x.id))
-                            } else if (x is Track) {
-                                val t = x
-                                val i = tracks.indexOf(t)
-                                AgainBanner(t, i, player.current?.key == t.key, player.playing, Modifier.weight(1f)) {
-                                    if (player.current?.key == t.key) player.toggle() else player.play(tracks, i, source)
-                                }
+        /*
+         * A page is the screen less its margins on a phone, as before; on an iPad it stops at about
+         * a phone's width and the next pages show beside it, rather than nine tiles each a third of a tablet wide.
+         */
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.padding(top = 12.dp)) {
+        val page = (maxWidth - 56.dp).coerceAtMost(420.dp)
+        HorizontalPager(pager, contentPadding = PaddingValues(start = 16.dp, end = 40.dp), pageSize = androidx.compose.foundation.pager.PageSize.Fixed(page), pageSpacing = 12.dp, verticalAlignment = Alignment.Top) { n ->
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                pages[n].chunked(3).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { t ->
+                            val i = tracks.indexOf(t)
+                            AgainTile(t, i, player.current?.key == t.key, player.playing, Modifier.weight(1f)) {
+                                if (player.current?.key == t.key) player.toggle() else player.play(tracks, i, source)
                             }
                         }
-                        repeat(across - row.size) { Spacer(Modifier.weight(1f)) }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
+            }
+        }
+        }
+        if (pages.size > 1) Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
+            repeat(pages.size) { n ->
+                val on = pager.currentPage == n
+                val w by animateDpAsState(if (on) 18.dp else 6.dp, label = "dot")
+                Box(Modifier.padding(horizontal = 3.dp).size(w, 6.dp).clip(CircleShape).background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant))
             }
         }
     }
 }
 
 @Composable
-private fun PlaceBanner(p: app.kimono.data.RecentPlace, now: Boolean, playing: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Row(
-        modifier.height(56.dp).clip(RoundedCornerShape(8.dp))
-            .background(if (now) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.secondaryContainer)) {
-            if (p.kind == "playlist" && p.covers.size >= 4) Mosaic(p.covers, 56.dp)
-            else p.covers.firstOrNull()?.let { AsyncImage(model = it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
-            if (now && playing) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)), contentAlignment = Alignment.Center) { Bars(Color.White, true) }
-        }
-        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-            Text(p.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = if (now) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-            Text(if (p.kind == "album") "Album" else "Playlist", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun AgainBanner(t: Track, place: Int, now: Boolean, playing: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun AgainTile(t: Track, place: Int, now: Boolean, playing: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val press by animateFloatAsState(if (now) 1f else 0f, spring(dampingRatio = .6f, stiffness = 300f), label = "now")
-    Row(
-        modifier.height(56.dp).graphicsLayer { val s = 1f - press * .02f; scaleX = s; scaleY = s }
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (now) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.secondaryContainer)) {
-            if (t.cover != null) AsyncImage(model = t.cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            if (now) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)), contentAlignment = Alignment.Center) { Bars(Color.White, playing) }
+    Column(modifier.clickable(onClick = onClick)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+            Box(Modifier.fillMaxSize().graphicsLayer { val s = 1f - press * .04f; scaleX = s; scaleY = s }.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer)) {
+                if (t.cover != null) AsyncImage(model = t.cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                if (now) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)), contentAlignment = Alignment.Center) { Bars(Color.White, playing) }
+            }
             if (place < 3) Box(
-                Modifier.padding(3.dp).size(16.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.primary),
+                Modifier.padding(6.dp).size(24.dp).graphicsLayer { rotationZ = listOf(-6f, 4f, -2f)[place] }
+                    .clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center,
-            ) { Text("${place + 1}", fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary) }
+            ) { Text("${place + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary) }
         }
-        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-            Text(t.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                color = if (now) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-        }
+        Text(t.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (now) MaterialTheme.colorScheme.primary else Color.Unspecified, modifier = Modifier.padding(top = 6.dp))
+        Text(t.byline, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

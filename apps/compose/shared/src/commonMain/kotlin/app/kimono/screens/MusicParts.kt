@@ -57,6 +57,12 @@ import app.kimono.ui.combinedClickable
 import app.kimono.ui.kimonoIcon
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.draw.drawBehind
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -247,8 +253,9 @@ fun SongRow(player: MusicPlayer, track: Track, onPlay: () -> Unit, go: MusicGo, 
     val keep = rememberKeep(player, track.key)
     /* Offline, a song that isn't here can't play: it stands back. */
     val reachable = !player.offline || keep == app.kimono.music.SongKeep.Kept
+    SongSwipe(player, track) { slide ->
     Row(
-        Modifier.fillMaxWidth().graphicsLayer { alpha = if (reachable) 1f else .42f }.combinedClickable(onClick = onPlay, onLongClick = { menu = true }).padding(horizontal = 16.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().then(slide).graphicsLayer { alpha = if (reachable) 1f else .42f }.combinedClickable(onClick = onPlay, onLongClick = { menu = true }).padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (number != null) Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
@@ -268,7 +275,76 @@ fun SongRow(player: MusicPlayer, track: Track, onPlay: () -> Unit, go: MusicGo, 
         Text(Music.clock(track.duration), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         IconButton(onClick = { menu = true }, modifier = Modifier.size(36.dp)) { Icon(kimonoIcon("more"), "More", Modifier.size(20.dp)) }
     }
+    }
     if (menu) SongMenu(player, track, go) { menu = false }
+}
+
+/**
+ * A song you can swipe: right adds it to the queue, left likes it (or, liked already, takes the like back).
+ * What it'll do waits underneath and fills in, with a tick of the phone, once the swipe is far enough.
+ * A swipe that starts at the screen's edge is left alone, for going back.
+ */
+@Composable
+fun SongSwipe(player: MusicPlayer, track: Track, content: @Composable (Modifier) -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val edge = with(density) { 28.dp.toPx() }
+    val far = with(density) { 84.dp.toPx() }
+    val most = with(density) { 160.dp.toPx() }
+    var dx by remember { mutableFloatStateOf(0f) }
+    val liked = player.ratingOf("track", track.key).let { it == "up" || it == "love" }
+    val under = MaterialTheme.colorScheme.surface
+    val slide = Modifier
+        .graphicsLayer { translationX = dx }
+        .drawBehind { if (dx != 0f) drawRect(under) }
+        .pointerInput(track.key) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                if (down.position.x < edge || down.position.x > size.width - edge) return@awaitEachGesture
+                var over = 0f
+                val start = awaitHorizontalTouchSlopOrCancellation(down.id) { c, d -> c.consume(); over = d } ?: return@awaitEachGesture
+                var armed = false
+                fun move(step: Float) {
+                    /* Past "far" it pulls harder, as if on a spring. */
+                    val raw = dx + step
+                    dx = raw.coerceIn(-most, most)
+                    val now = kotlin.math.abs(dx) >= far
+                    if (now != armed) { armed = now; if (now) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress) }
+                }
+                move(over)
+                horizontalDrag(start.id) { c ->
+                    val step = c.position.x - c.previousPosition.x
+                    c.consume()
+                    move(if (kotlin.math.abs(dx) > far) step * .4f else step)
+                }
+                val v = dx
+                if (v >= far) player.addToQueue(listOf(track))
+                else if (v <= -far) player.rate("track", track.key, if (liked) null else "up")
+                scope.launch { androidx.compose.animation.core.animate(dx, 0f, animationSpec = spring(dampingRatio = .75f, stiffness = 450f)) { x, _ -> dx = x } }
+            }
+        }
+    Box(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        if (dx != 0f) {
+            val right = dx > 0
+            val armed = kotlin.math.abs(dx) >= far
+            val tint = if (right) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
+            val ink = if (right) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+            Row(
+                Modifier.matchParentSize().background(if (armed) tint else tint.copy(alpha = .45f)).padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (right) Arrangement.Start else Arrangement.End,
+            ) {
+                if (right) {
+                    MusicGlyph("queue", ink, 22.dp)
+                    Text("Add to queue", style = MaterialTheme.typography.labelLarge, color = ink, modifier = Modifier.padding(start = 10.dp))
+                } else {
+                    Text(if (liked) "Unlike" else "Like", style = MaterialTheme.typography.labelLarge, color = ink, modifier = Modifier.padding(end = 10.dp))
+                    MusicGlyph("love", ink, 22.dp, filled = !liked)
+                }
+            }
+        }
+        content(slide)
+    }
 }
 
 /** A row of things to look at, sideways. */
