@@ -151,7 +151,7 @@ class OwnProfile(
 )
 
 @Composable
-fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, open: (String) -> Unit, own: OwnProfile? = null, back: (() -> Unit)? = null) {
+fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, open: (String) -> Unit, own: OwnProfile? = null, back: (() -> Unit)? = null, listenTogether: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val uri = LocalUriHandler.current
     var profile by remember(username) { mutableStateOf(friends.knownProfile(username)) }
@@ -245,7 +245,11 @@ fun ProfileScreen(friends: Friends, username: String, still: Boolean = false, op
                             ) else null,
                         ) {
                             if (!p.you) when (p.link) {
-                                "friends" -> Seal("Friends", compact = true, tone = SealTone.Quiet, icon = "check", onClick = { removing = true })
+                                "friends" -> {
+                                    Seal("Friends", compact = true, tone = SealTone.Quiet, icon = "check", onClick = { removing = true })
+                                    /* Music with them: a party from what's playing, or theirs asked into yours. */
+                                    if (listenTogether != null) Seal("Listen together", compact = true, icon = "people", onClick = listenTogether)
+                                }
                                 "asked" -> { Seal("Not now", compact = true, tone = SealTone.Quiet, onClick = { change("no") }); Seal("Accept", compact = true, onClick = { change("yes") }) }
                                 "asking" -> Seal("Asked", compact = true, tone = SealTone.Quiet, onClick = { change("remove") })
                                 else -> Seal("Ask to be friends", compact = true, onClick = { change("ask") })

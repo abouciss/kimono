@@ -312,7 +312,7 @@ private fun LyricsPanel(player: MusicPlayer) {
     val key = player.current?.key ?: return
     var lyrics by remember(key) { mutableStateOf<Lyrics?>(null) }
     var looked by remember(key) { mutableStateOf(false) }
-    LaunchedEffect(key) { lyrics = runCatching { player.music.lyrics(key) }.getOrNull(); looked = true }
+    LaunchedEffect(key) { lyrics = app.kimono.data.attempt { player.music.lyrics(key) }.getOrNull(); looked = true }
     val l = lyrics
     when {
         !looked -> MusicLoading()
@@ -378,18 +378,20 @@ private fun TogetherPanel(player: MusicPlayer, go: MusicGo) {
     val party = player.party
     if (party == null) {
         var busy by remember { mutableStateOf(false) }
+        var picking by remember { mutableStateOf(false) }
         Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
             Text("Listen together", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Text("Friends hear the same song at the same moment, wherever they are. Anyone in it can play, skip and add songs.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Seal("Start a party", busy = busy, icon = "people", onClick = {
+            Seal("Invite friends", busy = busy, icon = "people", onClick = { picking = true })
+            /* Or a link, for someone to open wherever they like. */
+            TextButtonSmall("Start, and send a link") {
                 busy = true
-                scope.launch {
-                    runCatching { player.music.startParty(player.tracks.drop(player.index).take(200).map { it.key }, 0, player.position) }
-                        .onSuccess { id -> MusicParty(id, player, scope).start(); player.share("/music/party/$id") }
-                        .onFailure { player.say(it.message ?: "The party didn't start.") }
-                    busy = false
-                }
-            })
+                scope.launch { startParty(player, emptyList())?.let { id -> player.share("/music/party/$id") }; busy = false }
+            }
+        }
+        if (picking) InviteFriendsDialog(player, already = emptySet(), action = "Start the party", allowNone = true, onDismiss = { picking = false }) { who ->
+            picking = false; busy = true
+            scope.launch { startParty(player, who); busy = false }
         }
         return
     }
@@ -402,6 +404,10 @@ private fun TogetherPanel(player: MusicPlayer, go: MusicGo) {
                 view?.members?.take(6)?.forEach { m -> val who = party.people[m.username]; Box { Portrait(who?.picture, who?.name, m.username, 32.dp); if (m.state == "loading") LoadingIndicator(Modifier.size(32.dp)) } }
             }
             Text("${view?.members?.size ?: 0} here", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            var inviting by remember { mutableStateOf(false) }
+            IconButton(onClick = { inviting = true }) { Icon(kimonoIcon("people"), "Invite friends") }
+            if (inviting) InviteFriendsDialog(player, already = (view?.members?.map { it.username.lowercase() }.orEmpty() + view?.invited.orEmpty().map { it.lowercase() }).toSet(),
+                action = "Invite", allowNone = false, onDismiss = { inviting = false }) { who -> inviting = false; party.invite(who); player.say(if (who.size == 1) "Asked 1 friend along" else "Asked ${who.size} friends along") }
             IconButton(onClick = { player.share("/music/party/${party.id}") }) { Icon(kimonoIcon("link"), "Send the link") }
             if (view?.host != null && view.host == player.me?.lowercase()) TextButtonSmall("End") { party.end() }
             TextButtonSmall("Leave") { party.leave() }

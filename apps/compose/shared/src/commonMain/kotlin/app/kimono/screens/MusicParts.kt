@@ -369,7 +369,7 @@ fun AddToPlaylist(player: MusicPlayer, tracks: List<Track>, onDone: () -> Unit) 
     var naming by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     /* Only ones you can add to: yours, and ones you've joined (not ones you're only asked onto). */
-    LaunchedEffect(Unit) { lists = runCatching { player.music.playlists() }.getOrDefault(emptyList()).filter { !it.invited } }
+    LaunchedEffect(Unit) { lists = app.kimono.data.attempt { player.music.playlists() }.getOrDefault(emptyList()).filter { !it.invited } }
     InkSheet(onDismissRequest = onDone, seed = "add") {
         InkTitle("Add to playlist", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         if (naming) {
@@ -377,7 +377,7 @@ fun AddToPlaylist(player: MusicPlayer, tracks: List<Track>, onDone: () -> Unit) 
                 OutlinedTextField(name, { name = it.take(100) }, Modifier.weight(1f), singleLine = true, placeholder = { Text("Name it") }, shape = RoundedCornerShape(16.dp))
                 app.kimono.ui.Seal("Make", compact = true, enabled = name.isNotBlank(), onClick = {
                     scope.launch {
-                        runCatching { player.music.createPlaylist(name.trim(), tracks.map { it.key }) }
+                        app.kimono.data.attempt { player.music.createPlaylist(name.trim(), tracks.map { it.key }) }
                             .onSuccess { player.say("Made “${it.name}”") }.onFailure { player.say(it.message ?: "That playlist wasn't made.") }
                         onDone()
                     }
@@ -389,7 +389,7 @@ fun AddToPlaylist(player: MusicPlayer, tracks: List<Track>, onDone: () -> Unit) 
             else -> l.forEach { pl ->
                 Row(Modifier.fillMaxWidth().clickable {
                     scope.launch {
-                        runCatching { player.music.addToPlaylist(pl.id, tracks.map { it.key }) }
+                        app.kimono.data.attempt { player.music.addToPlaylist(pl.id, tracks.map { it.key }) }
                             .onSuccess { player.say("Added to “${pl.name}”") }.onFailure { player.say(it.message ?: "That didn't save.") }
                         onDone()
                     }

@@ -64,7 +64,7 @@ private fun <T> loaded(key: Any, known: T?, load: suspend () -> T): Triple<T?, S
     var value by remember(key) { mutableStateOf(known) }
     var problem by remember(key) { mutableStateOf<String?>(null) }
     var tries by remember(key) { mutableIntStateOf(0) }
-    LaunchedEffect(key, tries) { runCatching { load() }.onSuccess { value = it; problem = null }.onFailure { if (value == null) problem = it.message ?: "Music couldn't load." } }
+    LaunchedEffect(key, tries) { app.kimono.data.attempt { load() }.onSuccess { value = it; problem = null }.onFailure { if (value == null) problem = it.message ?: "Music couldn't load." } }
     return Triple(value, problem, { tries++ })
 }
 
@@ -144,9 +144,9 @@ fun MusicSongScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -> Un
     var friends by remember(key) { mutableStateOf<List<FriendOnSong>>(emptyList()) }
     var more by remember(key) { mutableStateOf<List<Track>>(emptyList()) }
     var menu by remember { mutableStateOf(false) }
-    LaunchedEffect(key) { lyrics = runCatching { player.music.lyrics(key) }.getOrNull() }
-    LaunchedEffect(key) { friends = runCatching { player.music.songFriends(key) }.getOrDefault(emptyList()) }
-    LaunchedEffect(page?.track?.album?.key) { page?.track?.album?.key?.takeIf { it.isNotBlank() }?.let { more = runCatching { player.music.album(it).album.tracks }.getOrDefault(emptyList()) } }
+    LaunchedEffect(key) { lyrics = app.kimono.data.attempt { player.music.lyrics(key) }.getOrNull() }
+    LaunchedEffect(key) { friends = app.kimono.data.attempt { player.music.songFriends(key) }.getOrDefault(emptyList()) }
+    LaunchedEffect(page?.track?.album?.key) { page?.track?.album?.key?.takeIf { it.isNotBlank() }?.let { more = app.kimono.data.attempt { player.music.album(it).album.tracks }.getOrDefault(emptyList()) } }
     Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
         KimonoTopBar("", onBack = back) { IconButton(onClick = { player.share("/music/song/$id") }) { Icon(kimonoIcon("share"), "Share") } }
     }) { pad ->
@@ -213,9 +213,9 @@ fun MusicPlaylistScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -
     var leaving by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var arranging by remember { mutableStateOf(false) }
-    LaunchedEffect(id, tries) { runCatching { player.music.playlist(id) }.onSuccess { page = it; problem = null }.onFailure { if (page == null) problem = it.message } }
-    fun change(failed: String = "That didn't save.", work: suspend () -> PlaylistPage) = scope.launch { runCatching { work() }.onSuccess { page = it }.onFailure { player.say(it.message ?: failed) } }
-    fun leave() = scope.launch { runCatching { player.music.leave(id) }.onSuccess { back() }.onFailure { player.say("That didn't go through.") } }
+    LaunchedEffect(id, tries) { app.kimono.data.attempt { player.music.playlist(id) }.onSuccess { page = it; problem = null }.onFailure { if (page == null) problem = it.message } }
+    fun change(failed: String = "That didn't save.", work: suspend () -> PlaylistPage) = scope.launch { app.kimono.data.attempt { work() }.onSuccess { page = it }.onFailure { player.say(it.message ?: failed) } }
+    fun leave() = scope.launch { app.kimono.data.attempt { player.music.leave(id) }.onSuccess { back() }.onFailure { player.say("That didn't go through.") } }
     Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
         KimonoTopBar("", onBack = back) {
             if (page?.who == "owner") IconButton(onClick = { sharing = true }) { Icon(kimonoIcon("people"), "Share") }
@@ -283,7 +283,7 @@ fun MusicPlaylistScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -
     }
     if (deleting && p != null) app.kimono.ui.InkConfirm(
         title = "Delete “${p.name}”?", text = if (p.joined.isNotEmpty()) "It goes for everyone it's shared with. The songs stay in Music." else "The songs in it stay in Music.", action = "Delete", danger = true, icon = "trash",
-        onDismiss = { deleting = false }, onConfirm = { deleting = false; scope.launch { runCatching { player.music.deletePlaylist(id) }.onSuccess { back() }.onFailure { player.say(it.message ?: "It wasn't deleted.") } } },
+        onDismiss = { deleting = false }, onConfirm = { deleting = false; scope.launch { app.kimono.data.attempt { player.music.deletePlaylist(id) }.onSuccess { back() }.onFailure { player.say(it.message ?: "It wasn't deleted.") } } },
     )
     if (leaving && p != null) app.kimono.ui.InkConfirm(
         title = "Leave “${p.name}”?", text = "You can be asked back in.", action = "Leave", danger = true,
@@ -295,7 +295,7 @@ fun MusicPlaylistScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -
 @Composable
 private fun PlaylistShareSheet(player: MusicPlayer, p: PlaylistPage, onChange: (suspend () -> PlaylistPage) -> Unit, onDone: () -> Unit) {
     var friends by remember { mutableStateOf<List<app.kimono.data.FriendPerson>?>(null) }
-    LaunchedEffect(Unit) { friends = runCatching { app.kimono.data.Friends(player.music.session).list().friends }.getOrDefault(emptyList()) }
+    LaunchedEffect(Unit) { friends = app.kimono.data.attempt { app.kimono.data.Friends(player.music.session).list().friends }.getOrDefault(emptyList()) }
     val members = p.members.associateBy { it.username }
     InkSheet(onDismissRequest = onDone, seed = "share:${p.id}") {
         app.kimono.ui.InkTitle("Share this playlist", icon = "people", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -404,7 +404,7 @@ fun MusicPartyScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -> U
     val mine = player.party?.takeIf { it.id == id }
     var peek by remember(id) { mutableStateOf<PartyNow?>(null) }
     var problem by remember(id) { mutableStateOf<String?>(null) }
-    LaunchedEffect(id) { runCatching { player.music.partyNow(id) }.onSuccess { peek = it }.onFailure { problem = it.message ?: "This listen party has ended." } }
+    LaunchedEffect(id) { app.kimono.data.attempt { player.music.partyNow(id) }.onSuccess { peek = it }.onFailure { problem = it.message ?: "This listen party has ended." } }
     Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = { KimonoTopBar("Listen party", onBack = back) }) { pad ->
         Column(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val view = mine?.view ?: peek?.state
@@ -424,7 +424,7 @@ fun MusicPartyScreen(player: MusicPlayer, id: String, go: MusicGo, back: () -> U
                     Text(if (view.members.size == 1) "1 here" else "${view.members.size} here", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     if (mine != null) Seal("Open the party", { player.nowPlayingOpen = true }, icon = "people")
-                    else Seal("Join", { MusicParty(id, player, scope).start(); player.nowPlayingOpen = true }, icon = "people")
+                    else Seal("Join", { player.joinParty(id); player.nowPlayingOpen = true }, icon = "people")
                 }
             }
         }

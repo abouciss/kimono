@@ -58,12 +58,44 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
     /** Whether [track] can play now: always online, and offline only once it's downloaded. */
     fun playable(track: Track) = !offline || downloads.here(track.key)
 
-    /** Says the connection's back (or isn't): what failed to download for want of one is tried again. */
+    /** Says the connection's back (or isn't): what failed to download for want of one is tried again. Offline, it looks for it again itself. */
     fun connected(on: Boolean) {
         val was = offline
         offline = !on
         if (on && was) downloads.retry(downloads.failed.value.filterValues { it.why == "No connection" }.keys)
+        if (!on) watchConnection()
     }
+
+    private var looking: Job? = null
+
+    /**
+     * Offline, the player looks for the connection itself, wherever you are in the app: soon at first,
+     * then less often (3 s doubling to 30 s). Once it's back, "No connection" goes and held songs carry on.
+     */
+    private fun watchConnection() {
+        if (looking?.isActive == true) return
+        looking = scope.launch {
+            var wait = 3_000L
+            while (offline) {
+                delay(wait)
+                if (recheck()) break
+                wait = (wait * 2).coerceAtMost(30_000L)
+            }
+        }
+    }
+
+    /** Asks Kimono now whether it answers (the cheapest question it has: its clock); says so and answers whether it does. */
+    suspend fun recheck(): Boolean {
+        val on = app.kimono.data.attempt { music.clock() }.isSuccess
+        if (on) connected(true)
+        return on
+    }
+
+    /**
+     * Joins listen party [id] (one just started too) for as long as you're signed in. Not on the
+     * screen that started it: that one's going would have stopped the party's timekeeping and events.
+     */
+    fun joinParty(id: String) { MusicParty(id, this, scope).start() }
 
     val queue: List<Track> get() = party?.view?.tracks ?: tracks
     val at: Int get() = party?.view?.index ?: index
@@ -194,8 +226,8 @@ class MusicPlayer(val music: Music, private val platform: Platform, val download
         val song = current
         scope.launch {
             /* Not here and no answer: the phone's offline. Downloaded songs play on, the rest are passed over. */
-            if (song != null && !downloads.here(song.key) && runCatching { music.status(song.key) }.exceptionOrNull()?.message == app.kimono.data.OFFLINE) {
-                offline = true
+            if (song != null && !downloads.here(song.key) && app.kimono.data.attempt { music.status(song.key) }.exceptionOrNull()?.message == app.kimono.data.OFFLINE) {
+                connected(false)
                 if (tracks.drop(index + 1).any { downloads.here(it.key) }) { say("Offline · playing your downloads"); failures = 0; advance(true) }
                 else { audio?.pause(); say("Offline · only downloaded songs play") }
                 return@launch

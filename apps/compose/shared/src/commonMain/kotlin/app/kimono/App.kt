@@ -3,6 +3,10 @@
 package app.kimono
 
 import app.kimono.ui.InkDialog
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import io.ktor.http.decodeURLPart
 import app.kimono.data.appFor
 import app.kimono.ui.InkConfirm
@@ -127,11 +131,15 @@ fun KimonoApp(session: Session, platform: Platform, shared: SharedItem?, onShare
         val state by session.state.collectAsState()
         /* Asked again whenever the Kimono in use changes (signing in, say). */
         var update by remember { mutableStateOf<AppUpdate?>(null) }
-        var later by remember { mutableStateOf(false) }
+        /* Later holds for the version it was said to, across launches: only a newer one brings the card back. */
+        var laterFor by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(Unit) { laterFor = platform.readKept(LATER) }
+        fun idOf(u: AppUpdate?) = u?.let { "${it.version}/${it.build}" }
+        val later = update != null && idOf(update) == laterFor
         val server = when (val s = state) { is SessionState.SignedIn -> s.server; is SessionState.SignedOut -> s.server ?: ""; SessionState.Loading -> null }
         LaunchedEffect(server) { if (server != null) update = session.checkUpdate() }
         /* Pulling Home down asks again, and shows what it finds even after Later; no answer keeps what was offered. */
-        suspend fun recheck() { session.checkUpdate()?.let { update = it; later = false } }
+        suspend fun recheck() { session.checkUpdate()?.let { update = it; laterFor = null; platform.keep(LATER, null) } }
         /* A surface, not a painted box: it also hands text its on-surface ink, which a bare Text would leave black in dark mode. */
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
             /* How wide the window is, measured here so rotation, Split View and Stage Manager all reach every screen. */
@@ -141,7 +149,8 @@ fun KimonoApp(session: Session, platform: Platform, shared: SharedItem?, onShare
                 SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { InkLoader() }
                 is SessionState.SignedOut -> SignInScreen(session, s.server)
                 is SessionState.SignedIn -> {
-                    SignedIn(session, platform, s.me, update?.takeIf { !later }, ::recheck) { later = true }
+                    val scope = rememberCoroutineScope()
+                    SignedIn(session, platform, s.me, update?.takeIf { !later }, ::recheck) { idOf(update)?.let { id -> laterFor = id; scope.launch { platform.keep(LATER, id) } } }
                     if (shared != null) ShareSheet(session, s.me, shared, onSharedHandled)
                 }
             }
@@ -149,6 +158,9 @@ fun KimonoApp(session: Session, platform: Platform, shared: SharedItem?, onShare
         }
     }
 }
+
+/** The update Later was said to ("version/build"), so its card stays away until a newer one. */
+private const val LATER = "kimono.update.later"
 
 /** The screens someone was on, kept between launches. */
 private const val WHERE = "kimono.where"
@@ -274,6 +286,9 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
      * instead of across the bottom; the song's bar stays at the bottom either way.
      */
     val wide = LocalWindowWidth.current != WidthClass.Compact
+    /* The keyboard is up when it takes room at the bottom of the window. */
+    val typing = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val rail = wide && roomApp != null
     val chrome = (tab && !wide) || musicBar
     val launcherOfRoom = model.drive.launcher.collectAsState().value?.firstOrNull { it.id == roomApp?.id }
@@ -285,10 +300,15 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         bottomBar = {
-            Column {
-            if (musicBar) AppAccentTheme(app.kimono.data.Music.GOLD) { app.kimono.screens.MusicBar(player, hem = roomApp == null || wide) }
+            /*
+             * With the keyboard up, the song's bar rides on top of it, so what's playing stays in sight,
+             * and the rooms' bar steps aside until it goes: rooms aren't what you reach for mid-sentence.
+             * The screens above are padded by all of it (chrome), so their own lists clear the keyboard too.
+             */
+            Column(Modifier.imePadding()) {
+            if (musicBar) AppAccentTheme(app.kimono.data.Music.GOLD) { app.kimono.screens.MusicBar(player, hem = roomApp == null || wide || typing) }
             /* Notes' Home is all its notes. */
-            if (roomApp != null && !wide) RoomBar(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true })
+            if (roomApp != null && !wide && !typing) RoomBar(roomApp, route, launcherApp = launcherOfRoom, me = me, go = ::roomGo, startTask = ::roomTask, openApps = { appsOpen = true })
             }
         },
     ) { padding ->
@@ -315,7 +335,8 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
         NavHost(
             nav, startDestination = "home",
             /* The bar takes the bottom inset, so a composer under it doesn't stand a whole hem higher. */
-            modifier = Modifier.weight(1f).padding(bottom = if (chrome) padding.calculateBottomPadding() else 0.dp).then(if (chrome) Modifier.consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())) else Modifier),
+            /* A tap on nothing in particular (not a button, not a field) puts the keyboard away, as iOS apps do. */
+            modifier = Modifier.weight(1f).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }.padding(bottom = if (chrome) padding.calculateBottomPadding() else 0.dp).then(if (chrome) Modifier.consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())) else Modifier),
             enterTransition = { if (between(initialState.destination.route, targetState.destination.route)) throughIn else slideInHorizontally(axis) { it / 8 } + arrive },
             exitTransition = { if (between(initialState.destination.route, targetState.destination.route)) leave else slideOutHorizontally(axis) { -it / 8 } + leave },
             popEnterTransition = { if (between(initialState.destination.route, targetState.destination.route)) throughIn else slideInHorizontally(axis) { -it / 8 } + arrive },
@@ -480,7 +501,12 @@ private fun SignedIn(session: Session, platform: Platform, profile: AccountProfi
             composable("friends") { app.kimono.screens.FriendsScreen(friends, open = { nav.navigate(it) }) { nav.popBackStack() } }
             composable("people/{username}") { backStack ->
                 val username = backStack.arguments?.read { getStringOrNull("username") } ?: ""
-                app.kimono.screens.ProfileScreen(friends, username, still = platform.reduceMotion, open = { nav.navigate(it) }) { nav.popBackStack() }
+                val scope = rememberCoroutineScope()
+                app.kimono.screens.ProfileScreen(friends, username, still = platform.reduceMotion, open = { nav.navigate(it) }, back = { nav.popBackStack() }, listenTogether = {
+                    val party = player.party
+                    if (party != null) { party.invite(listOf(username)); player.say("Asked them to your party") }
+                    else scope.launch { app.kimono.screens.startParty(player, listOf(username)) }
+                })
             }
             composable("settings") { app.kimono.screens.SettingsScreen(session, platform, me, open = { nav.navigate(it) }) { nav.popBackStack() } }
             composable("details") { DetailsScreen(session, me) { nav.popBackStack() } }

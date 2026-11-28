@@ -79,22 +79,28 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
     var problem by remember { mutableStateOf<String?>(null) }
     var tries by remember { mutableIntStateOf(0) }
     LaunchedEffect(tries) {
-        runCatching { music.home() }
+        app.kimono.data.attempt { music.home() }
             .onSuccess { home = it; problem = null; player.connected(true) }
             .onFailure { if (it.message == app.kimono.data.OFFLINE) player.connected(false); if (home == null) problem = it.message ?: "Music couldn't load." }
     }
-    /* Offline: look again now and then, and say so once it's back. */
-    if (player.offline) WhileShown(Unit) { while (true) { delay(15_000); runCatching { music.home() }.onSuccess { home = it; problem = null; player.connected(true) } ; if (!player.offline) break } }
-    WhileShown(Unit) { while (true) { runCatching { music.friends() }.onSuccess { friends = it }; runCatching { music.parties() }.onSuccess { parties = it }; delay(30_000) } }
-    LaunchedEffect(Unit) { runCatching { music.sent() }.onSuccess { sent = it } }
+    /* The player looks for the connection itself while it's gone (MusicPlayer.recheck); once it's back, Home is asked again. */
+    var wasOffline by remember { mutableStateOf(player.offline) }
+    LaunchedEffect(player.offline) { if (wasOffline && !player.offline) tries++; wasOffline = player.offline }
+    WhileShown(Unit) { while (true) { app.kimono.data.attempt { music.friends() }.onSuccess { friends = it }; app.kimono.data.attempt { music.parties() }.onSuccess { parties = it }; delay(30_000) } }
+    LaunchedEffect(Unit) { app.kimono.data.attempt { music.sent() }.onSuccess { sent = it } }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { MusicHead("Music", openSearch) }
         item {
             Text("${greeting(player.localHour())}${firstName?.let { ", $it" } ?: ""}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp))
         }
-        /* The turntable: what's on, or what was, ready to carry on. */
-        val lead = player.current ?: home?.jumpBack?.firstOrNull()
-        if (lead != null) item { Deck(player, lead, onOpen = { if (player.current != null) player.nowPlayingOpen = true else player.play(listOf(lead) + home?.jumpBack.orEmpty().drop(1), 0, QueueSource("history", "recent", "Played lately")) }) }
+        /* Yours first, at the top: the songs you play most (or, new here, what you played last). */
+        home?.let { h ->
+            val personal = h.listenAgain.size >= 6
+            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain.filter { player.ratingOf("track", it.key) != "down" }, me, firstName) }
+            else if (h.jumpBack.size > 1) item {
+                Shelf("Jump back in") { items(h.jumpBack.take(12), key = { "jb" + it.key }) { t -> SleeveTile(t.title, t.byline, t.cover, player.current?.key == t.key && player.playing) { player.play(h.jumpBack, h.jumpBack.indexOf(t), QueueSource("history", "recent", "Played lately")) } } }
+            }
+        }
         /* Parties someone asked you to: a line to join each. */
         parties.filter { it.invited && it.id != player.party?.id }.forEach { x -> item(key = "invite" + x.id) { PartyInvite(x) { go(MusicRoutes.party(x.id)) } } }
         if (friends.isNotEmpty()) item {
@@ -103,16 +109,11 @@ fun MusicHomeScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go
             }
         }
         /* No connection: what's downloaded comes first, ready to play. */
-        if (player.offline) item(key = "offline") { OfflineDeck(player, go) { tries++ } }
+        if (player.offline) item(key = "offline") { OfflineDeck(player, go) { if (player.recheck()) tries++ } }
         val h = home
         if (h == null) item { if (player.offline) Unit else if (problem != null) MusicProblem(problem!!) { tries++ } else MusicLoading() }
         else {
-            /* Yours first: the songs you play most, then your playlists and artists. */
             val personal = h.listenAgain.size >= 6
-            if (personal) item(key = "again") { ListenAgain(player, h.listenAgain.filter { player.ratingOf("track", it.key) != "down" }, me, firstName) }
-            else if (h.jumpBack.size > 1) item {
-                Shelf("Jump back in") { items(h.jumpBack.take(12), key = { "jb" + it.key }) { t -> SleeveTile(t.title, t.byline, t.cover, player.current?.key == t.key && player.playing) { player.play(h.jumpBack, h.jumpBack.indexOf(t), QueueSource("history", "recent", "Played lately")) } } }
-            }
             if (h.playlists.isNotEmpty()) item {
                 Shelf("Your playlists", more = { go("music/you") }) { items(h.playlists, key = { it.id }) { PlaylistTile(player, it, go) } }
             }
@@ -279,29 +280,6 @@ private fun AgainTile(t: Track, place: Int, now: Boolean, playing: Boolean, modi
     }
 }
 
-/**
- * The deck on Home: the record on its platter under a tone arm that swings in
- * while it plays and lifts away when it stops.
- */
-@Composable
-private fun Deck(player: MusicPlayer, track: Track, onOpen: () -> Unit) {
-    val live = player.current?.key == track.key
-    val spinning = live && player.playing
-    Surface(onClick = onOpen, shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Sleeve(track.cover, spinning, 112.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if (spinning) "Now playing" else if (live) "Paused" else "Pick up where you left off", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text(track.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(track.byline, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilledIconButtonBig(if (spinning) "pause" else "play", "Play", 48.dp) { if (live) player.toggle() else onOpen() }
-                }
-            }
-        }
-    }
-}
-
 /** A tone arm on its base at the top right: [down] 0 is resting off the record, 1 on it. */
 @Composable
 fun ToneArm(down: Float, modifier: Modifier = Modifier) {
@@ -323,7 +301,21 @@ fun ToneArm(down: Float, modifier: Modifier = Modifier) {
 /** A friend's record: their portrait on the label of what they're on. */
 @Composable
 private fun FriendRecord(player: MusicPlayer, f: FriendListening, go: MusicGo) {
-    Column(Modifier.width(112.dp).clickable { player.play(listOf(f.track), 0, QueueSource("friend", f.username, f.name)) }, horizontalAlignment = Alignment.CenterHorizontally) {
+    /* A tap asks what to do with them: their song, listening together, or who they are. */
+    var menu by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val first = f.name.substringBefore(' ').ifBlank { f.username }
+    Box {
+    app.kimono.ui.InkMenu(menu, { menu = false }) {
+        app.kimono.ui.InkMenuItem("Play “${f.track.title}”", icon = "play", onClick = { menu = false; player.play(listOf(f.track), 0, QueueSource("friend", f.username, f.name)) })
+        app.kimono.ui.InkMenuItem("Listen together with $first", icon = "people", enabled = player.party == null, onClick = {
+            menu = false
+            scope.launch { startParty(player, listOf(f.username), keys = listOf(f.track.key)) }
+        })
+        if (player.party != null) app.kimono.ui.InkMenuItem("Ask $first to your party", icon = "people", onClick = { menu = false; player.party?.invite(listOf(f.username)); player.say("Asked $first along") })
+        app.kimono.ui.InkMenuItem("See $first's page", icon = "person", onClick = { menu = false; go("people/${f.username}") })
+    }
+    Column(Modifier.width(112.dp).clickable(onClickLabel = "Options for $first") { menu = true }, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(104.dp)) {
             Vinyl(f.track.cover, spinning = f.live, size = 104.dp)
             Portrait(f.picture, f.name, f.username, 34.dp, Modifier.align(Alignment.BottomEnd))
@@ -331,6 +323,7 @@ private fun FriendRecord(player: MusicPlayer, f: FriendListening, go: MusicGo) {
         }
         Text(f.name.substringBefore(' ').ifBlank { f.username }, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp), maxLines = 1)
         Text(f.track.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
     }
 }
 
@@ -343,18 +336,30 @@ fun MusicSearchScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    fun putAway() { keyboard?.hide(); focusManager.clearFocus() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(text) {
-        if (text.isBlank()) { found = null; return@LaunchedEffect }
+        if (text.isBlank()) { found = null; problem = null; return@LaunchedEffect }
         delay(300)
         busy = true
-        runCatching { player.music.search(text) }.onSuccess { found = it; problem = null }.onFailure { problem = it.message }
-        busy = false
+        /* Typed on before it answered, this search is cancelled and the newer one carries on: only a real failure says so. */
+        try {
+            app.kimono.data.attempt { player.music.search(text) }.onSuccess { found = it; problem = null }.onFailure {
+                problem = if (it.message == app.kimono.data.OFFLINE) "No connection, so search can't reach Kimono. Your downloaded songs still play." else "Search didn't work this time. Try again in a moment."
+            }
+        } finally { busy = false }
     }
     val list = androidx.compose.foundation.lazy.rememberLazyListState()
+    /* The keyboard goes once you're looking through the results, or once a song starts from them. */
+    LaunchedEffect(list) { androidx.compose.runtime.snapshotFlow { list.isScrollInProgress }.collect { if (it) putAway() } }
+    var playingWhenOpened by remember { mutableStateOf(player.current?.key) }
+    LaunchedEffect(player.current?.key) { if (player.current?.key != playingWhenOpened) { putAway(); playingWhenOpened = player.current?.key } }
     /* Once the title has scrolled away, the field holds the top: below the status bar, on the page's own paper. */
     val stuck by remember { androidx.compose.runtime.derivedStateOf { list.firstVisibleItemIndex > 0 } }
-    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 24.dp)) {
+    /* Above the keyboard while it's up, so the last results aren't under it. */
+    LazyColumn(Modifier.fillMaxSize().imePadding(), state = list, contentPadding = PaddingValues(bottom = 24.dp)) {
         item { MusicHead("Search", null) }
         @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
         stickyHeader(key = "field") {
@@ -363,7 +368,7 @@ fun MusicSearchScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
                     text, { text = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus), singleLine = true,
                     placeholder = { Text("Songs, albums, artists, genres") }, leadingIcon = { Icon(kimonoIcon("search"), null) },
                     trailingIcon = { if (busy) app.kimono.ui.InkLoader(size = 22.dp) else if (text.isNotEmpty()) IconButton(onClick = { text = "" }) { Icon(kimonoIcon("close"), "Clear") } },
-                    shape = RoundedCornerShape(28.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = {}),
+                    shape = RoundedCornerShape(28.dp), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { putAway() }),
                 )
             }
         }
@@ -399,8 +404,19 @@ fun MusicSearchScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
                 itemsIndexed(f.tracks, key = { _, t -> "s" + t.key }) { i, t -> SongRow(player, t, { player.playWithRadio(t) }, go) }
             }
             if (f.albums.isNotEmpty()) item { Shelf("Albums") { items(f.albums, key = { it.key }) { AlbumTile(player, it, go) } } }
-            if (f.tracks.isEmpty() && f.albums.isEmpty() && f.artists.isEmpty()) item { Text("Nothing by that name.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(20.dp)) }
+            if (f.tracks.isEmpty() && f.albums.isEmpty() && f.artists.isEmpty()) item(key = "none") { NothingFound(text.trim()) }
         }
+    }
+}
+
+/** A search that found nothing: what was looked for, and what to try instead. */
+@Composable
+private fun NothingFound(text: String) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(kimonoIcon("search"), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
+        Text("No results for “$text”", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text("Check the spelling, or try fewer words: an artist, an album, a song or a genre like “city pop”.", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -413,7 +429,7 @@ fun MusicYouScreen(player: MusicPlayer, me: app.kimono.data.AccountProfile?, go:
     var tries by remember { mutableIntStateOf(0) }
     var making by remember { mutableStateOf(false) }
     var bringing by remember { mutableStateOf(false) }
-    LaunchedEffect(tries) { runCatching { player.music.me() }.onSuccess { mine = it; problem = null }.onFailure { if (mine == null) problem = it.message } }
+    LaunchedEffect(tries) { app.kimono.data.attempt { player.music.me() }.onSuccess { mine = it; problem = null }.onFailure { if (mine == null) problem = it.message } }
     val kept = player.downloads.kept.collectAsState().value
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { MusicHead("You", openSearch) }
@@ -513,7 +529,7 @@ fun NewPlaylistDialog(player: MusicPlayer, onDone: (String?) -> Unit) {
 
 /** Runs [work]; [ok] with its answer, or [failed] with what to tell the person. */
 internal fun <T> kotlinx.coroutines.CoroutineScope.launchCatching(work: suspend () -> T, ok: (T) -> Unit, failed: (String) -> Unit) {
-    launch { runCatching { work() }.onSuccess(ok).onFailure { failed(it.message ?: "That didn't work.") } }
+    launch { app.kimono.data.attempt { work() }.onSuccess(ok).onFailure { failed(it.message ?: "That didn't work.") } }
 }
 
 /* ── Lists of songs: Liked, History, Downloads ─────────────────────────── */
@@ -539,7 +555,7 @@ fun MusicLikedScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
     var tracks by remember { mutableStateOf<List<Track>?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
     var tries by remember { mutableIntStateOf(0) }
-    LaunchedEffect(tries) { runCatching { player.music.liked() }.onSuccess { tracks = it }.onFailure { problem = it.message } }
+    LaunchedEffect(tries) { app.kimono.data.attempt { player.music.liked() }.onSuccess { tracks = it }.onFailure { problem = it.message } }
     SongList(player, "Liked songs", tracks, problem, QueueSource("liked", "liked", "Liked songs"), go, back, "Rate a song up or love it, and it's kept here.") { tries++ }
 }
 
@@ -548,7 +564,7 @@ fun MusicHistoryScreen(player: MusicPlayer, go: MusicGo, back: () -> Unit) {
     var tracks by remember { mutableStateOf<List<Track>?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
     var tries by remember { mutableIntStateOf(0) }
-    LaunchedEffect(tries) { runCatching { player.music.history() }.onSuccess { tracks = it }.onFailure { problem = it.message } }
+    LaunchedEffect(tries) { app.kimono.data.attempt { player.music.history() }.onSuccess { tracks = it }.onFailure { problem = it.message } }
     SongList(player, "History", tracks, problem, QueueSource("history", "all", "History"), go, back, "What you play shows up here.") { tries++ }
 }
 

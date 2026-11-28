@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -334,7 +335,10 @@ private fun KeepLine(track: Track, state: SongKeep, note: String, actions: @Comp
  * place of shelves that wouldn't.
  */
 @Composable
-fun OfflineDeck(player: MusicPlayer, go: MusicGo, retry: () -> Unit) {
+fun OfflineDeck(player: MusicPlayer, go: MusicGo, retry: suspend () -> Unit) {
+    /* Try again asks at once, and says it's asking; the player also keeps looking by itself (MusicPlayer.recheck). */
+    var trying by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val kept = player.downloads.kept.collectAsState().value
     val tracks = remember(kept) { kept.values.sortedByDescending { it.at }.map { it.track } }
     val source = QueueSource("downloads", "downloads", "Downloads")
@@ -344,8 +348,8 @@ fun OfflineDeck(player: MusicPlayer, go: MusicGo, retry: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .45f)))
                 Text("No connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.weight(1f))
-                Text("Try again", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = retry).padding(horizontal = 8.dp, vertical = 6.dp))
+                Text(if (trying) "Trying…" else "Try again", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = !trying) { trying = true; scope.launch { try { retry() } finally { trying = false } } }.padding(horizontal = 8.dp, vertical = 6.dp))
             }
             Text(if (tracks.isEmpty()) "Songs you download play here with none." else "${songs(tracks.size)} downloaded · ${Music.length(tracks)} to play",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = .8f))

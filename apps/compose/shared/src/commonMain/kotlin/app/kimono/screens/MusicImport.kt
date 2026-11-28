@@ -80,11 +80,11 @@ internal fun BringInDialog(player: MusicPlayer, onClose: () -> Unit, open: (Stri
     var mine by remember { mutableStateOf<List<ImportMine>?>(null) }
     var step by remember { mutableStateOf<ImportStep?>(null) }
     var name by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) { runCatching { accounts = player.music.importAccounts() } }
+    LaunchedEffect(Unit) { app.kimono.data.attempt { accounts = player.music.importAccounts() } }
     LaunchedEffect(picking) {
         val s = picking ?: return@LaunchedEffect
         mine = null
-        runCatching { player.music.importPlaylistsOf(s) }.onSuccess { mine = it }.onFailure { step = ImportStep("error", error = it.message ?: "${serviceNames[s]} didn't answer."); picking = null }
+        app.kimono.data.attempt { player.music.importPlaylistsOf(s) }.onSuccess { mine = it }.onFailure { step = ImportStep("error", error = it.message ?: "${serviceNames[s]} didn't answer."); picking = null }
     }
     val busy = step?.stage == "read" || step?.stage == "match"
     fun start(link: String?, service: String?, playlist: String?) {
@@ -92,7 +92,7 @@ internal fun BringInDialog(player: MusicPlayer, onClose: () -> Unit, open: (Stri
         step = ImportStep("read"); name = ""
         scope.launch {
             var ended = false
-            runCatching {
+            app.kimono.data.attempt {
                 player.music.importPlaylist(link, service, playlist) { s ->
                     if (s.stage == "read") name = s.name
                     if (s.stage == "done" || s.stage == "error") ended = true
